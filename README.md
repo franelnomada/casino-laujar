@@ -28,7 +28,7 @@ npm test
    git add .
    git commit -m "Casino Laujar v1"
    git branch -M main
-   git remote add origin https://github.com/TU-USUARIO/casino-laujar.git
+   git remote add origin https://github.com/franelnomada/casino-laujar.git
    git push -u origin main
    ```
 3. **En Render** (https://render.com, cuenta gratis):

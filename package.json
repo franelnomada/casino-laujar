@@ -10,5 +10,10 @@
   "engines": {
     "node": ">=18"
   },
+  "author": "franelnomada",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/franelnomada/casino-laujar.git"
+  },
   "license": "MIT"
 }
