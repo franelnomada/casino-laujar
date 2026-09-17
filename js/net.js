@@ -208,37 +208,50 @@ const Net = {
     const s = this.state;
     if (!s) return;
 
-    // Dealer (con animación de salida del zapato)
+    // Dealer (animación SOLO cuando aparece una carta nueva, no en cada refresco)
+    const cardsD = s.dealer.cards || [];
+    const totalD = cardsD.length + (s.dealer.hidden ? 1 : 0);
     if (this._prevDealer === undefined) this._prevDealer = 0;
-    if ((s.dealer.cards || []).length < this._prevDealer) this._prevDealer = 0;
-    let dealerHTML = (s.dealer.cards || []).map((c, i) => {
+    if (totalD < this._prevDealer) this._prevDealer = 0;
+    const beforeD = this._prevDealer;
+    const inHand = Math.max(1, s.players.filter(p => p.cardsCount > 0).length);
+    const dealBase = inHand * 2 * 0.4; // el dealer reparte al final, tras los jugadores
+    let dealerHTML = '';
+    let vi = 0;
+    for (const c of cardsD) {
       let h = Blackjack.cardHTML(c);
-      if (i >= this._prevDealer) {
-        h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + (1 + i * 0.3).toFixed(2) + 's"');
-      }
-      return h;
-    }).join('');
-    if (s.dealer.hidden) {
-      dealerHTML += '<div class="playing-card face-down fly-in" style="animation-delay:1.6s"><span class="suit">♠</span></div>';
+      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.35);
+      vi++;
+      dealerHTML += h;
     }
-    this._prevDealer = (s.dealer.cards || []).length + (s.dealer.hidden ? 1 : 0);
+    if (s.dealer.hidden) {
+      let h = '<div class="playing-card face-down"><span class="suit">♠</span></div>';
+      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.35);
+      dealerHTML += h;
+    }
+    this._prevDealer = totalD;
     document.getElementById('net-dealer-hand').innerHTML = dealerHTML;
     document.getElementById('net-dealer-score').textContent =
       s.dealer.value === null ? '' : String(s.dealer.value);
 
-    // Asientos (con animación escalonada según el orden de reparto)
+    // Asientos: animación escalonada siguiendo el orden real de reparto
     const prevCounts = this._prevCounts || (this._prevCounts = {});
+    let lastSeat = -1;
+    s.players.forEach((p, seat) => { if (p.cardsCount > 0) lastSeat = seat; });
     let html = '';
     s.players.forEach((p, seat) => {
       if (p.cardsCount < (prevCounts[p.id] || 0)) prevCounts[p.id] = 0;
       const before = prevCounts[p.id] || 0;
       const isSelf = p.id === this.playerId;
+      const seatDist = Math.max(0, lastSeat - seat); // distancia al asiento que reparte primero
       const cards = (p.cards && p.cards.length)
         ? p.cards.map((c, idx) => {
             let h = Blackjack.cardHTML(c);
             if (idx >= before) {
-              const delay = ((s.players.length - 1 - seat) * 0.22 + idx * 0.28).toFixed(2);
-              h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + delay + 's"');
+              const delay = idx >= 2
+                ? 0.15 + (idx - 2) * 0.3                        // cartas robadas en tu turno
+                : (seatDist * 0.4) + (idx * inHand * 0.4);      // reparto inicial ordenado
+              h = this.withFly(h, delay);
             }
             return h;
           }).join('')
@@ -289,5 +302,10 @@ const Net = {
 
   showZone(name, visible) {
     document.getElementById('net-zone-' + name).classList.toggle('hidden', !visible);
+  },
+
+  withFly(html, delay) {
+    return html.replace('class="playing-card',
+      'class="playing-card fly-in" style="animation-delay:' + delay.toFixed(2) + 's"');
   }
 };

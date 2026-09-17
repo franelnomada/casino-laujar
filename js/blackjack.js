@@ -311,6 +311,11 @@ const Blackjack = {
     this.updateTurnLabels();
     this.message('');
   },
+  withFly(html, delay) {
+    return html.replace('class="playing-card',
+      'class="playing-card fly-in" style="animation-delay:' + delay.toFixed(2) + 's"');
+  },
+
   cardHTML(card, faceDown = false) {
     if (faceDown) return '<div class="playing-card face-down"><span class="suit">♠</span></div>';
     const red = card.suit === '♥' || card.suit === '♦';
@@ -329,10 +334,12 @@ const Blackjack = {
     const hide = this.phase === 'playing';
     if (this._prevDealer === undefined) this._prevDealer = 0;
     if (this.dealerHand.length < this._prevDealer) this._prevDealer = 0;
+    const inHand = Math.max(1, this.players.filter(p => p.hand.length > 0).length);
+    const dealBase = inHand * 2 * 0.4; // el dealer reparte al final, tras los jugadores
     const html = this.dealerHand.map((c, i) => {
       let h = this.cardHTML(c, hide && i === 1);
-      if (i >= this._prevDealer) {
-        h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + (1 + i * 0.3).toFixed(2) + 's"');
+      if (i >= this._prevDealer && this.phase !== 'setup') {
+        h = this.withFly(h, dealBase + i * 0.35);
       }
       return h;
     }).join('');
@@ -346,6 +353,9 @@ const Blackjack = {
     const wrap = document.getElementById('bj-seats');
     const n = Math.max(this.players.length, this.phase === 'setup' ? this.MAX_SEATS : this.players.length);
     if (!this._prevCounts) this._prevCounts = {};
+    let lastSeat = -1;
+    this.players.forEach((pl, s2) => { if (pl.hand.length > 0) lastSeat = s2; });
+    const inHand = Math.max(1, this.players.filter(pl => pl.hand.length > 0).length);
     let html = '';
     this.players.forEach((p, i) => {
       if (p.hand.length < (this._prevCounts[i] || 0)) this._prevCounts[i] = 0;
@@ -355,12 +365,15 @@ const Blackjack = {
       const rot = ((i - (n - 1) / 2) * 3).toFixed(1);
       const isActive = (this.phase === 'betting' || this.phase === 'playing') && i === this.current;
       const showRemove = this.phase === 'setup' && this.players.length > 1;
+      const seatDist = Math.max(0, lastSeat - i);
       const cards = p.hand.length
         ? p.hand.map((c, idx) => {
             let h = this.cardHTML(c);
             if (idx >= before && this.phase !== 'setup') {
-              const delay = ((this.players.length - 1 - i) * 0.22 + idx * 0.28).toFixed(2);
-              h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + delay + 's"');
+              const delay = idx >= 2
+                ? 0.15 + (idx - 2) * 0.3                        // cartas robadas en tu turno
+                : (seatDist * 0.4) + (idx * inHand * 0.4);      // reparto inicial ordenado
+              h = this.withFly(h, delay);
             }
             return h;
           }).join('')

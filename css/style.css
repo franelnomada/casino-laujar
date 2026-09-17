@@ -319,13 +319,13 @@ body { overscroll-behavior-y: contain; }
 
 /* ==== Reparto animado: la carta vuela desde el zapato ==== */
 @keyframes fly-in {
-  0%   { transform: translate(300px, -220px) rotate(35deg) scale(.5); opacity: 0; }
-  55%  { opacity: 1; }
-  75%  { transform: translateY(4px) rotate(-2deg) scale(1.02); }
+  0%   { transform: translate(340px, -260px) rotate(40deg) scale(.45); opacity: 0; }
+  45%  { opacity: 1; }
+  80%  { transform: translateY(6px) rotate(-3deg) scale(1.03); }
   100% { transform: none; opacity: 1; }
 }
 .playing-card.fly-in {
-  animation: fly-in .5s cubic-bezier(.25,.8,.3,1) both;
+  animation: fly-in .65s cubic-bezier(.3,.7,.4,1) both;
 }
 @media (prefers-reduced-motion: reduce) {
   .playing-card.fly-in { animation: none; }
