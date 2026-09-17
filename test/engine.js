@@ -48,12 +48,14 @@ check('sala: fichas descontadas tras repartir', room.players[0].chips === 900 &&
 check('sala: quien apostó tiene 2 cartas', room.players[0].hand.length === 2 && room.players[1].hand.length === 2);
 check('sala: quien no apostó no recibe cartas', room.players[2].hand.length === 0 && room.players[2].played === true);
 
-// Privacidad: cada jugador solo ve sus cartas
+// Visibilidad: las cartas de todos los jugadores son públicas (como en una mesa real)
 const viewA = room.stateFor(A);
 const viewB = room.stateFor(B);
-check('privacidad: A ve sus cartas pero no las de B', viewA.players[0].cards.length === 2 && viewA.players[1].cards === null);
-check('privacidad: A no ve la carta oculta del dealer', viewA.dealer.cards.length === 1 && viewA.dealer.hidden === true);
-check('privacidad: el valor del dealer es parcial (X+)', /[0-9]+\+/.test(String(viewA.dealer.value)));
+check('cartas visibles: A ve las de B y viceversa',
+  viewA.players[0].cards.length === 2 && viewA.players[1].cards.length === 2 && viewB.players[0].cards.length === 2);
+check('privacidad dealer: la segunda carta sigue oculta',
+  viewA.dealer.cards.length === 1 && viewA.dealer.hidden === true);
+check('privacidad dealer: valor parcial (X+)', /[0-9]+\+/.test(String(viewA.dealer.value)));
 
 // Juego: B se planta, A roba y se planta
 room.stand(B);

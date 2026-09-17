@@ -57,8 +57,8 @@ check('api: sin confirmar B, sigue en apuestas', midBet.data.phase === 'betting'
 
 const dealt = await post(`/api/rooms/${code}/action`, { playerId: B, type: 'confirm' });
 check('api: al confirmar todos se reparte', dealt.data.phase === 'playing');
-check('api: B ve sus 2 cartas y las de A ocultas',
-  dealt.data.players[1].cards.length === 2 && dealt.data.players[0].cards === null);
+check('api: las cartas de todos son visibles',
+  dealt.data.players[1].cards.length === 2 && dealt.data.players[0].cards.length === 2);
 
 // Acciones de juego hasta resolver
 await post(`/api/rooms/${code}/action`, { playerId: A, type: 'stand' });

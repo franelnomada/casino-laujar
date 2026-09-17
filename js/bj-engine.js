@@ -256,15 +256,13 @@ class BlackjackRoom {
         value: finished ? dealerVal : (this.dealerHand.length ? handValue([this.dealerHand[0]]) + '+' : null),
       },
       players: this.players.map(p => {
-        const isSelf = p.id === playerId;
-        const show = isSelf || finished;
         return {
           id: p.id, name: p.name, chips: p.chips, bet: p.bet,
           confirmed: p.confirmed, played: p.played, busted: p.busted, doubled: p.doubled,
           result: p.result,
-          cards: show ? p.hand : null,
+          cards: p.hand,
           cardsCount: p.hand.length,
-          value: show && p.hand.length ? handValue(p.hand) : null,
+          value: p.hand.length ? handValue(p.hand) : null,
         };
       }),
     };
