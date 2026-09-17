@@ -1,7 +1,7 @@
 // Test end-to-end de la API del servidor (HTTP real)
 // Ejecutar con: node test/e2e.js
 const assert = require('assert');
-const { server } = require('../server.js');
+const { server, rooms } = require('../server.js');
 
 let failures = 0;
 function check(name, cond) {
@@ -55,6 +55,8 @@ await post(`/api/rooms/${code}/action`, { playerId: A, type: 'confirm' });
 const midBet = await get(`/api/rooms/${code}/state?player=${B}&v=0`);
 check('api: sin confirmar B, sigue en apuestas', midBet.data.phase === 'betting');
 
+// Baraja determinista para evitar blackjacks aleatorios en esta prueba de turnos.
+rooms.get(code).deck = Array.from({ length: 52 }, () => ({ rank: '5', suit: '♠' }));
 const dealt = await post(`/api/rooms/${code}/action`, { playerId: B, type: 'confirm' });
 check('api: al confirmar todos se reparte', dealt.data.phase === 'playing');
 check('api: las cartas de todos son visibles',
@@ -93,6 +95,47 @@ await post(`/api/rooms/${code}/leave`, { playerId: B });
 const afterLeave = await get(`/api/rooms/${code}/state?player=${A}&v=999999`);
 check('api: B deja la sala', afterLeave.data.players.length === 1);
 
+// Acción split por HTTP: validación y estado público de ambas manos.
+await post(`/api/rooms/${code}/action`, { playerId: A, type: 'start' });
+await post(`/api/rooms/${code}/action`, { playerId: A, type: 'bet', amount: 50 });
+rooms.get(code).deck = ['3', '2', '8', '10', '8', '8'].map(rank => ({ rank, suit: '♠' }));
+await post(`/api/rooms/${code}/action`, { playerId: A, type: 'confirm' });
+const split = await post(`/api/rooms/${code}/action`, { playerId: A, type: 'split' });
+check('api: split crea dos manos visibles', split.status === 200 && split.data.players[0].splitHands.length === 2);
+const repeat = await post(`/api/rooms/${code}/action`, { playerId: A, type: 'split' });
+check('api: no permite volver a dividir', repeat.status === 400);
+const second = await post(`/api/rooms/${code}/action`, { playerId: A, type: 'stand' });
+check('api: turno continúa en mano 2', second.data.turnId === A && second.data.players[0].activeHand === 1);
+await post(`/api/rooms/${code}/action`, { playerId: A, type: 'stand' });
+await post(`/api/rooms/${code}/leave`, { playerId: A });
+// Póker por HTTP, usando reloj adelantado solo dentro del motor de pruebas.
+const pk = await post('/api/rooms', { name: 'Ana', game: 'poker', blindMinutes: 5 });
+const pkCode = pk.data.code;
+const pkA = pk.data.playerId;
+const pkJoin = await post(`/api/rooms/${pkCode}/join`, { name: 'Bob' });
+const pkB = pkJoin.data.playerId;
+const pkRoom = rooms.get(pkCode);
+check('api poker: crear y unirse con intervalo de ciegas', pk.status === 200 && pkJoin.status === 200 && pkRoom.blindMinutes === 5);
+const pkStart = await post(`/api/rooms/${pkCode}/action`, { playerId: pkA, type: 'start' });
+check('api poker: reparto privado y ciegas', pkStart.data.game === 'poker' && pkStart.data.players[1].cards.every(c => c === null) && pkStart.data.bigBlind === 20);
+const tooEarly = await post(`/api/rooms/${pkCode}/action`, { playerId: pkA, type: 'call' });
+check('api poker: bloquea acciones durante reparto', tooEarly.status === 400);
+pkRoom.visualUntil = 0;
+const wrongTurn = await post(`/api/rooms/${pkCode}/action`, { playerId: pkB, type: 'check' });
+check('api poker: rechaza fuera de turno', wrongTurn.status === 400);
+let pkState = pkRoom.stateFor(pkA);
+for (let guard = 0; pkState.phase !== 'finished' && guard < 12; guard++) {
+  pkRoom.visualUntil = 0;
+  const view = pkRoom.stateFor(pkRoom.turnId);
+  const action = await post(`/api/rooms/${pkCode}/action`, {
+    playerId: pkRoom.turnId, type: view.toCall ? 'call' : 'check'
+  });
+  assert.equal(action.status, 200);
+  pkState = action.data;
+}
+check('api poker: mano completa y conservación de fichas', pkState.phase === 'finished' && pkState.board.length === 5 && pkState.players.reduce((sum,p) => sum+p.chips,0) === 4000);
+check('api poker: showdown revela manos', pkState.players.every(p => p.cards.every(c => c && c.rank)));
+rooms.delete(pkCode);
 server.close();
 console.log(failures === 0 ? '\n🎉 Todos los tests e2e pasan' : `\n💥 ${failures} test(s) fallidos`);
 process.exit(failures === 0 ? 0 : 1);

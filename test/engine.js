@@ -115,5 +115,20 @@ r2.confirm('x1');
 r2.unconfirm('x2'); // vuelve a la ronda de apuestas
 check('sala: se puede des-confirmar', r2.players[1].confirmed === false);
 
+// Regresión: el As cambia de 11 a 1 sin terminar el turno.
+const aceRoom = new BlackjackRoom('ACES');
+aceRoom.addPlayer('ace', 'As');
+aceRoom.start();
+aceRoom.bet('ace', 50);
+aceRoom.deck = ['9', '10', '7', '6', 'A'].map(rank => ({ rank, suit: '♠' }));
+aceRoom.confirm('ace');
+check('As online: A+6 empieza en 17', aceRoom.stateFor('ace').players[0].value === 17);
+check('As online: pedir 9 es válido', aceRoom.hit('ace').ok);
+check('As online: A+6+9 vale 16 y conserva turno',
+  aceRoom.stateFor('ace').players[0].value === 16 && !aceRoom.find('ace').busted &&
+  !aceRoom.find('ace').played && aceRoom.turnId === 'ace' && aceRoom.phase === 'playing');
+aceRoom.stand('ace');
+check('As online: liquidación usa 16 frente a 17', aceRoom.find('ace').chips === 950 && aceRoom.phase === 'finished');
+
 console.log(failures === 0 ? '\n🎉 Todos los tests del motor pasan' : `\n💥 ${failures} test(s) fallidos`);
 process.exit(failures === 0 ? 0 : 1);

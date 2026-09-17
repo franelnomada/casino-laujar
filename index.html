@@ -45,10 +45,10 @@
           <h2>Ruleta Europea</h2>
           <p>Plenos, colores, pares, docenas… 36 números y un solo cero.</p>
         </div>
-        <div class="game-card coming-soon">
+        <div class="game-card" onclick="Net.openCreate('poker')">
           <div class="game-card-icon">♠️</div>
-          <h2>Poker</h2>
-          <p>Texas Hold'em — ¡próximamente!</p>
+          <h2>Póker online</h2>
+          <p>Texas Hold’em sin límite · 2–6 jugadores · Ciegas progresivas.</p>
         </div>
       </div>
 
@@ -59,11 +59,27 @@
           <button id="net-resume" class="btn hidden" onclick="Net.resume()">↩ Volver</button>
         </div>
         <div class="net-row">
-          <button class="btn primary" onclick="Net.createRoom()">🎰 Crear sala</button>
+          <button class="btn primary" onclick="Net.openCreate()">🎰 Crear mesa</button>
           <span class="net-or">— o —</span>
           <input id="net-code" class="name-input code-input" maxlength="4" placeholder="CÓDIGO">
           <button class="btn" onclick="Net.joinRoom()">Unirse</button>
         </div>
+        <div id="net-create-options" class="hidden">
+          <label for="net-game">¿Qué juego quieres abrir?</label>
+          <select id="net-game" class="name-input" onchange="Net.gameChanged()">
+            <option value="blackjack">Blackjack</option><option value="poker">Póker Texas Hold’em</option>
+          </select>
+          <div id="net-poker-options" class="hidden">
+            <label for="net-blind-minutes">Duplicar ciegas cada</label>
+            <select id="net-blind-minutes" class="name-input">
+              <option value="5">5 minutos</option><option value="10" selected>10 minutos</option>
+              <option value="15">15 minutos</option><option value="20">20 minutos</option>
+            </select>
+            <p class="hint">2.000 fichas · Ciegas 10/20 · Subidas entre manos · 45 s por turno · Sin recompras.</p>
+          </div>
+          <button class="btn primary" onclick="Net.createRoom()">Abrir mesa</button>
+        </div>
+        <p id="net-lobby-message" role="status"></p>
       </div>
     </section>
 
@@ -75,7 +91,7 @@
       <div class="share-row">
         <button class="btn" onclick="Net.copyLink()">🔗 Copiar enlace de invitación</button>
       </div>
-      <div class="bj-table net-table">
+      <div id="net-blackjack-table" class="bj-table net-table">
         <div class="shoe" aria-hidden="true"><i></i><i></i><i></i></div>
         <div class="dealer-area">
           <div class="dealer-label">DEALER <span id="net-dealer-score" class="score"></span></div>
@@ -83,8 +99,39 @@
         </div>
         <div id="net-seats" class="seats-row"></div>
       </div>
-      <div id="net-message" class="message"></div>
-      <div class="controls">
+      <div id="net-poker" class="hidden">
+        <div class="poker-meta"><b>♠ Texas Hold’em</b><span id="pk-blinds"></span><span id="pk-clock"></span></div>
+        <div id="pk-table" class="poker-table">
+          <div class="pk-dealer">CRUPIER <div id="pk-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
+          <div class="pk-center">
+            <div class="pk-brand">CASINO LAUJAR</div>
+            <div id="pk-pot" class="pk-pot"></div>
+            <div id="pk-board" class="cards pk-board"></div>
+            <div id="pk-phase"></div>
+          </div>
+          <div id="pk-seats" class="pk-seats"></div>
+        </div>
+        <div class="controls pk-controls">
+          <p id="pk-status" role="status"></p>
+          <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
+          <div id="pk-actions" class="hidden">
+            <div class="btn-row">
+              <button id="pk-fold" class="btn" onclick="Poker.act('fold')">Retirarse</button>
+              <button id="pk-call" class="btn primary" onclick="Poker.call()">Pasar</button>
+              <button id="pk-allin" class="btn" onclick="Poker.act('allIn')">All-in</button>
+            </div>
+            <div class="btn-row">
+              <label for="pk-amount">Apostar/subir hasta</label>
+              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1">
+              <button id="pk-raise" class="btn" onclick="Poker.raise()">Apostar / subir</button>
+            </div>
+          </div>
+          <p class="hint">D = botón dealer · SB = ciega pequeña · BB = ciega grande. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis, o retirarse.</p>
+          <p id="pk-results" class="message"></p>
+        </div>
+      </div>
+      <div id="net-message" class="message" role="status"></div>
+      <div id="net-blackjack-controls" class="controls">
         <div id="net-zone-lobby" class="hidden">
           <button class="btn primary" onclick="Net.action('start')">Abrir ronda de apuestas ▶</button>
         </div>
@@ -102,9 +149,12 @@
           </div>
         </div>
         <div id="net-zone-play" class="hidden">
+          <div id="net-hand-label" class="turn-label" aria-live="polite"></div>
+          <p class="hint">Reglas de esta mesa: vuelve a dividir parejas del mismo rango hasta 4 manos, con saldo para otra apuesta igual. Ases: una sola división y una carta por mano. Un 21 dividido paga 1:1.</p>
           <div class="btn-row">
             <button class="btn primary" onclick="Net.action('hit')">Pedir carta</button>
             <button class="btn" onclick="Net.action('stand')">Plantarse</button>
+            <button class="btn" id="net-split-btn" onclick="Net.action('split')" disabled>Dividir</button>
             <button class="btn" id="net-double-btn" onclick="Net.action('double')">Doblar</button>
           </div>
         </div>
@@ -169,9 +219,11 @@
         </div>
         <div id="bj-actions" class="hidden">
           <div class="turn-label">🃏 Juega <b id="bj-turn-name-2"></b></div>
+          <p class="hint">Reglas de esta mesa: vuelve a dividir parejas del mismo rango hasta 4 manos, con saldo para otra apuesta igual. Ases: una sola división y una carta por mano. Un 21 dividido paga 1:1.</p>
           <div class="btn-row">
             <button class="btn primary" onclick="Blackjack.hit()">Pedir carta</button>
             <button class="btn" onclick="Blackjack.stand()">Plantarse</button>
+            <button class="btn" id="bj-split-btn" onclick="Blackjack.split()" disabled>Dividir</button>
             <button class="btn" id="bj-double-btn" onclick="Blackjack.doubleDown()">Doblar</button>
           </div>
         </div>
@@ -223,8 +275,10 @@
   </div>
 
   <script src="js/app.js"></script>
+  <script src="js/split-hands.js"></script>
   <script src="js/blackjack.js"></script>
   <script src="js/roulette.js"></script>
+  <script src="js/poker.js"></script>
   <script src="js/net.js"></script>
   <script>App.init(); Net.init();</script>
 </body>

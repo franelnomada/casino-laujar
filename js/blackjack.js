@@ -34,6 +34,15 @@ const Blackjack = {
     return total;
   },
 
+  // Muestra ambos totales cuando un As todavía puede valer 1 u 11.
+  handLabel(hand) {
+    if (!hand.length) return '';
+    const best = this.handValue(hand);
+    const low = hand.reduce((total, card) => total + (card.rank === 'A' ? 1 :
+      (['J', 'Q', 'K'].includes(card.rank) ? 10 : parseInt(card.rank, 10))), 0);
+    return low !== best && best < 21 ? `${low} / ${best}` : String(best);
+  },
+
   isBlackjack(hand) {
     return hand.length === 2 && this.handValue(hand) === 21;
   },
@@ -90,7 +99,7 @@ const Blackjack = {
   editPlayers() {
     this.phase = 'setup';
     this.dealerHand = [];
-    this.players.forEach(p => { p.bet = 0; p.hand = []; p.result = ''; p.played = false; });
+    this.players.forEach(p => { SplitHands.reset(p); p.bet = 0; p.hand = []; p.result = ''; p.played = false; });
     this.setControls('setup');
     this.renderSeats();
     this.message('');
@@ -98,7 +107,7 @@ const Blackjack = {
 
   updateTurnLabels() {
     const p = this.players[this.current];
-    const name = p ? p.name : '';
+    const name = p ? p.name + (p.splitHands ? ` — Mano ${p.activeHand + 1} de ${p.splitHands.length}` : '') : '';
     document.getElementById('bj-turn-name').textContent = name;
     document.getElementById('bj-turn-name-2').textContent = name;
   },
@@ -217,7 +226,7 @@ const Blackjack = {
   doubleDown() {
     if (this.phase !== 'playing') return;
     const p = this.players[this.current];
-    if (p.hand.length !== 2) return;
+    if (p.played || p.hand.length !== 2) return;
     if (p.chips < p.bet) {
       this.message('¡No tienes fichas para doblar, ' + p.name + '!');
       return;
@@ -234,9 +243,23 @@ const Blackjack = {
     this.finishPlayerTurn();
   },
 
+  split() {
+    const p = this.players[this.current];
+    if (this.phase !== 'playing' || !SplitHands.canSplit(p)) return;
+    SplitHands.divide(p, () => this.draw(), hand => this.handValue(hand));
+    if (p.played) this.finishPlayerTurn();
+    this.renderSeats();
+    this.updateTurnLabels();
+  },
+
   finishPlayerTurn() {
     const p = this.players[this.current];
-    if (p && p.bet > 0 && p.result !== '💥' && !p.played) p.played = true;
+    if (p && p.bet > 0) p.played = true;
+    if (p && SplitHands.next(p)) {
+      this.renderSeats();
+      this.updateTurnLabels();
+      return;
+    }
     // Siguiente jugador activo hacia la izquierda
     do {
       this.current--;
@@ -269,6 +292,11 @@ const Blackjack = {
 
     this.players.forEach(p => {
       if (p.bet === 0) { p.result = '🪑'; return; }
+      if (p.splitHands) {
+        SplitHands.settle(p, dealerVal, dealerBJ, hand => this.handValue(hand));
+        parts.push(p.name + ': ' + p.result);
+        return;
+      }
       const pv = this.handValue(p.hand);
       const pBJ = this.isBlackjack(p.hand);
       let earnings = 0;
@@ -304,6 +332,7 @@ const Blackjack = {
     this.current = 0;
     this.dealerHand = [];
     this.players.forEach(p => {
+      SplitHands.reset(p);
       p.bet = 0; p.hand = []; p.result = ''; p.played = false; p.busted = false; p.doubled = false;
     });
     this.setControls('bet-zone');
@@ -346,7 +375,36 @@ const Blackjack = {
     this._prevDealer = this.dealerHand.length;
     document.getElementById('bj-dealer-hand').innerHTML = html;
     document.getElementById('bj-dealer-score').textContent =
-      this.dealerHand.length === 0 ? '' : (hide ? '?' : String(this.handValue(this.dealerHand)));
+      this.dealerHand.length === 0 ? '' : (hide ? '?' : this.handLabel(this.dealerHand));
+  },
+
+  splitHTML(p, active, counts, key) {
+    const prefix = key + '-split-';
+    const previous = counts[prefix + 'total'] || 0;
+    if (previous && p.splitHands.length === previous + 1) {
+      for (let i = previous - 1; i > p.activeHand; i--) {
+        counts[prefix + (i + 1)] = counts[prefix + i];
+      }
+      counts[prefix + p.activeHand] = 1;
+      counts[prefix + (p.activeHand + 1)] = 1;
+    }
+    counts[prefix + 'total'] = p.splitHands.length;
+    let dealt = 0;
+    return '<div class="split-hands">' + p.splitHands.map((h, i) => {
+      const countKey = key + '-split-' + i;
+      const before = counts[countKey] === undefined ? 1 : counts[countKey];
+      const cards = h.hand.map((c, n) => {
+        const html = this.cardHTML(c);
+        return n >= before ? this.withFly(html, 0.15 + dealt++ * 0.7) : html;
+      }).join('');
+      counts[countKey] = h.hand.length;
+      const playing = active && p.activeHand === i && !h.played;
+      return `<div class="split-hand${playing ? ' hand-active' : ''}">` +
+        `<div>Mano ${i + 1}${playing ? ' ◀ Turno' : ''}</div>` +
+        `<div class="cards seat-cards">${cards}</div>` +
+        `<div class="score">${this.handLabel(h.hand)}</div>` +
+        `<div class="bet-circle">${h.bet}</div><div class="p-result">${h.result}</div></div>`;
+    }).join('') + '</div>';
   },
 
   renderSeats() {
@@ -358,6 +416,11 @@ const Blackjack = {
     const inHand = Math.max(1, this.players.filter(pl => pl.hand.length > 0).length);
     let html = '';
     this.players.forEach((p, i) => {
+      if (this.phase !== 'finished') SplitHands.save(p);
+      if (!p.splitHands) {
+        Object.keys(this._prevCounts).filter(k => k.startsWith(i + '-split-'))
+          .forEach(k => delete this._prevCounts[k]);
+      }
       if (p.hand.length < (this._prevCounts[i] || 0)) this._prevCounts[i] = 0;
       const before = this._prevCounts[i] || 0;
       const off = Math.abs(i - (n - 1) / 2);
@@ -383,10 +446,11 @@ const Blackjack = {
         (showRemove ? `<button class="seat-x" title="Quitar" onclick="Blackjack.removePlayer(${i})">✕</button>` : '') +
         `<div class="p-name">${p.name}</div>` +
         `<div class="p-chips">💰 ${p.chips}</div>` +
-        `<div class="cards seat-cards">${cards}</div>` +
-        (p.hand.length ? `<div class="score">${this.handValue(p.hand)}</div>` : '') +
-        `<div class="bet-circle">${p.bet > 0 ? p.bet : ''}</div>` +
-        `<div class="p-result">${p.result}</div>` +
+        (p.splitHands ? this.splitHTML(p, isActive, this._prevCounts, i) :
+          `<div class="cards seat-cards">${cards}</div>` +
+          (p.hand.length ? `<div class="score">${this.handLabel(p.hand)}</div>` : '') +
+          `<div class="bet-circle">${p.bet > 0 ? p.bet : ''}</div>` +
+          `<div class="p-result">${p.result}</div>`) +
       `</div>`;
     });
     if (this.phase === 'setup' && this.players.length < this.MAX_SEATS) {
@@ -397,7 +461,8 @@ const Blackjack = {
     // Botón de doblar solo con 2 cartas y saldo
     const dbl = document.getElementById('bj-double-btn');
     const p = this.players[this.current];
-    dbl.disabled = !(this.phase === 'playing' && p && p.hand.length === 2 && p.chips >= p.bet);
+    document.getElementById('bj-split-btn').disabled = !(this.phase === 'playing' && SplitHands.canSplit(p));
+    dbl.disabled = !(this.phase === 'playing' && p && !p.played && p.hand.length === 2 && p.chips >= p.bet);
   }
 };
 

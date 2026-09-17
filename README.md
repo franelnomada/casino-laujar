@@ -62,6 +62,20 @@ npm test
 - El servidor guarda las salas en disco (`/tmp`) y las recupera si el **proceso se reinicia en la misma instancia** (cuelgues, OOM…). Lo que no se puede recuperar es un **redespliegue** (instancia nueva con disco efímero): para eso haría falta una base de datos persistente.
 - Los jugadores pueden pulsar **↩ Volver** en el lobby para reconectar si la sala sigue viva.
 
+## Póker Texas Hold’em online
+
+- Pulsa **Crear mesa**, elige **Póker Texas Hold’em**, selecciona el intervalo de ciegas y pulsa **Abrir mesa**. Invita con el mismo enlace/código que en blackjack.
+- 2–6 jugadores, 2.000 fichas por jugador, sin recompras. El anfitrión inicia cada mano cuando hay al menos dos jugadores con fichas.
+- Botón D y ciegas SB/BB rotan en sentido horario. En heads-up el botón pone SB y habla primero preflop; BB habla primero después del flop.
+- Ciegas iniciales 10/20: se duplican cada 5, 10, 15 o 20 minutos (configurable). Se aplican al comenzar la siguiente mano; máximo nivel 11 (10.240/20.480).
+- Retirarse, pasar/igualar, apostar/subir hasta un total y all-in; botes laterales, empates y devolución del exceso no igualado.
+- Las cartas rivales permanecen privadas hasta showdown; las de jugadores retirados no se revelan.
+- Reparto secuencial desde el mazo, 850 ms por carta privada y 1 s por comunitaria; controles bloqueados durante el reparto. Movimiento reducido respetado sin acortar los turnos.
+- Cada turno dura 45 s: al agotarse pasa si no debe fichas o se retira. Recargar permite reconectar con la sesión del dispositivo.
+- Se puede entrar entre manos. Al terminar sin dos jugadores con fichas, cread otra mesa.
+- Motor: `js/poker-engine.js`; presentación: `js/poker.js`. `npm test` incluye una mano heads-up determinista, simulaciones y pruebas HTTP. No requiere dependencias nuevas.
+
+
 ## Estructura
 
 ```

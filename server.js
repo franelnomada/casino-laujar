@@ -7,6 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { BlackjackRoom, genCode, randomId } = require('./js/bj-engine.js');
+const { PokerRoom } = require('./js/poker-engine.js');
+
 
 const ROOT = __dirname;
 const MIME = {
@@ -43,7 +45,7 @@ function persistRooms() {
   try {
     const raw = JSON.parse(fs.readFileSync(PERSIST_PATH, 'utf8'));
     for (const [code, data] of Object.entries(raw)) {
-      const room = new BlackjackRoom(code);
+      const room = data.game === 'poker' ? new PokerRoom(code) : new BlackjackRoom(code);
       Object.assign(room, data);
       rooms.set(code, room);
     }
@@ -51,11 +53,13 @@ function persistRooms() {
 })();
 
 // Guardar la sala cada vez que cambie su estado
-const _origTouch = BlackjackRoom.prototype.touch;
-BlackjackRoom.prototype.touch = function () {
-  _origTouch.call(this);
-  persistRooms();
-};
+for (const Room of [BlackjackRoom, PokerRoom]) {
+  const touch = Room.prototype.touch;
+  Room.prototype.touch = function () { touch.call(this); persistRooms(); };
+}
+setInterval(() => {
+  for (const room of rooms.values()) if (room.game === 'poker') room.tick();
+}, 1000).unref();
 
 function json(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -93,7 +97,8 @@ async function handleApi(req, res, pathname, query) {
     const body = await readBody(req);
     let code = genCode();
     while (rooms.has(code)) code = genCode(); // por si colisiona
-    const room = new BlackjackRoom(code);
+    if (body.game && !['blackjack', 'poker'].includes(body.game)) return json(res, 400, { error: 'Juego no disponible.' });
+    const room = body.game === 'poker' ? new PokerRoom(code, body) : new BlackjackRoom(code);
     rooms.set(code, room);
     const playerId = randomId();
     room.addPlayer(playerId, body.name);
@@ -137,7 +142,8 @@ async function handleApi(req, res, pathname, query) {
     const body = await readBody(req);
     const playerId = body.playerId || '';
     let result = { ok: false, error: 'Acción desconocida.' };
-    switch (body.type) {
+    if (room.game === 'poker') result = room.action(playerId, body.type, body.amount);
+    else switch (body.type) {
       case 'start': result = room.start(); break;
       case 'bet': result = room.bet(playerId, body.amount); break;
       case 'clearBet': result = room.clearBet(playerId); break;
@@ -145,6 +151,7 @@ async function handleApi(req, res, pathname, query) {
       case 'unconfirm': result = room.unconfirm(playerId); break;
       case 'hit': result = room.hit(playerId); break;
       case 'stand': result = room.stand(playerId); break;
+      case 'split': result = room.split(playerId); break;
       case 'double': result = room.double(playerId); break;
     }
     if (!result.ok) return json(res, 400, { error: result.error });

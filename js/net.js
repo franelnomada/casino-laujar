@@ -35,13 +35,25 @@ const Net = {
     localStorage.setItem(this.KEY, JSON.stringify({ code: this.code, playerId: this.playerId }));
   },
 
+  openCreate(game = 'blackjack') {
+    App.show('lobby');
+    document.getElementById('net-create-options').classList.remove('hidden');
+    document.getElementById('net-game').value = game;
+    this.gameChanged();
+    document.getElementById('net-game').focus();
+  },
+  gameChanged() {
+    document.getElementById('net-poker-options').classList.toggle('hidden', document.getElementById('net-game').value !== 'poker');
+  },
+
   async createRoom() {
     const name = document.getElementById('net-name').value.trim() || 'Jugador';
     try {
       const r = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, game: document.getElementById('net-game').value,
+          blindMinutes: Number(document.getElementById('net-blind-minutes').value) }),
       });
       const data = await r.json();
       if (!r.ok) return this.showError(data.error || 'No se pudo crear la sala.');
@@ -88,6 +100,12 @@ const Net = {
   },
 
   enterRoom() {
+    this.state = null;
+    this._prevCounts = {}; this._prevDealer = 0;
+    if (typeof Poker !== 'undefined') Poker.reset();
+    document.getElementById('net-poker').classList.add('hidden');
+    document.getElementById('net-blackjack-table').classList.add('hidden');
+    document.getElementById('net-blackjack-controls').classList.add('hidden');
     App.show('room');
     document.getElementById('net-room-code').textContent = this.code;
     this.pollLoop();
@@ -108,12 +126,14 @@ const Net = {
   },
 
   disconnect() {
+    if (typeof Poker !== 'undefined') Poker.reset();
     this.code = null;
     this.state = null;
     localStorage.removeItem(this.KEY);
   },
 
   showError(text) {
+    document.getElementById('net-lobby-message').textContent = '⚠️ ' + text;
     document.getElementById('net-message').textContent = '⚠️ ' + text;
     setTimeout(() => {
       const el = document.getElementById('net-message');
@@ -172,6 +192,9 @@ const Net = {
   },
 
   roomLost() {
+    if (typeof Poker !== 'undefined') Poker.reset();
+    document.getElementById('net-poker').classList.add('hidden');
+    document.getElementById('net-blackjack-controls').classList.remove('hidden');
     this.state = null;
     ['lobby', 'bet', 'play', 'finished', 'wait'].forEach(z => this.showZone(z, false));
     this.showZone('lost', true);
@@ -207,6 +230,11 @@ const Net = {
   render() {
     const s = this.state;
     if (!s) return;
+    const poker = s.game === 'poker';
+    document.getElementById('net-blackjack-table').classList.toggle('hidden', poker);
+    document.getElementById('net-blackjack-controls').classList.toggle('hidden', poker);
+    document.getElementById('net-poker').classList.toggle('hidden', !poker);
+    if (poker) { Poker.render(s); return; }
 
     // Dealer (animación SOLO cuando aparece una carta nueva, no en cada refresco)
     const cardsD = s.dealer.cards || [];
@@ -232,7 +260,7 @@ const Net = {
     this._prevDealer = totalD;
     document.getElementById('net-dealer-hand').innerHTML = dealerHTML;
     document.getElementById('net-dealer-score').textContent =
-      s.dealer.value === null ? '' : String(s.dealer.value);
+      s.dealer.value === null ? '' : Blackjack.handLabel(cardsD) + (s.dealer.hidden ? ' + ?' : '');
 
     // Asientos: animación escalonada siguiendo el orden real de reparto
     const prevCounts = this._prevCounts || (this._prevCounts = {});
@@ -240,6 +268,10 @@ const Net = {
     s.players.forEach((p, seat) => { if (p.cardsCount > 0) lastSeat = seat; });
     let html = '';
     s.players.forEach((p, seat) => {
+      if (!p.splitHands) {
+        Object.keys(prevCounts).filter(k => k.startsWith(p.id + '-split-'))
+          .forEach(k => delete prevCounts[k]);
+      }
       if (p.cardsCount < (prevCounts[p.id] || 0)) prevCounts[p.id] = 0;
       const before = prevCounts[p.id] || 0;
       const isSelf = p.id === this.playerId;
@@ -263,10 +295,11 @@ const Net = {
       html += '<div class="seat' + (p.isTurn ? ' active' : '') + '">' +
         `<div class="p-name">${p.name}${status}${p.isTurn ? ' 🎯' : ''}</div>` +
         `<div class="p-chips">💰 ${p.chips}${p.confirmed && s.phase === 'betting' ? ' ✔' : ''}</div>` +
-        `<div class="cards seat-cards">${cards}</div>` +
-        (p.value !== null ? `<div class="score">${p.value}</div>` : '') +
-        `<div class="bet-circle">${p.bet > 0 ? p.bet : ''}</div>` +
-        `<div class="p-result">${p.result}</div>` +
+        (p.splitHands ? Blackjack.splitHTML(p, s.phase === 'playing' && p.isTurn, prevCounts, p.id) :
+          `<div class="cards seat-cards">${cards}</div>` +
+          (p.value !== null ? `<div class="score">${p.cards && p.cards.length ? Blackjack.handLabel(p.cards) : p.value}</div>` : '') +
+          `<div class="bet-circle">${p.bet > 0 ? p.bet : ''}</div>` +
+          `<div class="p-result">${p.result}</div>`) +
       '</div>';
     });
     document.getElementById('net-seats').innerHTML = html;
@@ -295,7 +328,10 @@ const Net = {
     }
 
     const dbl = document.getElementById('net-double-btn');
-    dbl.disabled = !(you && you.cardsCount === 2 && you.chips >= you.bet && !you.played);
+    document.getElementById('net-split-btn').disabled = !(you && you.canSplit);
+    document.getElementById('net-hand-label').textContent =
+      you && you.splitHands ? `Juegas la mano ${you.activeHand + 1} de ${you.splitHands.length}` : '';
+    dbl.disabled = !(s.phase === 'playing' && myTurn && you && you.cardsCount === 2 && you.chips >= you.bet && !you.played);
 
     document.getElementById('net-message').textContent = s.message || '';
   },

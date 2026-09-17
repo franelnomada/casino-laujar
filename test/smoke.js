@@ -33,6 +33,7 @@ function load(file, exportName) {
   new Function(code)();
 }
 load('js/app.js', 'App');
+load('js/split-hands.js', 'SplitHands');
 load('js/blackjack.js', 'Blackjack');
 load('js/roulette.js', 'Roulette');
 
@@ -133,6 +134,96 @@ Blackjack.phase = 'playing';
 Blackjack.current = 0;
 Blackjack.hit();
 check('BJ: pasarse de 21 pierde la apuesta', ana.chips === 990 && ana.busted === true && Blackjack.phase === 'finished');
+
+// As flexible: valores, marcador y acciones reales (local y online).
+const cardsOf = ranks => ranks.map(rank => ({ rank, suit: '♠' }));
+for (const [ranks, value, label] of [
+  [['A'], 11, '1 / 11'], [['A', '6'], 17, '7 / 17'],
+  [['A', '6', '9'], 16, '16'], [['A', 'A'], 12, '2 / 12'],
+  [['A', 'A', '9'], 21, '21'], [['A', 'K'], 21, '21'],
+  [['A', 'A', 'K'], 12, '12'], [['K', 'Q', '3'], 23, '23'],
+]) {
+  check('As: valor y marcador ' + ranks.join('+'),
+    Blackjack.handValue(cardsOf(ranks)) === value && Blackjack.handLabel(cardsOf(ranks)) === label);
+}
+check('As: mano vacía sin marcador', Blackjack.handLabel([]) === '');
+Blackjack.players = [{ name: 'As', chips: 950, bet: 50, hand: cardsOf(['A', '6']),
+  result: '', played: false, busted: false, doubled: false }];
+Blackjack.phase = 'playing';
+Blackjack.current = 0;
+Blackjack.dealerHand = cardsOf(['10', '7']);
+Blackjack.deck = cardsOf(['9']);
+Blackjack.renderSeats();
+check('As local: marcador 7 / 17', elements['bj-seats'].innerHTML.includes('>7 / 17</div>'));
+Blackjack.hit();
+check('As local: pedir 9 muestra 16 sin pasarse ni terminar turno',
+  elements['bj-seats'].innerHTML.includes('>16</div>') && !Blackjack.players[0].busted &&
+  !Blackjack.players[0].played && Blackjack.phase === 'playing' && Blackjack.current === 0);
+
+load('js/net.js', 'Net');
+const { BlackjackRoom } = require('../js/bj-engine.js');
+const aceView = new BlackjackRoom('ACES');
+aceView.addPlayer('ace', 'As');
+aceView.phase = 'playing';
+aceView.turnId = 'ace';
+aceView.find('ace').hand = cardsOf(['A', '6']);
+aceView.find('ace').bet = 50;
+aceView.dealerHand = cardsOf(['A', '5']);
+Net.playerId = 'ace';
+Net.state = aceView.stateFor('ace');
+Net.render();
+check('As online: render muestra 7 / 17', elements['net-seats'].innerHTML.includes('>7 / 17</div>'));
+check('As dealer: solo calcula la carta visible', elements['net-dealer-score'].textContent === '1 / 11 + ?');
+aceView.find('ace').hand.push(...cardsOf(['9']));
+Net.state = aceView.stateFor('ace');
+Net.render();
+check('As online: render actualiza a 16', elements['net-seats'].innerHTML.includes('>16</div>'));
+aceView.phase = 'finished';
+Net.state = aceView.stateFor('ace');
+Net.render();
+check('As dealer: mano revelada muestra 6 / 16', elements['net-dealer-score'].textContent === '6 / 16');
+Blackjack.phase = 'finished';
+Blackjack.dealerHand = cardsOf(['A', '6']);
+Blackjack.renderDealer();
+check('As dealer local: muestra 7 / 17', elements['bj-dealer-score'].textContent === '7 / 17');
+
+// División local y renderizado online.
+Blackjack.players = [{ name: 'Split', chips: 950, bet: 50, hand: cardsOf(['8', '8']),
+  result: '', played: false, busted: false, doubled: false }];
+Blackjack.current = 0; Blackjack.phase = 'playing';
+Blackjack.dealerHand = cardsOf(['10', '8']);
+Blackjack.deck = cardsOf(['3', '2']);
+Blackjack.renderSeats();
+check('Split local: botón habilitado con pareja', elements['bj-split-btn'].disabled === false);
+Blackjack.split();
+check('Split local: dos manos visibles y apuesta descontada',
+  Blackjack.players[0].chips === 900 && elements['bj-seats'].innerHTML.includes('Mano 2') &&
+  elements['bj-seats'].innerHTML.includes('Mano 1 ◀ Turno') && elements['bj-split-btn'].disabled === true);
+Blackjack.stand();
+check('Split local: juega mano 2 antes del dealer', Blackjack.phase === 'playing' &&
+  Blackjack.players[0].activeHand === 1 && elements['bj-turn-name-2'].textContent.includes('Mano 2'));
+Blackjack.stand();
+check('Split local: liquida dos manos', Blackjack.phase === 'finished' && Blackjack.players[0].chips === 900);
+Blackjack.nextRound();
+check('Split local: limpia la división al reiniciar', !Blackjack.players[0].splitHands);
+const localSplit = Blackjack.players[0];
+localSplit.hand = cardsOf(['A', 'A']); localSplit.bet = 50; localSplit.chips = 950;
+Blackjack.phase = 'playing'; Blackjack.current = 0;
+Blackjack.dealerHand = cardsOf(['10', '8']); Blackjack.deck = cardsOf(['9', 'K']);
+Blackjack.split();
+check('Split local: ases reciben una carta y no cobran blackjack', Blackjack.phase === 'finished' &&
+  localSplit.chips === 1100 && localSplit.splitHands.every(h => h.hand.length === 2));
+aceView.phase = 'playing'; aceView.turnId = 'ace'; aceView.turnOrder = ['ace'];
+aceView.find('ace').hand = cardsOf(['8', '8']);
+aceView.dealerHand = cardsOf(['10', '8']); aceView.deck = cardsOf(['3', '2']);
+Net.state = aceView.stateFor('ace'); Net.render();
+check('Split online: botón habilitado', elements['net-split-btn'].disabled === false);
+aceView.split('ace'); Net.state = aceView.stateFor('ace'); Net.render();
+check('Split online: dos manos y aviso del turno', elements['net-seats'].innerHTML.includes('Mano 2') &&
+  elements['net-hand-label'].textContent === 'Juegas la mano 1 de 2' && elements['net-split-btn'].disabled === true);
+aceView.stand('ace'); Net.state = aceView.stateFor('ace'); Net.render();
+check('Split online: cartas no vuelven a repartirse al cambiar mano',
+  !elements['net-seats'].innerHTML.includes('fly-in') && elements['net-seats'].innerHTML.includes('Mano 2 ◀ Turno'));
 
 // --- Ruleta ---
 const R = Roulette.payoutFor.bind(Roulette);

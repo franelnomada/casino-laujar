@@ -2,6 +2,7 @@
 //  Motor de Blackjack multijugador (lado servidor)
 //  Sin DOM, sin red: lógica pura y testeable.
 // ================================================
+const SplitHands = require('./split-hands.js');
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const SHOE_DECKS = 6;
@@ -102,6 +103,7 @@ class BlackjackRoom {
     this.turnId = null;
     this.phase = 'betting';
     this.players.forEach(p => {
+      SplitHands.reset(p);
       p.bet = 0; p.hand = []; p.played = false; p.busted = false;
       p.doubled = false; p.result = ''; p.confirmed = p.chips < 1;
     });
@@ -188,7 +190,20 @@ class BlackjackRoom {
     if (first && first.played) this.advanceTurn();
   }
 
+  split(id) {
+    const p = this.find(id);
+    if (this.phase !== 'playing' || id !== this.turnId || !SplitHands.canSplit(p)) {
+      return { ok: false, error: 'Solo puedes dividir una pareja en tu turno, con saldo para otra apuesta.' };
+    }
+    SplitHands.divide(p, () => this.deck.pop(), handValue);
+    if (p.played) this.advanceTurn();
+    this.touch();
+    return { ok: true };
+  }
+
   advanceTurn() {
+    const current = this.find(this.turnId);
+    if (current && SplitHands.next(current)) return;
     const idx = this.turnOrder.indexOf(this.turnId);
     for (let k = idx + 1; k < this.turnOrder.length; k++) {
       const p = this.find(this.turnOrder[k]);
@@ -264,6 +279,7 @@ class BlackjackRoom {
     const dealerBusted = dealerVal > 21;
     this.players.forEach(p => {
       if (p.bet === 0) { p.result = '🪑'; return; }
+      if (p.splitHands) { SplitHands.settle(p, dealerVal, dealerBJ, handValue); return; }
       const pv = handValue(p.hand);
       const pBJ = isBlackjack(p.hand);
       let earnings = 0;
@@ -297,7 +313,11 @@ class BlackjackRoom {
         value: finished ? dealerVal : (this.dealerHand.length ? handValue([this.dealerHand[0]]) + '+' : null),
       },
       players: this.players.map(p => {
+        if (!finished) SplitHands.save(p);
         return {
+          canSplit: this.phase === 'playing' && p.id === this.turnId && SplitHands.canSplit(p),
+          activeHand: p.activeHand,
+          splitHands: p.splitHands || null,
           id: p.id, name: p.name, chips: p.chips, bet: p.bet,
           confirmed: p.confirmed, played: p.played, busted: p.busted, doubled: p.doubled,
           result: p.result,
