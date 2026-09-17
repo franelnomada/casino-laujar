@@ -39,6 +39,8 @@ npm test
    - **Instance type:** Free
 4. Pulsa "Create Web Service". En 1-2 minutos tendrás una URL tipo `https://casino-laujar.onrender.com`.
 
+> 🎰 **Despliegue activo:** https://casino-laujar.onrender.com
+
 ### Cosas que debes saber del plan gratuito de Render
 
 - **El servidor se duerme** tras ~15 minutos sin visitas. La primera visita luego tarda ~1 minuto en "despertar". Para evitarlo, crea un ping automático gratis en https://cron-job.org que llame a `https://TU-APP.onrender.com/api/ping` cada 10 minutos.
