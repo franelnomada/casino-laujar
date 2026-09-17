@@ -47,3 +47,36 @@ for(let trial=0;trial<50;trial++) {
   assert.ok(t.players.every(p=>Number.isInteger(p.chips)&&p.chips>=0));
 }
 console.log('✅ Poker: 50 manos completas con all-in y conservación de fichas');
+
+const hint = new PokerRoom('HINT');
+hint.addPlayer('a','Ana'); hint.addPlayer('b','Bob');
+assert.equal(hint.stateFor('a').privateHand, null);
+hint.phase = 'flop';
+for (const p of hint.players) p.inHand = true;
+for (const [hand, board, label] of [
+  ['A♠ A♥', '', 'Pareja'],
+  ['A♠ K♥', '', 'Carta alta'],
+  ['A♠ A♥', '2♦ 3♣ 9♠', 'Pareja'],
+  ['A♠ K♥', 'A♦ K♣ 9♠', 'Doble pareja'],
+  ['A♠ A♥', 'A♦ 3♣ 9♠', 'Trío'],
+  ['A♠ 2♥', '3♦ 4♣ 5♠', 'Escalera'],
+  ['A♠ K♠', '2♠ 4♠ 9♠', 'Color'],
+  ['A♠ A♥', 'A♦ K♣ K♠', 'Full'],
+  ['A♠ A♥', 'A♦ A♣ K♠', 'Póker'],
+  ['A♠ K♠', 'Q♠ J♠ 10♠', 'Escalera de color'],
+  ['2♠ 3♥', '10♦ J♣ Q♠ K♥ A♦', 'Escalera'],
+]) {
+  hint.find('a').hand = cards(hand); hint.board = board ? cards(board) : [];
+  assert.equal(hint.stateFor('a').privateHand.labels.at(-1), label);
+}
+hint.find('a').hand = cards('A♠ K♠'); hint.find('b').hand = cards('2♥ 2♦');
+hint.board = cards('Q♠ J♠ 10♠');
+assert.equal(hint.stateFor('a').privateHand.labels[3], 'Escalera de color');
+assert.equal(hint.stateFor('b').privateHand.labels[3], 'Pareja');
+assert.equal(hint.stateFor('b').privateHand.playerId, 'b');
+assert.ok(hint.stateFor('b').players.every(p => !p.handName && !p.privateHand));
+assert.deepEqual(hint.stateFor('b').players[0].cards, [null,null]);
+assert.equal(hint.stateFor('unknown').privateHand, null);
+hint.find('a').inHand = false;
+assert.equal(hint.stateFor('a').privateHand, null);
+console.log('✅ Poker: indicador privado, todas las combinaciones y sin filtración entre jugadores');

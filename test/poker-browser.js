@@ -62,6 +62,7 @@ async function main() {
     assert.equal(await js('Poker.animations.size'),0);
     await render();
     assert.equal(await js('Poker.animations.size'),0);
+    assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
     for(const width of [320,390,768,1100]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<760});
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
@@ -70,8 +71,27 @@ async function main() {
       const covers=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();return [...document.querySelectorAll('.pk-seat')].some(n=>{const b=n.getBoundingClientRect();return b.left<c.right&&c.left<b.right&&b.top<c.bottom&&c.top<b.bottom;});})()`);
       assert.equal(covers,false,'Los controles tapan asientos a '+width);
     }
+    const hintRoom = new PokerRoom('HINT');
+    hintRoom.addPlayer('a','Ana'); hintRoom.addPlayer('b','Bob');
+    const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
+    hintRoom.phase='flop'; hintRoom.handNo=1;
+    hintRoom.players.forEach(p=>p.inHand=true);
+    hintRoom.find('a').hand=cards('A♠ K♠'); hintRoom.find('b').hand=cards('2♥ 2♦');
+    hintRoom.board=cards('Q♠ J♠ 10♠');
+    const future=Date.now()+60000;
+    hintRoom.events=hintRoom.board.map((c,index)=>({type:'board',target:'board',index,at:future+index*1000,duration:1000}));
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+    await js(`Poker.reset();Net.playerId='a';Net.state=${JSON.stringify(hintRoom.stateFor('a'))};Net.render();`);
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Carta alta · Solo tú');
+    await js(`Poker.offset+=65000;Poker.update()`);
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Escalera de color · Solo tú');
+    hintRoom.events=[];
+    await js(`Poker.reset();Net.playerId='b';Net.state=${JSON.stringify(hintRoom.stateFor('b'))};Net.render();`);
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Pareja · Solo tú');
+    assert.equal(await js(`document.querySelector('#pk-phase').nextElementSibling.id`),'pk-private-hand');
     assert.deepEqual(errors,[]);
     await js('Poker.reset()');
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'');
     console.log('✅ Chrome: selector, 6 asientos a 320/390/768/1100 px, privacidad, reparto y nodos persistentes');
   } finally {
     // Cerrar Chrome antes de borrar su perfil: Windows bloquea archivos en uso.

@@ -407,6 +407,7 @@ body.at-welcome #topbar { display: none; }
 .pk-dealer .shoe i { height: 8px; margin-top: 4px; }
 .pk-dealer .shoe span { color: var(--gold); }
 .pk-center { grid-column: 2 / 4; grid-row: 2; align-self: center; min-width: 0; text-align: center; }
+.pk-private-hand { margin-top: 6px; min-height: 1.4em; color: var(--gold-light); font-size: .85rem; overflow-wrap: anywhere; }
 .pk-brand { color: var(--gold); letter-spacing: 3px; font-family: Georgia,serif; }
 .pk-pot { margin: 10px 0; color: var(--gold-light); font-weight: bold; font-size: 1.25rem; }
 .pk-board { justify-content: center; flex-wrap: nowrap; gap: 6px; min-height: 86px; margin-bottom: 10px; }

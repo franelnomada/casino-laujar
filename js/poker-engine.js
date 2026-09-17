@@ -204,7 +204,15 @@ class PokerRoom {
   stateFor(id,now=Date.now()) {
     const p=this.find(id);const live=this.players.filter(q=>q.inHand&&!q.folded&&!q.allIn);
     const canAct=!!(p&&!p.left&&this.turnId===id&&now>=this.visualUntil);
-    return {game:this.game,code:this.code,version:this.version,phase:this.phase,handNo:this.handNo,
+    // Solo la combinación del destinatario, por calle, sin datos de los rivales.
+    // El cliente elige la última calle cuyo reparto ya se ve completo.
+    const privateHand = p && !p.left && p.inHand && p.hand.length === 2 ? {
+      playerId: id,
+      labels: Array.from({length: this.board.length + 1}, (_, count) => count < 3 ?
+        (p.hand[0].rank === p.hand[1].rank ? 'Pareja' : 'Carta alta') :
+        LABELS[evaluate([...p.hand, ...this.board.slice(0, count)])[0]])
+    } : null;
+    return {game:this.game,code:this.code,version:this.version,phase:this.phase,handNo:this.handNo,privateHand,
       hostId:this.hostId,dealerId:this.dealerId,sbId:this.sbId,bbId:this.bbId,turnId:this.turnId,
       message:this.message,board:this.board,events:this.events,serverNow:now,visualUntil:this.visualUntil,
       turnDeadline:this.turnDeadline,smallBlind:this.smallBlind,bigBlind:this.bigBlind,level:this.level,

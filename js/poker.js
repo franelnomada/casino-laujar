@@ -7,6 +7,7 @@ const Poker = {
     for (const a of this.animations) a.cancel();
     this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null;
     this.el('seats').innerHTML = ''; this.el('board').innerHTML = '';
+    this.el('private-hand').textContent = '';
   },
   now() { return Date.now() + (this.offset || 0); },
   render(s) {
@@ -96,6 +97,14 @@ const Poker = {
     const visibleBoard = [...this.nodes.entries()].filter(([k,n]) => k.startsWith('board:') && n.dataset.arrived === 'true').length;
     const street = visibleBoard === 5 ? 'River' : visibleBoard === 4 ? 'Turn' : visibleBoard === 3 ? 'Flop' : 'Preflop';
     this.el('phase').textContent = s.handNo ? 'Mano ' + s.handNo + ' · ' + (resultsReady ? 'Showdown' : street) : 'Esperando jugadores';
+    const privateHand = s.privateHand;
+    const ownCardsReady = [0, 1].every(index => {
+      const node = this.nodes.get('hole:' + Net.playerId + ':' + index);
+      return node && node.dataset.arrived === 'true';
+    });
+    const label = privateHand && privateHand.playerId === Net.playerId && ownCardsReady ?
+      privateHand.labels[visibleBoard] : '';
+    this.el('private-hand').textContent = label ? 'Tu mano: ' + label + ' · Solo tú' : '';
     const turn = s.players.find(p => p.id === s.turnId);
     const mine = s.turnId === Net.playerId;
     const canAct = mine && !dealing && !this.busy && !!turn;
