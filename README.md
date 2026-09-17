@@ -53,6 +53,15 @@ npm test
 3. Los colegas abren el enlace, escriben su nombre y pulsan **Unirse** (el código va precargado).
 4. Apuestas con fichas, "Listo ✔", y ¡a jugar!
 
+## ⚠️ Si os "echa" de la sala a mitad de partida
+
+**Causa típica:** Render ha reiniciado el servidor. Las salas viven en la memoria/proceso y un **redespliegue o reinicio** las borra. El cliente ahora reintenta varias veces y, si la sala se ha perdido de verdad, muestra un aviso con "🔄 Reintentar" y "🏠 Volver al lobby" en vez de expulsar en silencio.
+
+**Consejos:**
+- **Desactiva el auto-deploy mientras jugáis** (Render → tu servicio → Settings → Build & Deploy → Auto-Deploy: "Off"). Despliega manualmente con "Manual Deploy" cuando nadie esté en partida.
+- El servidor guarda las salas en disco (`/tmp`) y las recupera si el **proceso se reinicia en la misma instancia** (cuelgues, OOM…). Lo que no se puede recuperar es un **redespliegue** (instancia nueva con disco efímero): para eso haría falta una base de datos persistente.
+- Los jugadores pueden pulsar **↩ Volver** en el lobby para reconectar si la sala sigue viva.
+
 ## Estructura
 
 ```

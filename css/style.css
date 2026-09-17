@@ -300,6 +300,7 @@ body { overscroll-behavior-y: contain; }
 .net-table { min-height: 380px; }
 .waiting { font-size: 1.05rem; opacity: .85; }
 .share-row { text-align: center; margin-bottom: 14px; }
+.lost-text { font-size: 1.05rem; color: #f0b8b8; margin-bottom: 10px; max-width: 480px; }
 
 /* ==== Welcome page ==== */
 body.at-welcome #topbar { display: none; }

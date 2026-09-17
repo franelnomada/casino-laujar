@@ -23,6 +23,40 @@ const IDLE_MS = 2 * 60 * 60 * 1000; // 2 h sin actividad → la sala se borra
 
 const rooms = new Map(); // code -> BlackjackRoom
 
+// ---- Persistencia ligera: sobrevive a reinicios del proceso en la misma instancia ----
+// (un redespliegue de Render crea instancia nueva con disco efímero: ahí las salas se pierden)
+const PERSIST_PATH = path.join(os.tmpdir(), 'casino-laujar-rooms.json');
+let persistTimer = null;
+
+function persistRooms() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try {
+      const data = {};
+      for (const [code, room] of rooms) data[code] = room;
+      fs.writeFileSync(PERSIST_PATH, JSON.stringify(data));
+    } catch (e) { /* sin disco disponible: seguimos solo en memoria */ }
+  }, 500);
+}
+
+(function restoreRooms() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(PERSIST_PATH, 'utf8'));
+    for (const [code, data] of Object.entries(raw)) {
+      const room = new BlackjackRoom(code);
+      Object.assign(room, data);
+      rooms.set(code, room);
+    }
+  } catch (e) { /* primera ejecución: no hay copia */ }
+})();
+
+// Guardar la sala cada vez que cambie su estado
+const _origTouch = BlackjackRoom.prototype.touch;
+BlackjackRoom.prototype.touch = function () {
+  _origTouch.call(this);
+  persistRooms();
+};
+
 function json(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(obj));

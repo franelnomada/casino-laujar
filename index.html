@@ -113,6 +113,13 @@
         <div id="net-zone-wait" class="hidden">
           <p class="waiting" id="net-wait-text">⏳ Esperando…</p>
         </div>
+        <div id="net-zone-lost" class="hidden">
+          <p class="lost-text">💔 Se ha perdido la conexión con la sala (el servidor se ha reiniciado).</p>
+          <div class="btn-row">
+            <button class="btn" onclick="Net.retry()">🔄 Reintentar</button>
+            <button class="btn primary" onclick="Net.leave()">🏠 Volver al lobby</button>
+          </div>
+        </div>
       </div>
     </section>
 

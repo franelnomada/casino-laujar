@@ -144,16 +144,22 @@ const Net = {
   async pollLoop() {
     if (this.polling) return;
     this.polling = true;
+    let notFound = 0;
     while (this.code) {
       try {
         const r = await fetch('/api/rooms/' + this.code +
           '/state?player=' + encodeURIComponent(this.playerId) + '&v=' + this.version);
         if (r.status === 404) {
-          this.showError('La sala ya no existe (¿se reinició el servidor?).');
-          this.disconnect();
-          App.goLobby();
-          break;
+          // Puede ser un reinicio puntual del servidor: reintentar antes de rendirse
+          notFound++;
+          if (notFound >= 3) {
+            this.roomLost();
+            break;
+          }
+          await new Promise(res => setTimeout(res, 1500));
+          continue;
         }
+        notFound = 0;
         const data = await r.json();
         this.version = data.version;
         this.state = data;
@@ -163,6 +169,20 @@ const Net = {
       }
     }
     this.polling = false;
+  },
+
+  roomLost() {
+    this.state = null;
+    ['lobby', 'bet', 'play', 'finished', 'wait'].forEach(z => this.showZone(z, false));
+    this.showZone('lost', true);
+    document.getElementById('net-message').textContent =
+      '💔 Se ha perdido la sala: el servidor se ha reiniciado o la sala ha expirado. Las fichas online se reinician con él.';
+  },
+
+  retry() {
+    this.showZone('lost', false);
+    this.version = 0;
+    this.pollLoop();
   },
 
   async action(type, amount) {
@@ -218,6 +238,7 @@ const Net = {
 
     // Zonas de control según fase
     const you = s.players.find(p => p.id === this.playerId);
+    this.showZone('lost', false);
     this.showZone('lobby', s.phase === 'lobby');
     this.showZone('bet', s.phase === 'betting' && you && !you.confirmed);
     this.showZone('play', s.phase === 'playing' && you && you.bet > 0 && !you.played);
