@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Casino Night">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Casino Night 🎰</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand" onclick="App.goLobby()">🎰 <span>Casino Night</span></div>
+    <div class="chips-display" title="Tus fichas">💰 <span id="chips-amount">0</span> fichas</div>
+  </header>
+
+  <main id="app">
+    <!-- WELCOME -->
+    <section id="screen-welcome" class="screen">
+      <div class="welcome-box">
+        <img src="assets/logo.png" alt="Casino Laujar" class="welcome-logo">
+        <h1 class="welcome-title">Bienvenido al casino de los ludópatas de Laujar de Andarax</h1>
+        <p class="welcome-sub">Hagan sus apuestas 🎲</p>
+        <button class="btn primary welcome-enter" onclick="App.show('lobby')">Entrar al casino 🎰</button>
+      </div>
+    </section>
+
+    <!-- LOBBY -->
+    <section id="screen-lobby" class="screen hidden">
+      <h1>Bienvenido al Casino</h1>
+      <p class="subtitle">Elige tu mesa, jugador. Las fichas son virtuales… la vergüenza es real.</p>
+      <div class="lobby-grid">
+        <div class="game-card" onclick="App.show('blackjack')">
+          <div class="game-card-icon">🃏</div>
+          <h2>Blackjack</h2>
+          <p>Llega a 21 sin pasarte. El dealer juega a 17. Blackjack paga 3:2.</p>
+        </div>
+        <div class="game-card" onclick="App.show('roulette')">
+          <div class="game-card-icon">🎡</div>
+          <h2>Ruleta Europea</h2>
+          <p>Plenos, colores, pares, docenas… 36 números y un solo cero.</p>
+        </div>
+        <div class="game-card coming-soon">
+          <div class="game-card-icon">♠️</div>
+          <h2>Poker</h2>
+          <p>Texas Hold'em — ¡próximamente!</p>
+        </div>
+      </div>
+
+      <h2 class="lobby-sub">📱 Multijugador online</h2>
+      <div class="net-box">
+        <div class="net-row">
+          <input id="net-name" class="name-input" maxlength="12" placeholder="Tu nombre">
+          <button id="net-resume" class="btn hidden" onclick="Net.resume()">↩ Volver</button>
+        </div>
+        <div class="net-row">
+          <button class="btn primary" onclick="Net.createRoom()">🎰 Crear sala</button>
+          <span class="net-or">— o —</span>
+          <input id="net-code" class="name-input code-input" maxlength="4" placeholder="CÓDIGO">
+          <button class="btn" onclick="Net.joinRoom()">Unirse</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SALA ONLINE -->
+    <section id="screen-room" class="screen hidden">
+      <button class="btn-back" onclick="Net.leave()">← Salir</button>
+      <h1>🎲 Sala <span id="net-room-code" class="gold-code"></span></h1>
+      <p class="subtitle">Comparte el código o el enlace para que los colegas se unan desde su móvil.</p>
+      <div class="share-row">
+        <button class="btn" onclick="Net.copyLink()">🔗 Copiar enlace de invitación</button>
+      </div>
+      <div class="bj-table net-table">
+        <div class="dealer-area">
+          <div class="dealer-label">DEALER <span id="net-dealer-score" class="score"></span></div>
+          <div id="net-dealer-hand" class="cards dealer-cards"></div>
+        </div>
+        <div id="net-seats" class="seats-row"></div>
+      </div>
+      <div id="net-message" class="message"></div>
+      <div class="controls">
+        <div id="net-zone-lobby" class="hidden">
+          <button class="btn primary" onclick="Net.action('start')">Abrir ronda de apuestas ▶</button>
+        </div>
+        <div id="net-zone-bet" class="hidden">
+          <div class="chip-row">
+            <button class="chip chip-5" onclick="Net.action('bet', 5)">5</button>
+            <button class="chip chip-25" onclick="Net.action('bet', 25)">25</button>
+            <button class="chip chip-100" onclick="Net.action('bet', 100)">100</button>
+            <button class="chip chip-500" onclick="Net.action('bet', 500)">500</button>
+          </div>
+          <div class="current-bet">Apuesta: <span id="net-bet">0</span></div>
+          <div class="btn-row">
+            <button class="btn primary" onclick="Net.action('confirm')">Listo ✔</button>
+            <button class="btn" onclick="Net.action('clearBet')">Limpiar</button>
+          </div>
+        </div>
+        <div id="net-zone-play" class="hidden">
+          <div class="btn-row">
+            <button class="btn primary" onclick="Net.action('hit')">Pedir carta</button>
+            <button class="btn" onclick="Net.action('stand')">Plantarse</button>
+            <button class="btn" id="net-double-btn" onclick="Net.action('double')">Doblar</button>
+          </div>
+        </div>
+        <div id="net-zone-finished" class="hidden">
+          <button class="btn primary" onclick="Net.action('start')">Nueva ronda 🔁</button>
+        </div>
+        <div id="net-zone-wait" class="hidden">
+          <p class="waiting" id="net-wait-text">⏳ Esperando…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLACKJACK -->
+    <section id="screen-blackjack" class="screen hidden">
+      <button class="btn-back" onclick="App.goLobby()">← Lobby</button>
+      <h1>🃏 Blackjack</h1>
+      <div class="bj-table">
+        <div class="dealer-area">
+          <div class="dealer-label">DEALER <span id="bj-dealer-score" class="score"></span></div>
+          <div id="bj-dealer-hand" class="cards dealer-cards"></div>
+        </div>
+        <svg class="table-arc" viewBox="0 0 900 120" aria-hidden="true">
+          <defs>
+            <path id="bj-arc-big" d="M 120 25 Q 450 150 780 25" fill="none"></path>
+            <path id="bj-arc-small" d="M 185 50 Q 450 145 715 50" fill="none"></path>
+          </defs>
+          <text class="arc-text big"><textPath href="#bj-arc-big" startOffset="50%" text-anchor="middle">BLACKJACK PAYS 3 TO 2</textPath></text>
+          <text class="arc-text small"><textPath href="#bj-arc-small" startOffset="50%" text-anchor="middle">DEALER MUST STAND ON 17 · DRAW TO 16</textPath></text>
+        </svg>
+        <div id="bj-seats" class="seats-row"></div>
+      </div>
+      <div id="bj-message" class="message"></div>
+      <div class="controls">
+        <div id="bj-setup">
+          <input id="bj-name-input" class="name-input" maxlength="12" placeholder="Nombre (opcional)">
+          <button class="btn" onclick="Blackjack.addPlayerFromInput()">➕ Añadir jugador</button>
+          <button class="btn primary" onclick="Blackjack.startGame()">¡A jugar! ▶</button>
+          <p class="hint">Hasta 5 jugadores en la mesa (hot-seat). Cada uno empieza con 1.000 fichas.</p>
+        </div>
+        <div id="bj-bet-zone" class="hidden">
+          <div class="turn-label">💰 Apuesta <b id="bj-turn-name"></b></div>
+          <div class="chip-row">
+            <button class="chip chip-5" onclick="Blackjack.addBet(5)">5</button>
+            <button class="chip chip-25" onclick="Blackjack.addBet(25)">25</button>
+            <button class="chip chip-100" onclick="Blackjack.addBet(100)">100</button>
+            <button class="chip chip-500" onclick="Blackjack.addBet(500)">500</button>
+          </div>
+          <div class="current-bet">Apuesta: <span id="bj-bet">0</span></div>
+          <div class="btn-row">
+            <button class="btn primary" onclick="Blackjack.confirmBet()">Listo ✔</button>
+            <button class="btn" onclick="Blackjack.clearBet()">Limpiar</button>
+            <button class="btn" onclick="Blackjack.pass()">Pasar mano</button>
+          </div>
+        </div>
+        <div id="bj-actions" class="hidden">
+          <div class="turn-label">🃏 Juega <b id="bj-turn-name-2"></b></div>
+          <div class="btn-row">
+            <button class="btn primary" onclick="Blackjack.hit()">Pedir carta</button>
+            <button class="btn" onclick="Blackjack.stand()">Plantarse</button>
+            <button class="btn" id="bj-double-btn" onclick="Blackjack.doubleDown()">Doblar</button>
+          </div>
+        </div>
+        <div id="bj-replay" class="hidden">
+          <div class="btn-row">
+            <button class="btn primary" onclick="Blackjack.nextRound()">Nueva mano 🔁</button>
+            <button class="btn" onclick="Blackjack.editPlayers()">✏️ Jugadores</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RULETA -->
+    <section id="screen-roulette" class="screen hidden">
+      <button class="btn-back" onclick="App.goLobby()">← Lobby</button>
+      <h1>🎡 Ruleta Europea</h1>
+      <div class="roulette-top">
+        <div id="roulette-wheel-wrap">
+          <div id="roulette-result" class="roulette-result">?</div>
+        </div>
+        <div class="roulette-side">
+          <div class="chip-row">
+            <span class="bet-label">Ficha:</span>
+            <button class="chip chip-5" onclick="Roulette.setChip(5)">5</button>
+            <button class="chip chip-25" onclick="Roulette.setChip(25)">25</button>
+            <button class="chip chip-100" onclick="Roulette.setChip(100)">100</button>
+            <button class="chip chip-500" onclick="Roulette.setChip(500)">500</button>
+          </div>
+          <div class="current-bet">En juego: <span id="rl-total">0</span></div>
+          <div class="rl-actions">
+            <button class="btn primary" onclick="Roulette.spin()">¡Girar! 🎡</button>
+            <button class="btn" onclick="Roulette.clearBets()">Limpiar</button>
+          </div>
+        </div>
+      </div>
+      <div id="roulette-table"></div>
+      <p class="scroll-hint">↔ Desliza la mesa para ver todas las casillas</p>
+      <div id="rl-message" class="message"></div>
+    </section>
+  </main>
+
+  <!-- Modal recarga de fichas -->
+  <div id="reload-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2>💸 ¡Te has quedado sin fichas!</h2>
+      <p>No pasa nada, aquí las fichas crecen en los árboles.</p>
+      <button class="btn primary" onclick="App.reloadChips()">Recargar 1.000 fichas</button>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/blackjack.js"></script>
+  <script src="js/roulette.js"></script>
+  <script src="js/net.js"></script>
+  <script>App.init(); Net.init();</script>
+</body>
+</html>
