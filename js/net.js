@@ -208,25 +208,47 @@ const Net = {
     const s = this.state;
     if (!s) return;
 
-    // Dealer
-    let dealerHTML = (s.dealer.cards || []).map(c => Blackjack.cardHTML(c)).join('');
-    if (s.dealer.hidden) dealerHTML += '<div class="playing-card face-down"><span class="suit">♠</span></div>';
+    // Dealer (con animación de salida del zapato)
+    if (this._prevDealer === undefined) this._prevDealer = 0;
+    if ((s.dealer.cards || []).length < this._prevDealer) this._prevDealer = 0;
+    let dealerHTML = (s.dealer.cards || []).map((c, i) => {
+      let h = Blackjack.cardHTML(c);
+      if (i >= this._prevDealer) {
+        h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + (1 + i * 0.3).toFixed(2) + 's"');
+      }
+      return h;
+    }).join('');
+    if (s.dealer.hidden) {
+      dealerHTML += '<div class="playing-card face-down fly-in" style="animation-delay:1.6s"><span class="suit">♠</span></div>';
+    }
+    this._prevDealer = (s.dealer.cards || []).length + (s.dealer.hidden ? 1 : 0);
     document.getElementById('net-dealer-hand').innerHTML = dealerHTML;
     document.getElementById('net-dealer-score').textContent =
       s.dealer.value === null ? '' : String(s.dealer.value);
 
-    // Asientos
+    // Asientos (con animación escalonada según el orden de reparto)
+    const prevCounts = this._prevCounts || (this._prevCounts = {});
     let html = '';
-    s.players.forEach(p => {
+    s.players.forEach((p, seat) => {
+      if (p.cardsCount < (prevCounts[p.id] || 0)) prevCounts[p.id] = 0;
+      const before = prevCounts[p.id] || 0;
       const isSelf = p.id === this.playerId;
       const cards = (p.cards && p.cards.length)
-        ? p.cards.map(c => Blackjack.cardHTML(c)).join('')
+        ? p.cards.map((c, idx) => {
+            let h = Blackjack.cardHTML(c);
+            if (idx >= before) {
+              const delay = ((s.players.length - 1 - seat) * 0.22 + idx * 0.28).toFixed(2);
+              h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + delay + 's"');
+            }
+            return h;
+          }).join('')
         : (p.cardsCount > 0
           ? Array(p.cardsCount).fill('<div class="playing-card face-down"><span class="suit">♠</span></div>').join('')
           : '<span class="no-cards">—</span>');
+      prevCounts[p.id] = p.cardsCount;
       const status = isSelf ? ' ⭐' : '';
-      html += '<div class="seat' + (isSelf ? ' active' : '') + '">' +
-        `<div class="p-name">${p.name}${status}</div>` +
+      html += '<div class="seat' + (p.isTurn ? ' active' : '') + '">' +
+        `<div class="p-name">${p.name}${status}${p.isTurn ? ' 🎯' : ''}</div>` +
         `<div class="p-chips">💰 ${p.chips}${p.confirmed && s.phase === 'betting' ? ' ✔' : ''}</div>` +
         `<div class="cards seat-cards">${cards}</div>` +
         (p.value !== null ? `<div class="score">${p.value}</div>` : '') +
@@ -236,15 +258,16 @@ const Net = {
     });
     document.getElementById('net-seats').innerHTML = html;
 
-    // Zonas de control según fase
+    // Zonas de control según fase y turno
     const you = s.players.find(p => p.id === this.playerId);
+    const myTurn = s.turnId === this.playerId;
     this.showZone('lost', false);
     this.showZone('lobby', s.phase === 'lobby');
     this.showZone('bet', s.phase === 'betting' && you && !you.confirmed);
-    this.showZone('play', s.phase === 'playing' && you && you.bet > 0 && !you.played);
+    this.showZone('play', s.phase === 'playing' && myTurn && you && you.bet > 0 && !you.played);
     this.showZone('finished', s.phase === 'finished');
     const waiting = (s.phase === 'betting' && you && you.confirmed) ||
-                    (s.phase === 'playing' && !(you && you.bet > 0 && !you.played));
+                    (s.phase === 'playing' && !myTurn);
     this.showZone('wait', waiting);
 
     if (s.phase === 'betting') {
@@ -253,7 +276,9 @@ const Net = {
       document.getElementById('net-wait-text').textContent =
         `✔ Apuesta confirmada. Esperando al resto (${confirmedCount}/${s.players.length})…`;
     } else if (waiting) {
-      document.getElementById('net-wait-text').textContent = '⏳ Esperando a los demás…';
+      const turnP = s.players.find(p => p.id === s.turnId);
+      document.getElementById('net-wait-text').textContent =
+        turnP ? '⏳ Turno de ' + turnP.name + '…' : '⏳ Repartiendo…';
     }
 
     const dbl = document.getElementById('net-double-btn');

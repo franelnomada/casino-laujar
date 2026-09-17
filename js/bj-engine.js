@@ -56,6 +56,8 @@ class BlackjackRoom {
     this.dealerHand = [];
     this.deck = [];
     this.message = 'Esperando jugadores…';
+    this.turnOrder = []; // ids en orden de turno (derecha → izquierda)
+    this.turnId = null;  // jugador al que le toca
     this.lastActivity = Date.now();
   }
 
@@ -81,6 +83,8 @@ class BlackjackRoom {
     const i = this.players.findIndex(p => p.id === id);
     if (i === -1) return { ok: true };
     this.players.splice(i, 1);
+    if (this.turnOrder) this.turnOrder = this.turnOrder.filter(x => x !== id);
+    if (this.turnId === id) this.advanceTurn();
     if (this.phase === 'betting') this.maybeDeal();
     else if (this.phase === 'playing') this.checkAllPlayed();
     this.touch();
@@ -94,6 +98,8 @@ class BlackjackRoom {
     if (this.players.length === 0) return { ok: false, error: 'No hay jugadores.' };
     if (this.deck.length < 52) this.deck = buildShoe();
     this.dealerHand = [];
+    this.turnOrder = [];
+    this.turnId = null;
     this.phase = 'betting';
     this.players.forEach(p => {
       p.bet = 0; p.hand = []; p.played = false; p.busted = false;
@@ -153,30 +159,60 @@ class BlackjackRoom {
       this.players.forEach(p => { p.confirmed = false; });
       return;
     }
+    // Orden de turnos: de derecha a izquierda (asiento de mayor índice primero)
+    this.turnOrder = this.players
+      .map((p, i) => ({ id: p.id, seat: i, bet: p.bet }))
+      .filter(x => x.bet > 0)
+      .sort((a, b) => b.seat - a.seat)
+      .map(x => x.id);
+
+    // Reparto en orden: una carta por jugador en orden de turno (dos pasadas), dealer al final
     this.players.forEach(p => {
       p.chips -= p.bet;
-      p.hand = p.bet > 0 ? [this.deck.pop(), this.deck.pop()] : [];
+      p.hand = [];
       p.played = p.bet === 0;
     });
+    for (let card = 0; card < 2; card++) {
+      for (const id of this.turnOrder) this.find(id).hand.push(this.deck.pop());
+    }
     this.dealerHand = [this.deck.pop(), this.deck.pop()];
     this.phase = 'playing';
     this.message = '';
+    this.turnId = this.turnOrder[0] || null;
     this.players.forEach(p => {
       if (p.bet > 0 && isBlackjack(p.hand)) p.played = true;
     });
     if (isBlackjack(this.dealerHand)) { this.settle(); return; }
+    // Si el primero tiene blackjack natural, salta su turno; si no, le toca jugar
+    const first = this.find(this.turnId);
+    if (first && first.played) this.advanceTurn();
+  }
+
+  advanceTurn() {
+    const idx = this.turnOrder.indexOf(this.turnId);
+    for (let k = idx + 1; k < this.turnOrder.length; k++) {
+      const p = this.find(this.turnOrder[k]);
+      if (p && !p.played) { this.turnId = p.id; return; }
+    }
+    this.turnId = null;
     this.checkAllPlayed();
   }
 
   hit(id) {
     if (this.phase !== 'playing') return { ok: false, error: 'No es tu momento.' };
     const p = this.find(id);
-    if (!p || p.bet === 0 || p.played) return { ok: false, error: 'No puedes robar ahora.' };
+    if (!p || p.bet === 0) return { ok: false, error: 'No apostaste esta mano.' };
+    if (id !== this.turnId) return { ok: false, error: 'Espera tu turno.' };
+    if (p.played) return { ok: false, error: 'Ya has terminado tu mano.' };
     p.hand.push(this.deck.pop());
     const value = handValue(p.hand);
-    if (value > 21) { p.busted = p.played = true; }
-    else if (value === 21) p.played = true;
-    this.checkAllPlayed();
+    if (value > 21) {
+      p.busted = p.played = true;
+      this.advanceTurn(); // se pasó: siguiente jugador
+    } else if (value === 21) {
+      p.played = true;
+      this.advanceTurn(); // 21: plantado automáticamente
+    }
     this.touch();
     return { ok: true };
   }
@@ -184,9 +220,11 @@ class BlackjackRoom {
   stand(id) {
     if (this.phase !== 'playing') return { ok: false, error: 'No es tu momento.' };
     const p = this.find(id);
-    if (!p || p.bet === 0 || p.played) return { ok: false, error: 'No puedes plantarte ahora.' };
+    if (!p || p.bet === 0) return { ok: false, error: 'No apostaste esta mano.' };
+    if (id !== this.turnId) return { ok: false, error: 'Espera tu turno.' };
+    if (p.played) return { ok: false, error: 'Ya has terminado tu mano.' };
     p.played = true;
-    this.checkAllPlayed();
+    this.advanceTurn();
     this.touch();
     return { ok: true };
   }
@@ -194,8 +232,10 @@ class BlackjackRoom {
   double(id) {
     if (this.phase !== 'playing') return { ok: false, error: 'No es tu momento.' };
     const p = this.find(id);
-    if (!p || p.bet === 0 || p.played || p.hand.length !== 2) {
-      return { ok: false, error: 'Solo puedes doblar con 2 cartas.' };
+    if (!p || p.bet === 0) return { ok: false, error: 'No apostaste esta mano.' };
+    if (id !== this.turnId) return { ok: false, error: 'Espera tu turno.' };
+    if (p.played || p.hand.length !== 2) {
+      return { ok: false, error: 'Solo puedes doblar con 2 cartas en tu turno.' };
     }
     if (p.chips < p.bet) return { ok: false, error: 'No tienes fichas para doblar.' };
     p.chips -= p.bet;
@@ -204,7 +244,7 @@ class BlackjackRoom {
     p.hand.push(this.deck.pop());
     if (handValue(p.hand) > 21) { p.busted = true; }
     p.played = true;
-    this.checkAllPlayed();
+    this.advanceTurn();
     this.touch();
     return { ok: true };
   }
@@ -250,6 +290,7 @@ class BlackjackRoom {
       version: this.version,
       phase: this.phase,
       message: this.message,
+      turnId: this.turnId,
       dealer: {
         cards: finished ? this.dealerHand : this.dealerHand.slice(0, 1),
         hidden: !finished && this.dealerHand.length > 1,
@@ -260,6 +301,7 @@ class BlackjackRoom {
           id: p.id, name: p.name, chips: p.chips, bet: p.bet,
           confirmed: p.confirmed, played: p.played, busted: p.busted, doubled: p.doubled,
           result: p.result,
+          isTurn: p.id === this.turnId,
           cards: p.hand,
           cardsCount: p.hand.length,
           value: p.hand.length ? handValue(p.hand) : null,

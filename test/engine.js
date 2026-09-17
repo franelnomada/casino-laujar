@@ -48,6 +48,10 @@ check('sala: fichas descontadas tras repartir', room.players[0].chips === 900 &&
 check('sala: quien apostó tiene 2 cartas', room.players[0].hand.length === 2 && room.players[1].hand.length === 2);
 check('sala: quien no apostó no recibe cartas', room.players[2].hand.length === 0 && room.players[2].played === true);
 
+// Turnos: de derecha a izquierda, uno a uno
+check('turnos: juega primero el asiento más a la derecha apostado', room.turnId === 'player-b');
+check('turnos: fuera de turno se rechaza', room.hit(A).ok === false && room.turnId === 'player-b');
+
 // Visibilidad: las cartas de todos los jugadores son públicas (como en una mesa real)
 const viewA = room.stateFor(A);
 const viewB = room.stateFor(B);
@@ -57,9 +61,10 @@ check('privacidad dealer: la segunda carta sigue oculta',
   viewA.dealer.cards.length === 1 && viewA.dealer.hidden === true);
 check('privacidad dealer: valor parcial (X+)', /[0-9]+\+/.test(String(viewA.dealer.value)));
 
-// Juego: B se planta, A roba y se planta
+// Juego: B (derecha) se planta, luego A roba y se planta
 room.stand(B);
 check('sala: plantarse marca played', room.players[1].played === true);
+check('turnos: el turno pasa hacia la izquierda', room.turnId === 'player-a');
 room.hit(A);
 const after = room.players[0];
 if (handValue(after.hand) > 21) {

@@ -302,6 +302,35 @@ body { overscroll-behavior-y: contain; }
 .share-row { text-align: center; margin-bottom: 14px; }
 .lost-text { font-size: 1.05rem; color: #f0b8b8; margin-bottom: 10px; max-width: 480px; }
 
+/* ==== Zapato de cartas (shoe) ==== */
+.shoe {
+  position: absolute; top: 16px; right: 26px;
+  width: 60px; height: 84px; z-index: 5;
+  background: linear-gradient(160deg, #3e2723, #1f1310);
+  border: 2px solid var(--gold); border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0,0,0,.55);
+  transform: rotate(14deg);
+}
+.shoe i {
+  display: block; height: 16px; margin: 7px 6px 0;
+  background: linear-gradient(#fdfdfd, #cfc8bd);
+  border-radius: 4px; box-shadow: 0 2px 3px rgba(0,0,0,.45);
+}
+
+/* ==== Reparto animado: la carta vuela desde el zapato ==== */
+@keyframes fly-in {
+  0%   { transform: translate(300px, -220px) rotate(35deg) scale(.5); opacity: 0; }
+  55%  { opacity: 1; }
+  75%  { transform: translateY(4px) rotate(-2deg) scale(1.02); }
+  100% { transform: none; opacity: 1; }
+}
+.playing-card.fly-in {
+  animation: fly-in .5s cubic-bezier(.25,.8,.3,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .playing-card.fly-in { animation: none; }
+}
+
 /* ==== Welcome page ==== */
 body.at-welcome #topbar { display: none; }
 #screen-welcome {

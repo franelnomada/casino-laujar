@@ -78,7 +78,9 @@ const Blackjack = {
       return;
     }
     this.phase = 'betting';
-    this.current = 0;
+    this.current = Math.max(0, this.players.length - 1); // el asiento más a la derecha apuesta primero
+    this._prevCounts = {};
+    this._prevDealer = 0;
     this.setControls('bet-zone');
     this.renderSeats();
     this.updateTurnLabels();
@@ -128,8 +130,8 @@ const Blackjack = {
     const p = this.players[this.current];
     if (p.bet <= 0) { this.message('Coloca una apuesta en tu círculo.'); return; }
     p.played = false;
-    this.current++;
-    if (this.current >= this.players.length) {
+    this.current--; // hacia la izquierda
+    if (this.current < 0) {
       this.dealInitial();
     } else {
       this.updateTurnLabels();
@@ -142,26 +144,39 @@ const Blackjack = {
     const p = this.players[this.current];
     p.bet = 0;
     p.played = true;   // no juega esta mano
-    this.current++;
-    if (this.current >= this.players.length) this.dealInitial();
+    this.current--; // hacia la izquierda
+    if (this.current < 0) this.dealInitial();
     else { this.updateTurnLabels(); this.renderSeats(); }
   },
 
-  firstActive() {
-    return this.players.findIndex(p => p.bet > 0);
+  lastActive() {
+    for (let i = this.players.length - 1; i >= 0; i--) {
+      if (this.players[i].bet > 0) return i;
+    }
+    return 0;
   },
 
   dealInitial() {
     this.buildDeck();
+    this._prevCounts = {};
+    this._prevDealer = 0;
+    // Reparto en orden: una carta por jugador de derecha a izquierda, dos pasadas, dealer al final
+    const bettors = [];
+    for (let i = this.players.length - 1; i >= 0; i--) {
+      if (this.players[i].bet > 0) bettors.push(this.players[i]);
+    }
     this.players.forEach(p => {
-      p.hand = p.bet > 0 ? [this.draw(), this.draw()] : [];
+      p.hand = [];
       p.played = p.bet === 0;
       p.result = '';
       p.doubled = false;
       p.busted = false;
     });
+    for (let card = 0; card < 2; card++) {
+      for (const p of bettors) p.hand.push(this.draw());
+    }
     this.dealerHand = [this.draw(), this.draw()];
-    this.current = this.firstActive();
+    this.current = this.lastActive();
     this.phase = 'playing';
     this.renderAll();
     this.updateTurnLabels();
@@ -222,15 +237,15 @@ const Blackjack = {
   finishPlayerTurn() {
     const p = this.players[this.current];
     if (p && p.bet > 0 && p.result !== '💥' && !p.played) p.played = true;
-    // Siguiente jugador activo
+    // Siguiente jugador activo hacia la izquierda
     do {
-      this.current++;
-      if (this.current >= this.players.length) break;
+      this.current--;
+      if (this.current < 0) break;
       var next = this.players[this.current];
       if (next.bet > 0 && !next.played) break;
     } while (true);
 
-    if (this.current >= this.players.length) {
+    if (this.current < 0) {
       this.dealerPlay();
     } else {
       this.renderSeats();
@@ -296,8 +311,6 @@ const Blackjack = {
     this.updateTurnLabels();
     this.message('');
   },
-
-  // ---------- Renderizado ----------
   cardHTML(card, faceDown = false) {
     if (faceDown) return '<div class="playing-card face-down"><span class="suit">♠</span></div>';
     const red = card.suit === '♥' || card.suit === '♦';
@@ -314,8 +327,17 @@ const Blackjack = {
 
   renderDealer() {
     const hide = this.phase === 'playing';
-    document.getElementById('bj-dealer-hand').innerHTML =
-      this.dealerHand.map((c, i) => this.cardHTML(c, hide && i === 1)).join('');
+    if (this._prevDealer === undefined) this._prevDealer = 0;
+    if (this.dealerHand.length < this._prevDealer) this._prevDealer = 0;
+    const html = this.dealerHand.map((c, i) => {
+      let h = this.cardHTML(c, hide && i === 1);
+      if (i >= this._prevDealer) {
+        h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + (1 + i * 0.3).toFixed(2) + 's"');
+      }
+      return h;
+    }).join('');
+    this._prevDealer = this.dealerHand.length;
+    document.getElementById('bj-dealer-hand').innerHTML = html;
     document.getElementById('bj-dealer-score').textContent =
       this.dealerHand.length === 0 ? '' : (hide ? '?' : String(this.handValue(this.dealerHand)));
   },
@@ -323,16 +345,27 @@ const Blackjack = {
   renderSeats() {
     const wrap = document.getElementById('bj-seats');
     const n = Math.max(this.players.length, this.phase === 'setup' ? this.MAX_SEATS : this.players.length);
+    if (!this._prevCounts) this._prevCounts = {};
     let html = '';
     this.players.forEach((p, i) => {
+      if (p.hand.length < (this._prevCounts[i] || 0)) this._prevCounts[i] = 0;
+      const before = this._prevCounts[i] || 0;
       const off = Math.abs(i - (n - 1) / 2);
       const ty = Math.round(off * off * 9);
       const rot = ((i - (n - 1) / 2) * 3).toFixed(1);
       const isActive = (this.phase === 'betting' || this.phase === 'playing') && i === this.current;
       const showRemove = this.phase === 'setup' && this.players.length > 1;
       const cards = p.hand.length
-        ? p.hand.map(c => this.cardHTML(c)).join('')
+        ? p.hand.map((c, idx) => {
+            let h = this.cardHTML(c);
+            if (idx >= before && this.phase !== 'setup') {
+              const delay = ((this.players.length - 1 - i) * 0.22 + idx * 0.28).toFixed(2);
+              h = h.replace('class="playing-card', 'class="playing-card fly-in" style="animation-delay:' + delay + 's"');
+            }
+            return h;
+          }).join('')
         : '<span class="no-cards">—</span>';
+      this._prevCounts[i] = p.hand.length;
       html += `<div class="seat${isActive ? ' active' : ''}" style="transform:translateY(${ty}px) rotate(${rot}deg)">` +
         (showRemove ? `<button class="seat-x" title="Quitar" onclick="Blackjack.removePlayer(${i})">✕</button>` : '') +
         `<div class="p-name">${p.name}</div>` +

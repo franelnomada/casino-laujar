@@ -60,10 +60,22 @@ check('api: al confirmar todos se reparte', dealt.data.phase === 'playing');
 check('api: las cartas de todos son visibles',
   dealt.data.players[1].cards.length === 2 && dealt.data.players[0].cards.length === 2);
 
-// Acciones de juego hasta resolver
-await post(`/api/rooms/${code}/action`, { playerId: A, type: 'stand' });
-const finished = await post(`/api/rooms/${code}/action`, { playerId: B, type: 'stand' });
-check('api: ronda terminada', finished.data.phase === 'finished');
+// Acciones de juego respetando turnos (derecha → izquierda)
+check('api: el servidor designa el turno', [A, B].includes(dealt.data.turnId));
+if (dealt.data.turnId === B) {
+  const outOfTurn = await post(`/api/rooms/${code}/action`, { playerId: A, type: 'stand' });
+  check('api: fuera de turno se rechaza', outOfTurn.status === 400);
+}
+let finished = null;
+let turn = dealt.data.turnId;
+for (let guard = 0; guard < 4 && !finished; guard++) {
+  const r = await post(`/api/rooms/${code}/action`, { playerId: turn, type: 'stand' });
+  if (r.status === 200 && r.data.phase === 'finished') { finished = r; break; }
+  const st = await get(`/api/rooms/${code}/state?player=${A}&v=0`);
+  if (st.data.phase === 'finished') { finished = { data: st.data }; break; }
+  turn = (turn === A) ? B : A;
+}
+check('api: ronda terminada', finished && finished.data.phase === 'finished');
 
 const a = finished.data.players.find(p => p.id === A);
 const b = finished.data.players.find(p => p.id === B);

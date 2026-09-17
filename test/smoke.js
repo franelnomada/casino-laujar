@@ -66,31 +66,38 @@ Blackjack.players = [
   { name: 'Bob', chips: 1000, bet: 0, hand: [], result: '', played: false, busted: false, doubled: false },
 ];
 Blackjack.startGame();
-check('BJ: fase de apuestas con 2 jugadores', Blackjack.phase === 'betting' && Blackjack.current === 0);
+check('BJ: apuestas empezando por el asiento más a la derecha', Blackjack.phase === 'betting' && Blackjack.current === 1);
+Blackjack.addBet(50);
+check('BJ: Bob (derecha) apuesta 50 primero', Blackjack.players[1].bet === 50 && Blackjack.players[1].chips === 950);
+Blackjack.confirmBet();
+check('BJ: el turno pasa a Ana hacia la izquierda', Blackjack.current === 0);
 Blackjack.addBet(50);
 check('BJ: Ana apuesta 50', Blackjack.players[0].bet === 50 && Blackjack.players[0].chips === 950);
 Blackjack.confirmBet();
-check('BJ: turno pasa a Bob', Blackjack.current === 1);
-Blackjack.pass();
-check('BJ: al confirmar todos se reparte', Blackjack.dealerHand.length === 2 && Blackjack.players[0].hand.length === 2);
-check('BJ: quien pasa no recibe cartas', Blackjack.players[1].hand.length === 0);
+check('BJ: al confirmar todos se reparte', Blackjack.dealerHand.length === 2 && Blackjack.players[0].hand.length === 2 && Blackjack.players[1].hand.length === 2);
+check('BJ: primera mano para el asiento derecho', Blackjack.current === 1);
 
 // Normalizamos el estado tras el reparto aleatorio (evita BJ natural de la suerte)
 Blackjack.phase = 'playing';
 Blackjack.current = 0;
 Blackjack.players[0].chips = 950;
+Blackjack.players[1].chips = 950;
 Blackjack.players[0].result = '';
+Blackjack.players[1].result = '';
 Blackjack.players[0].busted = false;
+Blackjack.players[1].busted = false;
 Blackjack.players[0].played = false;
+Blackjack.players[1].played = false;
 
-// Ronda determinista: Ana 20 gana al dealer 19
+// Ronda determinista: Ana 20 gana al dealer 19; Bob 19 empata
 Blackjack.players[0].hand = [{ rank: '10', suit: '♠' }, { rank: 'Q', suit: '♥' }];
+Blackjack.players[1].hand = [{ rank: '10', suit: '♦' }, { rank: '9', suit: '♣' }];
 Blackjack.dealerHand = [{ rank: '10', suit: '♦' }, { rank: '9', suit: '♣' }];
 Blackjack.current = 0;
 Blackjack.stand();
 check('BJ: ronda liquidada tras plantarse', Blackjack.phase === 'finished');
 check('BJ: Ana gana +50 (cobra el doble)', Blackjack.players[0].chips === 1050 && Blackjack.players[0].result.includes('🏆'));
-check('BJ: Bob, que pasó, mantiene fichas', Blackjack.players[1].chips === 1000 && Blackjack.players[1].result === '🪑');
+check('BJ: Bob empata con 19 y recupera apuesta', Blackjack.players[1].chips === 1000 && Blackjack.players[1].result.includes('🤝'));
 
 // Blackjack natural paga 3:2 con dos jugadores en mesa
 Blackjack.nextRound();
@@ -107,6 +114,8 @@ ana.played = false; bob.played = false;
 ana.busted = false; bob.busted = false;
 Blackjack.phase = 'playing';
 Blackjack.current = 1;
+Blackjack.stand();
+check('BJ: tras Bob le toca a Ana (hacia la izquierda)', Blackjack.current === 0 && Blackjack.phase === 'playing');
 Blackjack.stand();
 check('BJ: Ana cobra blackjack 3:2 (950+125 = 1075)', ana.chips === 1075 && ana.result.includes('🎉'));
 check('BJ: Bob empata con 19 y recupera apuesta', bob.chips === 1000 && bob.result.includes('🤝'));
