@@ -67,6 +67,8 @@ async function main() {
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
       const overlap=await js(`(()=>{const r=[...document.querySelectorAll('.pk-seat')].map(n=>n.getBoundingClientRect());return r.some((a,i)=>r.some((b,j)=>j>i&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom));})()`);
       assert.equal(overlap,false,'Asientos superpuestos a '+width+' '+JSON.stringify(await js(`[...document.querySelectorAll('.pk-seat')].map(n=>({class:n.className,x:n.offsetLeft,y:n.offsetTop,w:n.offsetWidth,h:n.offsetHeight}))`)));
+      const covers=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();return [...document.querySelectorAll('.pk-seat')].some(n=>{const b=n.getBoundingClientRect();return b.left<c.right&&c.left<b.right&&b.top<c.bottom&&c.top<b.bottom;});})()`);
+      assert.equal(covers,false,'Los controles tapan asientos a '+width);
     }
     assert.deepEqual(errors,[]);
     await js('Poker.reset()');

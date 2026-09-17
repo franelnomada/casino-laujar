@@ -431,9 +431,12 @@ body.at-welcome #topbar { display: none; }
 .pk-hole .playing-card { width: 44px; height: 64px; padding: 3px; font-size: .9rem; }
 .pk-hole .playing-card .suit { font-size: 1.15rem; }
 .pk-card { will-change: transform; animation: none; }
-.pk-controls { position: sticky; bottom: 0; z-index: 10; background: #121d29f5; border: 1px solid #d4af3740; border-radius: 16px; padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-#pk-status { margin-bottom: 8px; }
-#pk-amount { width: 120px; min-height: 46px; }
+/* Barra de acciones debajo de la mesa: nunca flota encima de los asientos. */
+.pk-controls { display: flex; flex-direction: column; gap: 6px; background: #121d29f5; border: 1px solid #d4af3740; border-radius: 16px; padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); margin-top: 12px; }
+.pk-controls .btn-row { flex-wrap: wrap; gap: 8px; align-items: center; }
+.pk-controls summary { cursor: pointer; opacity: .65; font-size: .78rem; }
+#pk-status { margin-bottom: 0; }
+#pk-amount { width: 110px; min-height: 46px; }
 @media (max-width: 1000px) {
   .poker-table { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-width: 6px; border-radius: 70px; padding: 14px 6px 24px; gap: 18px 8px; }
   .pk-seat { width: min(140px, 100%); padding: 5px 2px; }
@@ -449,6 +452,11 @@ body.at-welcome #topbar { display: none; }
   .pk-board .playing-card { width: 39px; height: 59px; font-size: .85rem; }
   .pk-board .playing-card .suit { font-size: 1rem; }
   .pk-brand { font-size: .9rem; letter-spacing: 2px; }
-  .pk-controls .hint { font-size: .72rem; margin-top: 6px; }
+  .pk-controls .hint { font-size: .72rem; }
+  .pk-controls { padding: 8px; gap: 5px; }
+  .pk-seat { padding: 4px 2px; }
+  .pk-hole { min-height: 54px; gap: 3px; }
+  .pk-hole .playing-card { width: 38px; height: 55px; font-size: .8rem; }
+  .poker-table { gap: 14px 6px; padding: 10px 4px 18px; }
   .poker-meta { font-size: .85rem; gap: 6px 12px; }
 }
