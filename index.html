@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Casino Night">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Casino Night 🎰</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand" onclick="App.goLobby()">🎰 <span>Casino Night</span></div>
+    <div class="topbar-right">
+      <div class="chips-display" title="Tus fichas">💰 <span id="chips-amount">0</span> fichas</div>
+      <button id="auth-topbar" class="auth-topbar" onclick="Auth.openPanel()" title="Entrar o crear cuenta">👤 Invitado</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- WELCOME -->
+    <section id="screen-welcome" class="screen">
+      <div class="welcome-box">
+        <img src="assets/logo.png" alt="Casino Laujar" class="welcome-logo">
+        <h1 class="welcome-title">Bienvenido al casino de los ludópatas de Laujar de Andarax</h1>
+        <p class="welcome-sub">Hagan sus apuestas 🎲</p>
+        <button class="btn primary welcome-enter" onclick="App.show('lobby')">Entrar al casino 🎰</button>
+
+        <!-- Cuenta de jugador (opcional: como invitado también se juega) -->
+        <div class="auth-card">
+          <div id="auth-guest-block">
+            <div class="auth-tabs">
+              <button id="auth-tab-login" class="auth-tab active" type="button" onclick="Auth.showForm('login')">Entrar</button>
+              <button id="auth-tab-register" class="auth-tab" type="button" onclick="Auth.showForm('register')">Crear cuenta</button>
+            </div>
+            <form id="auth-form" autocomplete="on">
+              <input id="auth-name" class="name-input" maxlength="14" placeholder="Tu nombre" autocomplete="username" required>
+              <input id="auth-password" class="name-input" type="password" maxlength="64" placeholder="Contraseña" autocomplete="current-password" required>
+              <input id="auth-password2" class="name-input hidden" type="password" maxlength="64" placeholder="Repite la contraseña" autocomplete="new-password">
+              <button id="auth-submit" class="btn primary" type="submit">Entrar</button>
+            </form>
+            <p class="hint">Opcional: guarda tu nombre y tus fichas virtuales para volver con el mismo saldo.</p>
+          </div>
+          <div id="auth-user-block" class="hidden">
+            <p>👤 Hola, <b id="auth-user-name"></b></p>
+            <p class="hint">Tu nombre y tus fichas quedan guardados en tu cuenta.</p>
+            <button class="btn" type="button" onclick="Auth.logout()">Cerrar sesión</button>
+          </div>
+          <p id="auth-message" class="auth-message" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOBBY -->
+    <section id="screen-lobby" class="screen hidden">
+      <h1>Bienvenido al Casino</h1>
+      <p class="subtitle">Elige tu mesa, jugador. Las fichas son virtuales… la vergüenza es real.</p>
+      <div class="lobby-grid">
+        <div class="game-card" onclick="Net.quickStart('blackjack')">
+          <div class="game-card-icon">🃏</div>
+          <h2>Blackjack</h2>
+          <p>Llega a 21 sin pasarte. El dealer juega a 17. Blackjack paga 3:2.</p>
+        </div>
+        <div class="game-card" onclick="Net.quickStart('roulette')">
+          <div class="game-card-icon">🎡</div>
+          <h2>Ruleta Europea</h2>
+          <p>Plenos, colores, pares, docenas… 36 números y un solo cero.</p>
+        </div>
+        <div class="game-card" onclick="Net.quickStart('poker')">
+          <div class="game-card-icon">♠️</div>
+          <h2>Póker online</h2>
+          <p>Texas Hold’em sin límite · 2–6 jugadores · Ciegas progresivas.</p>
+        </div>
+      </div>
+
+      <h2 class="lobby-sub">🏆 Los más ricos del casino</h2>
+      <div class="net-box rank-box">
+        <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
+        <ol id="rank-list" class="rank-list"></ol>
+        <button class="btn" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
+      </div>
+
+      <h2 class="lobby-sub">📱 Multijugador online</h2>
+      <div class="net-box">
+        <div class="net-row">
+          <input id="net-name" class="name-input" maxlength="12" placeholder="Tu nombre">
+          <button id="net-resume" class="btn hidden" onclick="Net.resume()">↩ Volver</button>
+        </div>
+        <div class="net-row">
+          <button class="btn primary" onclick="Net.openCreate()">🎰 Crear mesa</button>
+          <span class="net-or">— o —</span>
+          <input id="net-code" class="name-input code-input" maxlength="4" placeholder="CÓDIGO">
+          <button class="btn" onclick="Net.joinRoom()">Unirse</button>
+        </div>
+        <div id="net-create-options" class="hidden">
+          <label for="net-game">¿Qué juego quieres abrir?</label>
+          <select id="net-game" class="name-input" onchange="Net.gameChanged()">
+            <option value="blackjack">Blackjack</option><option value="roulette">Ruleta</option><option value="poker">Póker Texas Hold’em</option>
+          </select>
+          <div id="net-poker-options" class="hidden">
+            <label for="net-blind-minutes">Duplicar ciegas cada</label>
+            <select id="net-blind-minutes" class="name-input">
+              <option value="5">5 minutos</option><option value="10" selected>10 minutos</option>
+              <option value="15">15 minutos</option><option value="20">20 minutos</option>
+            </select>
+            <p class="hint">Juegas con tus fichas disponibles · Ciegas 10/20 · Subidas entre manos · 45 s por turno.</p>
+          </div>
+          <button class="btn primary" onclick="Net.createRoom()">Abrir mesa</button>
+        </div>
+        <p id="net-lobby-message" role="status"></p>
+      </div>
+
+      <h2 class="lobby-sub">🔓 Salas abiertas</h2>
+      <div class="net-box open-rooms-box">
+        <div class="net-row">
+          <p id="open-rooms-status" class="hint" role="status" style="flex:1;margin:0">Buscando salas abiertas…</p>
+          <button class="btn" type="button" onclick="Net.loadOpenRooms(true)">🔄 Actualizar</button>
+        </div>
+        <div id="open-rooms-list" class="open-rooms"></div>
+      </div>
+    </section>
+
+    <!-- SALA ONLINE -->
+    <section id="screen-room" class="screen hidden">
+      <button class="btn-back" onclick="Net.leave()">← Salir</button>
+      <h1>🎲 Sala <span id="net-room-code" class="gold-code"></span></h1>
+      <p class="subtitle">Comparte el código o el enlace para que los colegas se unan desde su móvil.</p>
+      <div class="share-row">
+        <button class="btn" onclick="Net.copyLink()">🔗 Copiar enlace de invitación</button>
+      </div>
+      <div id="net-blackjack-table" class="bj-table net-table">
+        <div class="shoe" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="dealer-area">
+          <div class="dealer-label">DEALER <span id="net-dealer-score" class="score"></span></div>
+          <div id="net-dealer-hand" class="cards dealer-cards"></div>
+        </div>
+        <div id="net-seats" class="seats-row"></div>
+      </div>
+      <div id="net-roulette" class="hidden net-roulette">
+        <div class="roulette-online-wrap">
+          <div class="roulette-result-block">
+            <div id="net-roulette-result" class="roulette-result">?</div>
+            <p class="roulette-number-label">Último número</p>
+          </div>
+          <div id="net-roulette-table" class="roulette-table"></div>
+        </div>
+        <div class="roulette-side">
+          <div class="chip-row">
+            <span class="bet-label">Ficha:</span>
+            <button class="chip chip-5" onclick="Net.rlSetChip(5)">5</button>
+            <button class="chip chip-25" onclick="Net.rlSetChip(25)">25</button>
+            <button class="chip chip-100" onclick="Net.rlSetChip(100)">100</button>
+            <button class="chip chip-500" onclick="Net.rlSetChip(500)">500</button>
+          </div>
+          <div class="current-bet">En juego: <span id="net-rl-total">0</span> · Tus fichas: <span id="net-rl-chips">0</span></div>
+          <div class="rl-actions">
+            <button class="btn primary" onclick="Net.action('spin')">¡Girar! 🎡</button>
+            <button class="btn" onclick="Net.action('clearBet')">Limpiar</button>
+          </div>
+        </div>
+        <div id="net-rl-players" class="seats-row"></div>
+        <p id="net-rl-message" class="message" role="status"></p>
+      </div>
+      <div id="net-poker" class="hidden">
+        <div class="poker-meta"><b>♠ Texas Hold’em</b><span id="pk-blinds"></span><span id="pk-clock"></span></div>
+        <div id="pk-table" class="poker-table">
+          <div class="pk-dealer">CRUPIER <div id="pk-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
+          <div class="pk-center">
+            <div class="pk-brand">CASINO LAUJAR</div>
+            <div id="pk-pot" class="pk-pot"></div>
+            <div id="pk-board" class="cards pk-board"></div>
+            <div id="pk-phase"></div>
+            <div id="pk-private-hand" class="pk-private-hand" role="status" aria-live="polite"></div>
+          </div>
+          <div id="pk-seats" class="pk-seats"></div>
+        </div>
+        <div class="controls pk-controls">
+          <p id="pk-status" role="status"></p>
+          <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
+          <div id="pk-actions" class="hidden">
+            <div class="btn-row">
+              <button id="pk-fold" class="btn" onclick="Poker.act('fold')">Retirarse</button>
+              <button id="pk-call" class="btn primary" onclick="Poker.call()">Pasar</button>
+              <button id="pk-allin" class="btn" onclick="Poker.act('allIn')">All-in</button>
+              <label for="pk-amount">Hasta</label>
+              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1">
+              <button id="pk-raise" class="btn" onclick="Poker.raise()">Subir</button>
+            </div>
+          </div>
+          <details class="hint"><summary>Ciegas, turnos y límite de tiempo</summary>D = botón dealer · SB = ciega pequeña · BB = ciega grande. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis, o retirarse.</details>
+          <p id="pk-results" class="message"></p>
+        </div>
+      </div>
+      <div id="net-message" class="message" role="status"></div>
+      <div id="net-blackjack-controls" class="controls">
+        <div id="net-zone-lobby" class="hidden">
+          <button class="btn primary" onclick="Net.action('start')">Abrir ronda de apuestas ▶</button>
+        </div>
+        <div id="net-zone-bet" class="hidden">
+          <div class="chip-row">
+            <button class="chip chip-5" onclick="Net.action('bet', 5)">5</button>
+            <button class="chip chip-25" onclick="Net.action('bet', 25)">25</button>
+            <button class="chip chip-100" onclick="Net.action('bet', 100)">100</button>
+            <button class="chip chip-500" onclick="Net.action('bet', 500)">500</button>
+          </div>
+          <div class="current-bet">Apuesta: <span id="net-bet">0</span></div>
+          <div class="btn-row">
+            <button class="btn primary" onclick="Net.action('confirm')">Listo ✔</button>
+            <button class="btn" onclick="Net.action('clearBet')">Limpiar</button>
+          </div>
+        </div>
+        <div id="net-zone-play" class="hidden">
+          <div id="net-hand-label" class="turn-label" aria-live="polite"></div>
+          <p class="hint">Reglas de esta mesa: vuelve a dividir parejas del mismo rango hasta 4 manos, con saldo para otra apuesta igual. Ases: una sola división y una carta por mano. Un 21 dividido paga 1:1.</p>
+          <div class="btn-row">
+            <button class="btn primary" onclick="Net.action('hit')">Pedir carta</button>
+            <button class="btn" onclick="Net.action('stand')">Plantarse</button>
+            <button class="btn" id="net-split-btn" onclick="Net.action('split')" disabled>Dividir</button>
+            <button class="btn" id="net-double-btn" onclick="Net.action('double')">Doblar</button>
+          </div>
+        </div>
+        <div id="net-zone-finished" class="hidden">
+          <button class="btn primary" onclick="Net.action('start')">Nueva ronda 🔁</button>
+        </div>
+        <div id="net-zone-wait" class="hidden">
+          <p class="waiting" id="net-wait-text">⏳ Esperando…</p>
+        </div>
+        <div id="net-zone-lost" class="hidden">
+          <p class="lost-text">💔 Se ha perdido la conexión con la sala (el servidor se ha reiniciado).</p>
+          <div class="btn-row">
+            <button class="btn" onclick="Net.retry()">🔄 Reintentar</button>
+            <button class="btn primary" onclick="Net.leave()">🏠 Volver al lobby</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal recarga de fichas -->
+  <div id="reload-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2>💸 ¡Te has quedado sin fichas!</h2>
+      <p>No pasa nada, aquí las fichas crecen en los árboles.</p>
+      <button class="btn primary" onclick="App.reloadChips()">Recargar 1.000 fichas</button>
+    </div>
+  </div>
+
+  <!-- Modal de cuenta -->
+  <div id="account-modal" class="modal hidden">
+    <div class="modal-box account-box">
+      <h2>👤 Mi cuenta</h2>
+      <div id="account-guest">
+        <p>Crea una cuenta para guardar tu nombre y tus fichas virtuales, y recuperarlas desde cualquier móvil.</p>
+        <button class="btn primary" onclick="Auth.openWelcome()">Entrar o crear cuenta</button>
+      </div>
+      <div id="account-user" class="hidden">
+        <p>Hola, <b id="account-name"></b></p>
+        <p class="hint">Fichas en tu cuenta: <b id="account-chips">0</b></p>
+        <button class="btn" onclick="Auth.logout(); Auth.closePanel()">Cerrar sesión</button>
+      </div>
+      <button class="btn" onclick="Auth.closePanel()">Cerrar</button>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/split-hands.js"></script>
+  <script src="js/blackjack.js"></script>
+  <script src="js/poker.js"></script>
+  <script src="js/net.js"></script>
+  <script>App.init(); Net.init(); Auth.init();</script>
+</body>
+</html>

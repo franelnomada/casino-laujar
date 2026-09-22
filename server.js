@@ -1,0 +1,320 @@
+// ============================================================
+//  Casino Night — servidor (estático + API de salas)
+//  Sin dependencias. Uso:  node server.js
+// ============================================================
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { BlackjackRoom, genCode, randomId } = require('./js/bj-engine.js');
+const { PokerRoom } = require('./js/poker-engine.js');
+const { RouletteRoom } = require('./js/roulette-engine.js');
+const { UserStore } = require('./js/users.js');
+const { FirebaseRest } = require('./js/firebase-rest.js');
+const { RoomReplica } = require('./js/rooms-remote.js');
+
+
+const ROOT = __dirname;
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
+const IDLE_MS = 2 * 60 * 60 * 1000; // 2 h sin actividad → la sala se borra
+
+const rooms = new Map(); // code -> BlackjackRoom | PokerRoom | RouletteRoom
+
+// ---- Cuentas de jugador: registro, sesiones y fichas ----
+// USERS_FILE (o DATA_DIR) permite mover el fichero de cuentas fuera del temporal.
+const USERS_PATH = process.env.USERS_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-users.json');
+const userStore = new UserStore(USERS_PATH);
+
+// ---- Persistencia de salas: disco local + réplica opcional en Firebase ----
+// La copia local (JSON) sobrevive a reinicios del proceso en la misma
+// instancia. La réplica remota (RoomReplica) sobrevive además a los
+// redespliegues de Render: se activa con las mismas variables que las
+// cuentas (FIREBASE_DB_URL + FIREBASE_DB_SECRET o FIREBASE_SERVICE_ACCOUNT)
+// y vive en el nodo FIREBASE_ROOMS_PATH (por defecto casino-laujar/rooms).
+const PERSIST_PATH = process.env.ROOMS_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-rooms.json');
+
+const roomsReplica = new RoomReplica({
+  config: FirebaseRest.configFromEnv(process.env, 'FIREBASE_ROOMS_PATH', 'casino-laujar/rooms'),
+  persistPath: PERSIST_PATH,
+  rooms,
+  restoreRoom(code, data) {
+    if (!data || typeof data !== 'object' || !Array.isArray(data.players)) return false;
+    try {
+      let room;
+      if (data.game === 'poker') room = new PokerRoom(code);
+      else if (data.game === 'roulette') room = new RouletteRoom(code);
+      else room = new BlackjackRoom(code);
+      Object.assign(room, data);
+      rooms.set(code, room);
+      return true;
+    } catch (e) { return false; }
+  },
+});
+roomsReplica.init();
+
+// Guardar la sala cada vez que cambie su estado
+for (const Room of [BlackjackRoom, PokerRoom, RouletteRoom]) {
+  const touch = Room.prototype.touch;
+  Room.prototype.touch = function () { touch.call(this); roomsReplica.touch(); };
+}
+setInterval(() => {
+  for (const room of rooms.values()) if (room.game === 'poker') room.tick();
+}, 1000).unref();
+
+function json(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(obj));
+}
+
+const MAX_BODY = 64 * 1024; // 64 KB: sobra para nombres, fichas y acciones
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let data = '';
+    let overflow = false;
+    req.on('data', (chunk) => {
+      if (overflow) return;
+      data += chunk;
+      if (data.length > MAX_BODY) { overflow = true; data = ''; } // cuerpo abusivo: se ignora
+    });
+    req.on('end', () => {
+      try { resolve(JSON.parse(data || '{}')); } catch (e) { resolve({}); }
+    });
+  });
+}
+
+function gcRooms() {
+  const now = Date.now();
+  let deleted = 0;
+  for (const [code, room] of rooms) {
+    const active = room.players.filter(p => !p.left).length;
+    if (active === 0 || now - room.lastActivity > IDLE_MS) { rooms.delete(code); deleted++; }
+  }
+  if (deleted) roomsReplica.touch(); // sincroniza también la copia local/remota
+}
+setInterval(gcRooms, 10 * 60 * 1000).unref();
+
+function roomByPath(pathname) {
+  const m = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})/);
+  if (!m) return null;
+  const code = m[1].toUpperCase();
+  return { code, room: rooms.get(code) || null };
+}
+
+// Token de sesión: cabecera Authorization, cuerpo o query
+function tokenFrom(req, body, query) {
+  const header = req.headers.authorization || '';
+  const bearer = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  return (body && body.token) || bearer || query.get('token') || '';
+}
+
+// Cuentas de jugador: /api/auth/...
+async function handleAuth(req, res, pathname, query) {
+  const body = req.method === 'POST' ? await readBody(req) : {};
+  const token = tokenFrom(req, body, query);
+
+  if (req.method === 'POST' && pathname === '/api/auth/register') {
+    const result = userStore.register(body.name, body.password, body.chips);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, token: result.token, user: result.user });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/auth/login') {
+    const result = userStore.login(body.name, body.password);
+    if (!result.ok) return json(res, result.status || 401, { error: result.error });
+    return json(res, 200, { ok: true, token: result.token, user: result.user });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/auth/logout') {
+    userStore.logout(token);
+    return json(res, 200, { ok: true });
+  }
+
+  if ((req.method === 'GET' || req.method === 'POST') && pathname === '/api/auth/me') {
+    const user = userStore.userByToken(token);
+    if (!user) return json(res, 401, { error: 'Sesión no válida. Vuelve a entrar.' });
+    return json(res, 200, { ok: true, user });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/auth/chips') {
+    const result = userStore.setChips(token, body.chips);
+    if (!result.ok) return json(res, result.status || 401, { error: result.error });
+    return json(res, 200, { ok: true, user: result.user });
+  }
+
+  // Ranking público: no pide sesión, solo devuelve nombre + fichas
+  if (req.method === 'GET' && pathname === '/api/auth/leaderboard') {
+    return json(res, 200, { ok: true, players: userStore.leaderboard(query.get('limit')) });
+  }
+
+  return json(res, 404, { error: 'Ruta de cuentas desconocida.' });
+}
+
+async function handleApi(req, res, pathname, query) {
+  // Cuentas de jugador
+  if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname, query);
+
+  // Crear sala
+  if (req.method === 'POST' && pathname === '/api/rooms') {
+    const body = await readBody(req);
+    let code = genCode();
+    while (rooms.has(code)) code = genCode(); // por si colisiona
+    if (body.game && !['blackjack', 'poker', 'roulette'].includes(body.game)) return json(res, 400, { error: 'Juego no disponible.' });
+    const chips = userStore.clampChips(body.chips);
+    const room = body.game === 'poker' ? new PokerRoom(code, body)
+      : body.game === 'roulette' ? new RouletteRoom(code)
+      : new BlackjackRoom(code);
+    rooms.set(code, room);
+    const playerId = randomId();
+    room.addPlayer(playerId, body.name, chips);
+    return json(res, 200, { code, playerId });
+  }
+
+  // Lista de salas abiertas (para el lobby)
+  if (req.method === 'GET' && pathname === '/api/rooms') {
+    gcRooms();
+    const list = [];
+    for (const r of rooms.values()) {
+      const players = (r.players || []).filter(p => !p.left);
+      if (!players.length) continue;
+      list.push({
+        code: r.code,
+        game: r.game || 'blackjack',
+        phase: r.phase,
+        players: players.length,
+        names: players.map(p => p.name).slice(0, 6),
+      });
+    }
+    list.sort((a, b) => b.players - a.players);
+    return json(res, 200, { rooms: list });
+  }
+
+  const { code, room } = roomByPath(pathname) || {};
+
+  // Unirse
+  if (req.method === 'POST' && pathname.endsWith('/join')) {
+    if (!room) return json(res, 404, { error: 'Sala no encontrada. ¿Código correcto?' });
+    const body = await readBody(req);
+    const playerId = randomId();
+    const chips = body.chips != null ? userStore.clampChips(body.chips) : null;
+    const added = room.addPlayer(playerId, body.name, chips);
+    if (!added.ok) return json(res, 400, { error: added.error });
+    return json(res, 200, { code, playerId });
+  }
+
+  // Estado (long-polling: espera hasta que cambie la versión o 20 s)
+  if (req.method === 'GET' && pathname.endsWith('/state')) {
+    if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
+    const playerId = query.get('player') || '';
+    const since = parseInt(query.get('v') || '0', 10);
+    const send = () => json(res, 200, room.stateFor(playerId));
+    if (room.version > since) return send();
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (room.version > since || Date.now() - started > 20000) {
+        clearInterval(timer);
+        req.removeAllListeners('close');
+        send();
+      }
+    }, 250);
+    req.on('close', () => clearInterval(timer));
+    return;
+  }
+
+  // Acciones de juego
+  if (req.method === 'POST' && pathname.endsWith('/action')) {
+    if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
+    const body = await readBody(req);
+    const playerId = body.playerId || '';
+    let result = { ok: false, error: 'Acción desconocida.' };
+    if (room.game === 'poker') result = room.action(playerId, body.type, body.amount);
+    else if (room.game === 'roulette') {
+      switch (body.type) {
+        case 'bet': result = room.bet(playerId, body.betId, body.amount); break;
+        case 'clearBet': result = room.clearBet(playerId); break;
+        case 'spin': result = room.spin(); break;
+      }
+    }
+    else switch (body.type) {
+      case 'start': result = room.start(); break;
+      case 'bet': result = room.bet(playerId, body.amount); break;
+      case 'clearBet': result = room.clearBet(playerId); break;
+      case 'confirm': result = room.confirm(playerId); break;
+      case 'unconfirm': result = room.unconfirm(playerId); break;
+      case 'hit': result = room.hit(playerId); break;
+      case 'stand': result = room.stand(playerId); break;
+      case 'split': result = room.split(playerId); break;
+      case 'double': result = room.double(playerId); break;
+    }
+    if (!result.ok) return json(res, 400, { error: result.error });
+    return json(res, 200, room.stateFor(playerId));
+  }
+
+  // Salir
+  if (req.method === 'POST' && pathname.endsWith('/leave')) {
+    if (room) {
+      const body = await readBody(req);
+      const result = room.removePlayer(body.playerId || '');
+      const token = tokenFrom(req, body, query);
+      if (result && result.chips != null && token) {
+        const user = userStore.userByToken(token);
+        if (user) userStore.setChips(token, result.chips);
+      }
+      return json(res, 200, { ok: true, chips: result && result.chips != null ? result.chips : null });
+    }
+    return json(res, 200, { ok: true });
+  }
+
+  return json(res, 404, { error: 'Ruta API desconocida.' });
+}
+
+const server = http.createServer(async (req, res) => {
+  const [rawPath, rawQuery] = req.url.split('?');
+  const pathname = decodeURIComponent(rawPath.split('?')[0]);
+  if (pathname.startsWith('/api/')) {
+    try {
+      if (pathname === '/api/ping') {
+        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), uptime: process.uptime() });
+      }
+      return await handleApi(req, res, pathname, new URLSearchParams(rawQuery || ''));
+    } catch (err) {
+      return json(res, 500, { error: 'Error interno del servidor.' });
+    }
+  }
+  // Estáticos
+  const filePath = path.join(ROOT, pathname === '/' ? 'index.html' : pathname);
+  if (!filePath.startsWith(ROOT)) { res.writeHead(403); return res.end('Forbidden'); }
+  fs.readFile(filePath, (err, data) => {
+    if (err) { res.writeHead(404); return res.end('404 Not Found'); }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream' });
+    res.end(data);
+  });
+});
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 8080;
+  server.listen(PORT, () => {
+    let lanIp = 'localhost';
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const net of list || []) {
+        if (net.family === 'IPv4' && !net.internal) lanIp = net.address;
+      }
+    }
+    console.log('🎰 Casino Night abierto:');
+    console.log('   Local:  http://localhost:' + PORT);
+    console.log('   Móvil:  http://' + lanIp + ':' + PORT + '   (misma red WiFi)');
+  });
+}
+
+module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica };

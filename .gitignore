@@ -1,0 +1,5 @@
+node_modules/
+.env
+*.log
+casino-laujar-users.json
+.DS_Store

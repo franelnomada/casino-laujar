@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: casino-laujar
+    env: node
+    buildCommand: echo "Sin build (Node puro)"
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+    # Variables opcionales (añadir en el dashboard de Render):
+    #   FIREBASE_DB_URL     → URL de Firebase Realtime Database
+    #   FIREBASE_DB_SECRET  → Database secret (o FIREBASE_SERVICE_ACCOUNT con el JSON)
+    #   DATA_DIR            → carpeta persistente para users/rooms (si Render lo provee)
+
+  # ── Alternativa: cron para limpieza de salas inactivas (opcional) ──
+  # - type: cron
+  #   name: gc-inactive-rooms
+  #   schedule: "0 * * * *"   # cada hora
+  #   command: node scripts/gc.js
