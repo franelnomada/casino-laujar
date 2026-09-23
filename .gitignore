@@ -2,4 +2,5 @@ node_modules/
 .env
 *.log
 casino-laujar-users.json
+casino-laujar-betting.json
 .DS_Store

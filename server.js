@@ -11,6 +11,7 @@ const { PokerRoom } = require('./js/poker-engine.js');
 const { RouletteRoom } = require('./js/roulette-engine.js');
 const { UserStore } = require('./js/users.js');
 const { TransactionLog } = require('./js/transactions.js');
+const { BettingStore } = require('./js/betting.js');
 const { FirebaseRest } = require('./js/firebase-rest.js');
 const { RoomReplica } = require('./js/rooms-remote.js');
 const { addChatMessage } = require('./js/room-chat.js');
@@ -43,6 +44,11 @@ const userStore = new UserStore(USERS_PATH);
 const TX_PATH = process.env.TX_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-transactions.json');
 const txLog = new TransactionLog(TX_PATH);
+
+// ---- Apuestas deportivas: eventos y apuestas persistentes ----
+const BETTING_PATH = process.env.BETTING_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-betting.json');
+const bettingStore = new BettingStore({ filePath: BETTING_PATH, userStore, txLog });
 
 // ---- Persistencia de salas: disco local + réplica opcional en Firebase ----
 // La copia local (JSON) sobrevive a reinicios del proceso en la misma
@@ -82,6 +88,7 @@ for (const Room of [BlackjackRoom, PokerRoom, RouletteRoom]) {
 setInterval(() => {
   for (const room of rooms.values()) if (room.game === 'poker') room.tick();
 }, 1000).unref();
+setInterval(() => bettingStore.lockExpired(), 1000).unref();
 
 function json(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -179,6 +186,36 @@ async function handleAdmin(req, res, pathname, query) {
   }
 
   let m;
+
+  if (req.method === 'GET' && pathname === '/api/admin/betting/events') {
+    return json(res, 200, { events: bettingStore.listEvents(true) });
+  }
+  if (req.method === 'POST' && pathname === '/api/admin/betting/events') {
+    const result = bettingStore.createEvent(body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, event: result.event });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/betting\/events\/([^\/]+)\/lock$/))) {
+    const result = bettingStore.lockEvent(m[1]);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, event: result.event });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/betting\/events\/([^\/]+)\/settle$/))) {
+    const result = bettingStore.settle(token, m[1], body.results || body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, event: result.event, paid: result.paid });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/betting\/events\/([^\/]+)\/cancel$/))) {
+    const result = bettingStore.cancel(token, m[1]);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, event: result.event, refunded: result.refunded });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/betting\/events\/([^\/]+)\/markets$/))) {
+    const result = bettingStore.updateMarkets(m[1], body.markets || body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, event: result.event });
+  }
+
   if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/users\/([^\/]+)\/(ban|unban)$/))) {
     const key = decodeURIComponent(m[1]).toLowerCase();
     const result = m[2] === 'ban' ? userStore.ban(token, key) : userStore.unban(token, key);
@@ -279,6 +316,22 @@ async function handleApi(req, res, pathname, query) {
   // Consola de transacciones (pública): últimas entradas, de nueva a vieja
   if (req.method === 'GET' && pathname === '/api/transactions') {
     return json(res, 200, { ok: true, transactions: txLog.list(query.get('limit')) });
+  }
+
+  // Apuestas deportivas públicas: eventos visibles y sesión del jugador
+  if (req.method === 'GET' && pathname === '/api/betting/events') {
+    return json(res, 200, { ok: true, events: bettingStore.listEvents(false) });
+  }
+  if (req.method === 'POST' && pathname === '/api/betting/place') {
+    const body = await readBody(req);
+    const result = bettingStore.placeBet(tokenFrom(req, body, query), body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, bet: result.bet, user: result.user });
+  }
+  if (req.method === 'GET' && pathname === '/api/betting/mine') {
+    const result = bettingStore.mine(tokenFrom(req, {}, query));
+    if (!result.ok) return json(res, result.status || 401, { error: result.error });
+    return json(res, 200, { ok: true, bets: result.bets });
   }
 
   // Cuentas de jugador
@@ -446,7 +499,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/')) {
     try {
       if (pathname === '/api/ping') {
-        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), uptime: process.uptime() });
+        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), uptime: process.uptime() });
       }
       return await handleApi(req, res, pathname, new URLSearchParams(rawQuery || ''));
     } catch (err) {
@@ -478,4 +531,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog };
+module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog, bettingStore };

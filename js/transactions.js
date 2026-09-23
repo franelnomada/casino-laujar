@@ -12,7 +12,7 @@ const { FirebaseRest } = require('./firebase-rest.js');
 
 const MAX_ENTRIES = 200;
 const DEFAULT_FILE = 'casino-laujar-transactions.json';
-const TYPES = ['win', 'loss', 'admin_grant', 'admin_revoke'];
+const TYPES = ['win', 'loss', 'admin_grant', 'admin_revoke', 'betting_bet', 'betting_refund'];
 
 class TransactionLog {
   constructor(filePath) {
@@ -35,7 +35,7 @@ class TransactionLog {
   }
 
   // ---- Alta de entrada (solo donde el saldo YA cambió) ----
-  add({ type, username, game, amount, balanceAfter, target }) {
+  add({ type, username, game, amount, balanceAfter, target, message }) {
     if (!TYPES.includes(type)) return null;
     const value = Math.floor(Number(amount));
     if (!Number.isFinite(value) || value <= 0) return null;
@@ -51,6 +51,7 @@ class TransactionLog {
       balanceAfter: after,
     };
     if (target) entry.target = String(target).slice(0, 40);
+    if (message) entry.message = String(message).slice(0, 240);
     this.entries.push(entry);
     if (this.entries.length > MAX_ENTRIES) this.entries.splice(0, this.entries.length - MAX_ENTRIES);
     this.save();

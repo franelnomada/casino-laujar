@@ -97,6 +97,15 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
 - Motor: `js/poker-engine.js`; presentación: `js/poker.js`. `npm test` incluye una mano heads-up determinista, simulaciones y pruebas HTTP. No requiere dependencias nuevas.
 
 
+## ⚽ Apuestas deportivas
+
+- `franelnomada` crea eventos con mercados 1X2, diferencia de goles, resultado exacto o personalizados, y escribe sus cuotas a mano.
+- Los jugadores con sesión pueden apostar hasta su saldo real. Se permiten varias apuestas en un mismo mercado; cada una congela su cuota.
+- El evento se bloquea manualmente al comenzar o automáticamente al alcanzar `startsAt`. El admin elige una opción ganadora por mercado, paga `stake × odds` y las apuestas perdedoras quedan perdidas.
+- Cancelar un evento devuelve el stake íntegro. Todos los movimientos aparecen en la consola de transacciones y en **Mis apuestas**.
+- Persistencia: `BETTING_FILE` o `DATA_DIR` para el JSON y `FIREBASE_BETTING_PATH` para la réplica opcional (por defecto `casino-laujar/betting`).
+
+
 ## Estructura
 
 ```
@@ -111,6 +120,8 @@ js/bj-engine.js       → Motor de blackjack del servidor (autoritativo)
 js/users.js           → Cuentas del servidor (scrypt, sesiones, JSON)
 js/transactions.js    → Registro de transacciones de fichas (consola del lobby)
 js/tx-console.js      → Consola pública de transacciones en el lobby (cliente)
+js/betting.js         → Eventos, mercados, apuestas y liquidaciones (servidor)
+js/betting-client.js  → Lobby, Mis apuestas y panel deportivo (cliente)
 js/firebase-rest.js   → Cliente REST de Firebase (compartido: cuentas y salas)
 js/rooms-remote.js    → Réplica de salas (disco local + Firebase)
 server.js             → Servidor HTTP + API de salas y cuentas (sin dependencias)

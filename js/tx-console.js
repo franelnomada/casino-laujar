@@ -62,7 +62,7 @@ const TxConsole = {
   },
 
   classFor(type) {
-    if (type === 'win' || type === 'admin_grant') return 'tx-win';
+    if (type === 'win' || type === 'admin_grant' || type === 'betting_bet' || type === 'betting_refund') return 'tx-win';
     if (type === 'loss' || type === 'admin_revoke') return 'tx-loss';
     return '';
   },
@@ -71,10 +71,12 @@ const TxConsole = {
     if (game === 'poker') return 'póker';
     if (game === 'roulette') return 'ruleta';
     if (game === 'blackjack') return 'blackjack';
+    if (game === 'sports') return 'apuestas deportivas';
     return game || 'la mesa';
   },
 
   textFor(t) {
+    if (t.message) return t.message;
     const amount = Number(t.amount || 0).toLocaleString('es-ES');
     const target = t.target || 'un jugador';
     const where = t.game ? ' jugando a ' + this.gameName(t.game) : ''; // set exacto: sin mesa

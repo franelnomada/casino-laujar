@@ -99,10 +99,13 @@ const Auth = {
     try { localStorage.removeItem(this.KEY); } catch (e) { /* da igual */ }
     this.render();
     this.highlightBoard();
+    if (typeof Betting !== 'undefined') Betting.sessionChanged();
   },
 
   applyUser(user) {
     this.user = user || null;
+    clearTimeout(this._chipsTimer);
+    this._chipsTimer = null;
     if (this.user && typeof this.user.chips === 'number' && this.user.chips >= 0) {
       this._applyChips = true;
       App.chips = this.user.chips;
@@ -113,6 +116,7 @@ const Auth = {
     this.render();
     this.loadLeaderboard();
     this.highlightBoard();
+    if (typeof Betting !== 'undefined') Betting.sessionChanged();
   },
 
   // El nombre de la cuenta ahorra escribirlo en cada mesa

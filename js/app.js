@@ -57,6 +57,7 @@ const App = {
     const el = document.getElementById('screen-' + screen);
     if (el) el.classList.remove('hidden');
     document.body.classList.toggle('at-welcome', screen === 'welcome');
+    if (typeof Betting !== 'undefined' && screen === 'lobby') Betting.refresh();
     if (screen !== 'room') {
       document.body.classList.toggle('in-poker-room', false);
       document.body.classList.toggle('in-blackjack-room', false);

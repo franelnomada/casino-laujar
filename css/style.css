@@ -927,3 +927,44 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 .tx-line { color: #cfd6de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tx-line.tx-win { color: #6fdc8c; }
 .tx-line.tx-loss { color: #ef7b7b; }
+
+/* ---- Apuestas deportivas (lobby y admin) ---- */
+.betting-events { display: grid; gap: 14px; }
+.betting-event { background: rgba(0,0,0,.25); border: 1px solid #3a4a5a; border-radius: 12px; padding: 14px; }
+.betting-event-head, .admin-betting-event-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.betting-event-head strong, .admin-betting-event-head strong { color: var(--gold-light); font-size: 1.05rem; }
+.betting-event-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: .85rem; }
+.betting-status { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: .7rem; font-weight: bold; letter-spacing: .04em; }
+.betting-status-open { background: rgba(46,204,113,.18); color: #73e6a0; }
+.betting-status-locked { background: rgba(241,196,15,.15); color: #f6d65f; }
+.betting-status-settled { background: rgba(52,152,219,.18); color: #7ac7ff; }
+.betting-status-cancelled { background: rgba(192,57,43,.2); color: #ff9388; }
+.betting-market { border-top: 1px solid rgba(255,255,255,.09); padding-top: 9px; margin-top: 9px; }
+.betting-market h3 { color: #d8dde3; font-size: .95rem; margin-bottom: 7px; }
+.betting-outcome { display: grid; grid-template-columns: minmax(0,1fr) 88px auto; align-items: center; gap: 8px; margin: 6px 0; }
+.betting-outcome label { min-width: 0; overflow-wrap: anywhere; }
+.betting-stake, .admin-betting-outcome input, .admin-betting-result-row input, .admin-betting-result-row select { width: 100%; background: #101418; color: var(--text); border: 1px solid #4a5a6a; border-radius: 8px; padding: 8px; }
+.betting-mine { margin-top: 16px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 12px; }
+.betting-mine summary { cursor: pointer; font-weight: bold; color: var(--gold-light); }
+.betting-bet-list { display: grid; gap: 8px; margin-top: 10px; }
+.betting-bet { position: relative; padding: 10px 90px 10px 12px; background: rgba(0,0,0,.24); border: 1px solid #3a4a5a; border-radius: 10px; }
+.betting-bet .betting-state { position: absolute; right: 10px; top: 10px; color: var(--gold-light); font-size: .8rem; font-weight: bold; }
+.betting-bet-won { border-color: #2e8b57; }
+.betting-bet-lost { opacity: .72; }
+.betting-bet-refunded { border-color: #4f86c6; }
+.admin-betting-form { display: grid; gap: 10px; }
+.betting-form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+.admin-betting-markets, .admin-betting-events { display: grid; gap: 10px; }
+.admin-betting-market { padding: 10px; background: rgba(0,0,0,.22); border: 1px solid #3a4a5a; border-radius: 9px; }
+.admin-betting-market-head, .admin-betting-outcome { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 7px; margin-bottom: 7px; }
+.admin-betting-event { padding: 11px; background: rgba(0,0,0,.22); border: 1px solid #3a4a5a; border-radius: 10px; }
+.admin-betting-market-summary { padding: 5px 0; border-top: 1px solid rgba(255,255,255,.07); font-size: .86rem; }
+.admin-betting-result-form, .admin-betting-odds-form { margin-top: 10px; padding: 10px; border: 1px dashed var(--gold); border-radius: 9px; }
+.admin-betting-result-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(130px,.7fr); gap: 8px; align-items: center; margin: 7px 0; }
+@media (max-width: 650px) {
+  .betting-event-head, .admin-betting-event-head { flex-direction: column; }
+  .betting-event-meta { align-items: flex-start; }
+  .betting-form-grid, .admin-betting-market-head, .admin-betting-outcome { grid-template-columns: 1fr; }
+  .betting-outcome { grid-template-columns: minmax(0,1fr) 72px; }
+  .betting-outcome .btn { grid-column: 1 / -1; }
+}

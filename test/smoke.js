@@ -172,6 +172,7 @@ global.fetch = async (url, opts) => {
   process.env.USERS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-users-' + stamp + '.json');
   process.env.ROOMS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-rooms-' + stamp + '.json');
   process.env.TX_FILE = require('path').join(os.tmpdir(), 'smoke-adm-tx-' + stamp + '.json');
+  process.env.BETTING_FILE = require('path').join(os.tmpdir(), 'smoke-betting-' + stamp + '.json');
   const srv = require('../server.js');
   global.fetch = realFetch; // de aquí en adelante, HTTP real contra el servidor
   const port = await new Promise(res => srv.server.listen(0, () => res(srv.server.address().port)));
@@ -383,6 +384,151 @@ global.fetch = async (url, opts) => {
     grant.balanceAfter === addOk.data.after);
   check('TX: delta negativo crea admin_revoke con el admin y el usuario afectado',
     !!revoke && revoke.username === 'franelnomada' && revoke.amount === 200 && !!wipe);
+
+  // ---------- Apuestas deportivas: API completa ----------
+  const anaReg = await post('/api/auth/register', { name: 'Ana', password: 'ana12345', chips: 1000 });
+  const luisReg = await post('/api/auth/register', { name: 'Luis', password: 'luis12345', chips: 1000 });
+  const betAdminToken = admToken;
+  const anaToken = anaReg.data.token;
+  const luisToken = luisReg.data.token;
+  const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const sportsEvent = title => ({
+    title, teams: ['España', 'Alemania'], startsAt: future,
+    markets: [{
+      type: 'winner', label: 'Ganador',
+      outcomes: [
+        { label: 'Gana España', odds: 1.85 },
+        { label: 'Empate', odds: 3.2 },
+        { label: 'Gana Alemania', odds: 4.1 },
+      ],
+    }],
+  });
+
+  const createNo = await post('/api/admin/betting/events', { token: anaToken, ...sportsEvent('No permitido') });
+  check('BET: un usuario no-admin no puede crear eventos (403)', createNo.status === 403);
+  const sportsCreated = await post('/api/admin/betting/events', { token: betAdminToken, ...sportsEvent('España vs Alemania') });
+  const event = sportsCreated.data.event;
+  const market = event.markets[0];
+  check('BET: el admin crea un evento abierto con mercados y cuotas',
+    sportsCreated.status === 200 && event.status === 'open' && market.outcomes.length === 3 && market.outcomes[0].odds === 1.85);
+  const publicList = await get('/api/betting/events');
+  check('BET: la lista pública de eventos no necesita login',
+    publicList.status === 200 && publicList.data.events.some(item => item.id === event.id));
+
+  const place = await post('/api/betting/place', {
+    token: anaToken, eventId: event.id, marketId: market.id,
+    outcomeId: market.outcomes[0].id, stake: 100,
+  });
+  const anaAfterStake = await get('/api/auth/me?token=' + encodeURIComponent(anaToken));
+  const minePending = await get('/api/betting/mine?token=' + encodeURIComponent(anaToken));
+  check('BET: apostar descuenta el stake y crea la apuesta pendiente',
+    place.status === 200 && place.data.bet.status === 'pending' && place.data.bet.odds === 1.85 &&
+    anaAfterStake.data.user.chips === 900 && minePending.data.bets[0].id === place.data.bet.id);
+  const loserBet = await post('/api/betting/place', {
+    token: luisToken, eventId: event.id, marketId: market.id,
+    outcomeId: market.outcomes[1].id, stake: 200,
+  });
+  const overStake = await post('/api/betting/place', {
+    token: anaToken, eventId: event.id, marketId: market.id,
+    outcomeId: market.outcomes[0].id, stake: 901,
+  });
+  const afterOver = await get('/api/auth/me?token=' + encodeURIComponent(anaToken));
+  check('BET: no permite superar el saldo y no lo modifica (400)',
+    loserBet.status === 200 && (overStake.status === 400 || overStake.status === 403) && afterOver.data.user.chips === 900);
+  check('BET: permite apostar varias veces en el mismo mercado y las acumula',
+    loserBet.data.bet.status === 'pending' && srv.bettingStore.bets.filter(b => b.eventId === event.id).length === 2);
+
+  const lockNo = await post(`/api/admin/betting/events/${event.id}/lock`, { token: anaToken });
+  const lockOk = await post(`/api/admin/betting/events/${event.id}/lock`, { token: betAdminToken });
+  const lockedBet = await post('/api/betting/place', {
+    token: anaToken, eventId: event.id, marketId: market.id,
+    outcomeId: market.outcomes[0].id, stake: 10,
+  });
+  check('BET: bloquear exige admin y después ya no admite apuestas',
+    lockNo.status === 403 && lockOk.status === 200 && lockOk.data.event.status === 'locked' &&
+    (lockedBet.status === 400 || lockedBet.status === 403));
+
+  const pastCreated = await post('/api/admin/betting/events', {
+    token: betAdminToken, ...sportsEvent('Evento ya pasado'),
+    startsAt: new Date(Date.now() - 1000).toISOString(),
+  });
+  const pastBet = await post('/api/betting/place', {
+    token: anaToken, eventId: pastCreated.data.event.id, marketId: pastCreated.data.event.markets[0].id,
+    outcomeId: pastCreated.data.event.markets[0].outcomes[0].id, stake: 10,
+  });
+  check('BET: un evento cuya hora ya pasó se bloquea automáticamente',
+    pastCreated.data.event.status === 'locked' && (pastBet.status === 400 || pastBet.status === 403));
+
+  const settleNo = await post(`/api/admin/betting/events/${event.id}/settle`, { token: anaToken, results: { [market.id]: market.outcomes[0].id } });
+  const cancelNo = await post(`/api/admin/betting/events/${pastCreated.data.event.id}/cancel`, { token: anaToken });
+  check('BET: un usuario no-admin recibe 403 al resolver y cancelar',
+    settleNo.status === 403 && cancelNo.status === 403);
+  const settled = await post(`/api/admin/betting/events/${event.id}/settle`, {
+    token: betAdminToken, results: { [market.id]: market.outcomes[0].id },
+  });
+  const anaSettled = await get('/api/auth/me?token=' + encodeURIComponent(anaToken));
+  const luisSettled = await get('/api/auth/me?token=' + encodeURIComponent(luisToken));
+  const mineSettled = await get('/api/betting/mine?token=' + encodeURIComponent(anaToken));
+  check('BET: resolver paga stake*odds al ganador y no toca al perdedor',
+    settled.status === 200 && anaSettled.data.user.chips === 1085 && luisSettled.data.user.chips === 800);
+  check('BET:Mis apuestas refleja los estados ganada y perdida',
+    mineSettled.data.bets[0].status === 'won' &&
+    (await get('/api/betting/mine?token=' + encodeURIComponent(luisToken))).data.bets[0].status === 'lost');
+
+
+  // Cuotas congeladas: la edición posterior no cambia la apuesta ya creada
+  const freezeCreated = await post('/api/admin/betting/events', { token: betAdminToken, ...sportsEvent('Cuotas congeladas') });
+  const freezeEvent = freezeCreated.data.event;
+  const freezeMarket = freezeEvent.markets[0];
+  const frozenBet = await post('/api/betting/place', {
+    token: anaToken, eventId: freezeEvent.id, marketId: freezeMarket.id,
+    outcomeId: freezeMarket.outcomes[0].id, stake: 100,
+  });
+  const editedMarkets = JSON.parse(JSON.stringify(freezeEvent.markets));
+  editedMarkets[0].outcomes[0].odds = 9;
+  const edited = await post(`/api/admin/betting/events/${freezeEvent.id}/markets`, {
+    token: betAdminToken, markets: editedMarkets,
+  });
+  await post(`/api/admin/betting/events/${freezeEvent.id}/lock`, { token: betAdminToken });
+  await post(`/api/admin/betting/events/${freezeEvent.id}/settle`, {
+    token: betAdminToken, results: { [freezeMarket.id]: freezeMarket.outcomes[0].id },
+  });
+  const anaFrozen = await get('/api/auth/me?token=' + encodeURIComponent(anaToken));
+  check('BET: la cuota queda congelada aunque el admin edite el evento',
+    frozenBet.data.bet.odds === 1.85 && edited.status === 200 &&
+    edited.data.event.markets[0].outcomes[0].odds === 9 && anaFrozen.data.user.chips === 1170);
+
+  // Cancelación: devuelve el stake exacto a todos los pendientes
+  const betoReg = await post('/api/auth/register', { name: 'Beto', password: 'beto12345', chips: 1000 });
+  const claraReg = await post('/api/auth/register', { name: 'Clara', password: 'clara12345', chips: 1000 });
+  const cancelCreated = await post('/api/admin/betting/events', { token: betAdminToken, ...sportsEvent('Partido suspendido') });
+  const cancelEvent = cancelCreated.data.event;
+  const cancelMarket = cancelEvent.markets[0];
+  await post('/api/betting/place', {
+    token: betoReg.data.token, eventId: cancelEvent.id, marketId: cancelMarket.id,
+    outcomeId: cancelMarket.outcomes[0].id, stake: 30,
+  });
+  await post('/api/betting/place', {
+    token: claraReg.data.token, eventId: cancelEvent.id, marketId: cancelMarket.id,
+    outcomeId: cancelMarket.outcomes[1].id, stake: 70,
+  });
+  const cancelled = await post(`/api/admin/betting/events/${cancelEvent.id}/cancel`, { token: betAdminToken });
+  const betoCancelled = await get('/api/auth/me?token=' + encodeURIComponent(betoReg.data.token));
+  const claraCancelled = await get('/api/auth/me?token=' + encodeURIComponent(claraReg.data.token));
+  const betoMine = await get('/api/betting/mine?token=' + encodeURIComponent(betoReg.data.token));
+  check('BET: cancelar devuelve el stake exacto a todos y marca refunded',
+    cancelled.status === 200 && cancelled.data.refunded === 100 && betoCancelled.data.user.chips === 1000 &&
+    claraCancelled.data.user.chips === 1000 && betoMine.data.bets[0].status === 'refunded');
+
+  const bettingTxs = await txAll();
+  check('BET: la consola existente registra apuesta, premio, pérdida y devolución',
+    bettingTxs.some(t => t.type === 'betting_bet' && /ha apostado 100 fichas/.test(t.message || '')) &&
+    bettingTxs.some(t => t.type === 'win' && /ha ganado 185 fichas/.test(t.message || '')) &&
+    bettingTxs.some(t => t.type === 'loss' && /ha perdido su apuesta de 200 fichas/.test(t.message || '')) &&
+    bettingTxs.some(t => t.type === 'betting_refund' && /apuestas? de 30 fichas devuelta/.test(t.message || '')));
+  check('BET: eventos y apuestas quedan persistidos en BETTING_FILE',
+    fs.existsSync(process.env.BETTING_FILE) && srv.bettingStore.events.size >= 4 && srv.bettingStore.bets.length >= 5);
+
 
   // El límite y el orden del endpoint (al final: la carga evicta las entradas ya verificadas)
   let lastId = null;

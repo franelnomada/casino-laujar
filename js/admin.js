@@ -46,6 +46,11 @@ const Admin = {
     }
     this.loadUsers();
     this.loadRooms();
+    if (typeof BettingAdmin !== 'undefined') this.loadBettingEvents();
+  },
+
+  loadBettingEvents() {
+    if (typeof BettingAdmin !== 'undefined') BettingAdmin.loadEvents();
   },
 
   async loadUsers() {

@@ -85,6 +85,20 @@
         <button class="btn" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
       </div>
 
+      <h2 class="lobby-sub">⚽ Apuestas deportivas</h2>
+      <div class="net-box betting-box">
+        <div class="net-row">
+          <p id="betting-status" class="hint" role="status" style="flex:1;margin:0">Buscando eventos…</p>
+          <button class="btn" type="button" onclick="Betting.refresh(true)">🔄 Actualizar</button>
+        </div>
+        <div id="betting-events" class="betting-events"></div>
+        <details class="betting-mine">
+          <summary>🎫 Mis apuestas <span id="betting-mine-count" class="hint"></span></summary>
+          <p id="betting-mine-status" class="hint">Entra en tu cuenta para ver tus apuestas.</p>
+          <div id="betting-mine-list" class="betting-bet-list"></div>
+        </details>
+      </div>
+
       <h2 class="lobby-sub">📱 Multijugador online</h2>
       <div class="net-box">
         <div class="net-row">
@@ -300,6 +314,26 @@
       </div>
 
       <div class="admin-block">
+        <h2>⚽ Eventos deportivos</h2>
+        <form id="admin-betting-form" class="admin-betting-form">
+          <div class="betting-form-grid">
+            <input id="admin-betting-title" class="name-input" maxlength="120" placeholder="Título (España vs Alemania)" required>
+            <input id="admin-betting-team-a" class="name-input" maxlength="60" placeholder="Equipo A" required>
+            <input id="admin-betting-team-b" class="name-input" maxlength="60" placeholder="Equipo B" required>
+            <input id="admin-betting-starts" class="name-input" type="datetime-local" required>
+          </div>
+          <div id="admin-betting-markets" class="admin-betting-markets"></div>
+          <div class="btn-row">
+            <button class="btn" type="button" onclick="BettingAdmin.addMarket()">+ Mercado</button>
+            <button class="btn primary" type="submit">Crear evento</button>
+          </div>
+          <p id="admin-betting-form-status" class="hint" role="status"></p>
+        </form>
+        <div id="admin-betting-events" class="admin-betting-events"></div>
+        <p id="admin-betting-status" class="hint" role="status"></p>
+      </div>
+
+      <div class="admin-block">
         <h2>🎲 Salas activas</h2>
         <div id="admin-rooms"></div>
         <p id="admin-rooms-status" class="hint"></p>
@@ -342,7 +376,8 @@
   <script src="js/poker.js"></script>
   <script src="js/net.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/betting-client.js"></script>
   <script src="js/tx-console.js"></script>
-  <script>App.init(); Net.init(); Auth.init(); TxConsole.init();</script>
+  <script>App.init(); Net.init(); Auth.init(); Betting.init(); TxConsole.init();</script>
 </body>
 </html>
