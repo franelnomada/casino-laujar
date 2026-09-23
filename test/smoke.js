@@ -22,6 +22,7 @@ global.localStorage = {
   _store: {},
   getItem(k) { return this._store[k] ?? null; },
   setItem(k, v) { this._store[k] = String(v); },
+  removeItem(k) { delete this._store[k]; },
 };
 global.event = { currentTarget: { style: {} } };
 
@@ -121,9 +122,50 @@ const splitHTML3 = Blackjack.splitHTML(p3, true, counts3, 'ace');
 check('BJ: splitHTML split incremental actualiza counts', counts3['ace-split-total'] === 2 && counts3['ace-split-1'] === 1);
 check('BJ: splitHTML split incremental crea nueva mano', splitHTML3.includes('Mano 2'));
 
-if (failures === 0) {
-  console.log('\n✅ Smoke test pasado: ' + (failures === 0 ? 'todas las verificaciones correctas' : failures + ' fallos'));
-} else {
-  console.log('\n❌ Smoke test con ' + failures + ' fallo(s)');
-  process.exit(1);
-}
+// --- Net.leave(): al salir de la mesa, las fichas ganadas/perdidas pasan al saldo ---
+load('js/auth.js', 'Auth');
+load('js/net.js', 'Net');
+let leaveReq = null;
+let leaveReply = { ok: true, chips: 1500 };
+global.fetch = async (url, opts) => {
+  leaveReq = JSON.parse((opts && opts.body) || '{}');
+  return { ok: true, status: 200, json: async () => leaveReply };
+};
+
+(async () => {
+  // Ganas y sales: el saldo local sube, se envía el playerId y el token de la cuenta
+  Auth.token = 'tok-123'; Auth.user = null;
+  Net.code = 'ABCD'; Net.playerId = 'pid-1';
+  leaveReply = { ok: true, chips: 1500 };
+  await Net.leave();
+  check('Net: al salir, las fichas de la mesa se aplican al saldo (ganas -> 1500)', App.chips === 1500);
+  check('Net: el leave envía el token de sesión para guardarlo en la cuenta', leaveReq && leaveReq.token === 'tok-123');
+  check('Net: el leave envía el playerId propio', leaveReq && leaveReq.playerId === 'pid-1');
+  check('Net: al salir se limpia la sesión de sala', Net.code === null);
+
+  // Pierdes y sales: el saldo local baja
+  Net.code = 'EFGH'; Net.playerId = 'pid-2';
+  leaveReply = { ok: true, chips: 800 };
+  await Net.leave();
+  check('Net: al salir tras perder, el saldo baja (pierdes -> 800)', App.chips === 800);
+
+  // La sala ya no existe (expiró): no se pisa el saldo local con null
+  Net.code = 'IJKL'; Net.playerId = 'pid-3';
+  leaveReply = { ok: true };
+  await Net.leave();
+  check('Net: si la sala ya no existe no se pisa el saldo', App.chips === 800);
+
+  // Sin cuenta (invitado): el saldo local sí se aplica y no se manda token
+  Auth.token = null;
+  Net.code = 'MNOP'; Net.playerId = 'pid-4';
+  leaveReply = { ok: true, chips: 900 };
+  await Net.leave();
+  check('Net: invitado: saldo local aplicado sin token', App.chips === 900 && !leaveReq.token);
+
+  if (failures === 0) {
+    console.log('\n✅ Smoke test pasado: todas las verificaciones correctas');
+  } else {
+    console.log('\n❌ Smoke test con ' + failures + ' fallo(s)');
+    process.exit(1);
+  }
+})();

@@ -208,12 +208,19 @@ const Net = {
   async leave() {
     if (this.code) {
       try {
-        await fetch('/api/rooms/' + this.code + '/leave', {
+        const r = await fetch('/api/rooms/' + this.code + '/leave', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId: this.playerId }),
+          body: JSON.stringify({
+            playerId: this.playerId,
+            token: (typeof Auth !== 'undefined' && Auth.token) || '',
+          }),
         });
-      } catch (e) { /* da igual, salimos igualmente */ }
+        const data = await r.json();
+        // El servidor devuelve el saldo final de la mesa (ganado o perdido):
+        // se aplica al móvil y, con sesión, Auth.chipsChanged lo guarda en la cuenta.
+        this.applyRoomChips(data && data.chips);
+      } catch (e) { /* sin respuesta no tocamos las fichas: salimos igualmente */ }
     }
     this.disconnect();
     App.goLobby();

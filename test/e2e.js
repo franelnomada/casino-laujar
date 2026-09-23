@@ -133,7 +133,7 @@ for (let guard = 0; pkState.phase !== 'finished' && guard < 12; guard++) {
   assert.equal(action.status, 200);
   pkState = action.data;
 }
-check('api poker: mano completa y conservación de fichas', pkState.phase === 'finished' && pkState.board.length === 5 && pkState.players.reduce((sum,p) => sum+p.chips,0) === 4000);
+check('api poker: mano completa y conservación de fichas', pkState.phase === 'finished' && pkState.board.length === 5 && pkState.players.reduce((sum,p) => sum+p.chips,0) === 2000);
 check('api poker: showdown revela manos', pkState.players.every(p => p.cards.every(c => c && c.rank)));
 rooms.delete(pkCode);
 server.close();

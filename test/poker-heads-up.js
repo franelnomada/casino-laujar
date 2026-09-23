@@ -34,9 +34,9 @@ for (const nextPhase of ['turn', 'river', 'finished']) {
 assert.deepEqual(room.board.map(c => c.rank), ['2', '7', '9', 'J', '3']);
 assert.equal(room.turnId, null);
 assert.deepEqual(room.pots, [{ amount: 40, winners: ['ana'], refund: false }]);
-assert.equal(room.find('ana').chips, 2020);
-assert.equal(room.find('bob').chips, 1980);
-assert.equal(room.players.reduce((sum, p) => sum + p.chips, 0), 4000);
+assert.equal(room.find('ana').chips, 1020);
+assert.equal(room.find('bob').chips, 980);
+assert.equal(room.players.reduce((sum, p) => sum + p.chips, 0), 2000);
 assert.equal(room.deck.length, 0);
 console.log('✅ Heads-up determinista: preflop → flop → turn → river → showdown, sin excepciones ni acciones rechazadas.');
-console.log('✅ Ana gana con AA frente a KK: bote 40, saldos 2020 / 1980; se conservan las 4000 fichas.');
+console.log('✅ Ana gana con AA frente a KK: bote 40, saldos 1020 / 980; se conservan las 2000 fichas.');

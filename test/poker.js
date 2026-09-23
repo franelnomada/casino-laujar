@@ -6,14 +6,14 @@ r.addPlayer('a','Ana');r.addPlayer('b','Bob');r.addPlayer('c','Cris');
 assert.equal(r.start('b',1000).ok,false);
 assert.equal(r.start('a',1000,buildDeck()).ok,true);
 assert.equal(r.dealerId,'a');assert.equal(r.sbId,'b');assert.equal(r.bbId,'c');assert.equal(r.turnId,'a');
-assert.equal(r.find('b').chips,1990);assert.equal(r.find('c').chips,1980);
+assert.equal(r.find('b').chips,990);assert.equal(r.find('c').chips,980);
 assert.equal(r.action('a','call',null,1001).ok,false);
 assert.deepEqual(r.events.map(e=>e.target),['b','c','a','b','c','a']);
 assert.deepEqual(r.stateFor('a').players[1].cards,[null,null]);
 const act = (type,amount) => { assert.equal(r.action(r.turnId,type,amount,r.visualUntil+1).ok,true); };
 act('raise',60);act('call');act('call');assert.equal(r.phase,'flop');assert.equal(r.board.length,3);assert.equal(r.turnId,'b');
 for(const phase of ['turn','river','finished']) { act('check');act('check');act('check');assert.equal(r.phase,phase); }
-assert.equal(r.players.reduce((n,p)=>n+p.chips,0),6000);
+assert.equal(r.players.reduce((n,p)=>n+p.chips,0),3000);
 assert.equal(r.board.length,5);assert.equal(new Set([...r.board,...r.players.flatMap(p=>p.hand)].map(c=>c.rank+c.suit)).size,11);
 assert.equal(r.start('a',601001).ok,true);assert.equal(r.smallBlind,20);assert.equal(r.dealerId,'b');
 console.log('✅ Poker: mano completa, turnos, privacidad, reparto secuencial y subida de ciegas');
@@ -43,7 +43,7 @@ for(let trial=0;trial<50;trial++) {
     if(n%7===0&&s.canRaise)type='allIn';else if(n%11===0)type='fold';
     assert.equal(t.action(t.turnId,type,null,t.visualUntil).ok,true);
   }
-  assert.equal(t.phase,'finished');assert.equal(t.players.reduce((n,p)=>n+p.chips,0),8000);
+  assert.equal(t.phase,'finished');assert.equal(t.players.reduce((n,p)=>n+p.chips,0),4000);
   assert.ok(t.players.every(p=>Number.isInteger(p.chips)&&p.chips>=0));
 }
 console.log('✅ Poker: 50 manos completas con all-in y conservación de fichas');
