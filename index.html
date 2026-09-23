@@ -123,6 +123,14 @@
         </div>
         <div id="open-rooms-list" class="open-rooms"></div>
       </div>
+
+      <h2 class="lobby-sub">💸 Consola de transacciones</h2>
+      <div class="net-box tx-console-box">
+        <div class="net-row">
+          <p id="tx-console-status" class="hint" role="status" style="flex:1;margin:0">Conectando con la consola…</p>
+        </div>
+        <div id="tx-console-lines" class="tx-console"></div>
+      </div>
     </section>
 
     <!-- SALA ONLINE -->
@@ -298,6 +306,7 @@
   <script src="js/poker.js"></script>
   <script src="js/net.js"></script>
   <script src="js/admin.js"></script>
-  <script>App.init(); Net.init(); Auth.init();</script>
+  <script src="js/tx-console.js"></script>
+  <script>App.init(); Net.init(); Auth.init(); TxConsole.init();</script>
 </body>
 </html>

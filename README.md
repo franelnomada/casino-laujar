@@ -37,7 +37,7 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
 
   Con esto, cada cambio de cuentas/sesiones se guarda en el JSON local **y** se replica a Firebase (con 1 s de retardo); al arrancar, el servidor fusiona lo remoto con lo local sin pisar nunca lo más nuevo (`updatedAt`), así que las cuentas sobreviven a los despliegues. Si Firebase falla o no está configurado, todo sigue funcionando con el fichero local.
   **Las salas también se replican** con la misma configuración (documento `casino-laujar/rooms`, fusión por `lastActivity`; cada sala viaja como JSON serializado para que la base conserve arrays vacíos y valores `null`): tras un redespliegue, las salas se recuperan y los jugadores pueden reconectar con el enlace de invitación y la sesión de siempre. El estado real se consulta en `GET /api/ping` (`storage.*` para cuentas, `roomsStorage.*` para salas).
-- **API:** `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/chips` (token en `Authorization: Bearer …`), `GET /api/auth/leaderboard?limit=10` (público, solo nombre y fichas, tope 25).
+- **API:** `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/chips` (token en `Authorization: Bearer …`), `GET /api/auth/leaderboard?limit=10` (público, solo nombre y fichas, tope 25), `GET /api/transactions` (público, últimas transacciones de fichas de más reciente a más antigua, tope 200).
 - **Ranking:** en el lobby, la sección **🏆 Los más ricos del casino** lista las cuentas con más fichas (con tu fila resaltada si has entrado). Botón **🔄 Actualizar** para recargarla; se recarga sola al entrar, crear cuenta o guardar fichas.
 
 ## Desplegar gratis en Render.com (paso a paso)
@@ -109,6 +109,8 @@ js/roulette.js        → Ruleta europea local
 js/net.js             → Cliente multijugador (salas, long-polling)
 js/bj-engine.js       → Motor de blackjack del servidor (autoritativo)
 js/users.js           → Cuentas del servidor (scrypt, sesiones, JSON)
+js/transactions.js    → Registro de transacciones de fichas (consola del lobby)
+js/tx-console.js      → Consola pública de transacciones en el lobby (cliente)
 js/firebase-rest.js   → Cliente REST de Firebase (compartido: cuentas y salas)
 js/rooms-remote.js    → Réplica de salas (disco local + Firebase)
 server.js             → Servidor HTTP + API de salas y cuentas (sin dependencias)

@@ -10,6 +10,7 @@ const { BlackjackRoom, genCode, randomId } = require('./js/bj-engine.js');
 const { PokerRoom } = require('./js/poker-engine.js');
 const { RouletteRoom } = require('./js/roulette-engine.js');
 const { UserStore } = require('./js/users.js');
+const { TransactionLog } = require('./js/transactions.js');
 const { FirebaseRest } = require('./js/firebase-rest.js');
 const { RoomReplica } = require('./js/rooms-remote.js');
 
@@ -34,6 +35,13 @@ const rooms = new Map(); // code -> BlackjackRoom | PokerRoom | RouletteRoom
 const USERS_PATH = process.env.USERS_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-users.json');
 const userStore = new UserStore(USERS_PATH);
+
+// ---- Consola de transacciones del lobby: últimas 200 entradas ----
+// Mismo mecanismo de guardado que las cuentas: JSON local
+// (TX_FILE o DATA_DIR mueven el fichero) + réplica opcional en Firebase.
+const TX_PATH = process.env.TX_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-transactions.json');
+const txLog = new TransactionLog(TX_PATH);
 
 // ---- Persistencia de salas: disco local + réplica opcional en Firebase ----
 // La copia local (JSON) sobrevive a reinicios del proceso en la misma
@@ -120,12 +128,14 @@ function tokenFrom(req, body, query) {
 }
 
 // Asocia un jugador de mesa a su cuenta (para poder liquidar/expulsar después)
+// y recuerda el saldo que traía al sentarse: al salir se compara con el saldo
+// final para registrar la transacción en la consola pública (win/loss).
 function linkAccount(room, playerId, token) {
-  if (!token) return;
-  const user = userStore.userForToken(token); // cuenta activa y no baneada
-  if (!user) return;
   const p = typeof room.find === 'function' ? room.find(playerId) : null;
-  if (p) p.accountKey = user.key;
+  if (!p) return;
+  const user = token ? userStore.userForToken(token) : null; // cuenta activa y no baneada
+  if (user) p.accountKey = user.key;
+  p.entryBalance = user ? user.chips : p.chips; // invitado: sus fichas de mesa
 }
 
 // Saca de todas las salas a los jugadores de una cuenta (uso: ban)
@@ -178,6 +188,17 @@ async function handleAdmin(req, res, pathname, query) {
     const key = decodeURIComponent(m[1]).toLowerCase();
     const result = userStore.adjustChips(token, key, body.delta);
     if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    // Consola pública: solo si el saldo aplicado cambió de verdad
+    if (result.delta) {
+      const admin = userStore.userByToken(token);
+      txLog.add({
+        type: result.delta > 0 ? 'admin_grant' : 'admin_revoke',
+        username: admin ? admin.name : 'Admin',
+        target: result.user.name, // a quién se le aplicó el ajuste
+        amount: Math.abs(result.delta),
+        balanceAfter: result.after,
+      });
+    }
     return json(res, 200, { ok: true, user: result.user, delta: result.delta, before: result.before, after: result.after });
   }
 
@@ -226,8 +247,20 @@ async function handleAuth(req, res, pathname, query) {
   }
 
   if (req.method === 'POST' && pathname === '/api/auth/chips') {
+    const before = userStore.userByToken(token);
     const result = userStore.setChips(token, body.chips);
     if (!result.ok) return json(res, result.status || 401, { error: result.error });
+    // Fijar saldo exacto (sin delta): se registra comparando antes/después.
+    // Tras un leave el saldo ya está liquidado y este envío no duplica la entrada.
+    if (before && result.user.chips !== before.chips) {
+      txLog.add({
+        type: result.user.chips > before.chips ? 'win' : 'loss',
+        username: result.user.name,
+        game: null, // no viene de una mesa concreta
+        amount: Math.abs(result.user.chips - before.chips),
+        balanceAfter: result.user.chips,
+      });
+    }
     return json(res, 200, { ok: true, user: result.user });
   }
 
@@ -240,6 +273,11 @@ async function handleAuth(req, res, pathname, query) {
 }
 
 async function handleApi(req, res, pathname, query) {
+  // Consola de transacciones (pública): últimas entradas, de nueva a vieja
+  if (req.method === 'GET' && pathname === '/api/transactions') {
+    return json(res, 200, { ok: true, transactions: txLog.list(query.get('limit')) });
+  }
+
   // Cuentas de jugador
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname, query);
 
@@ -352,15 +390,35 @@ async function handleApi(req, res, pathname, query) {
     return json(res, 200, room.stateFor(playerId));
   }
 
-  // Salir
+  // Salir: se liquida el saldo final de la mesa en la cuenta/cartera.
+  // Si el saldo cambió respecto al de antes de sentarse, la consola pública
+  // registra la transacción (win/loss); si no cambió, no se registra nada
+  // para no llenar la consola de ruido.
   if (req.method === 'POST' && pathname.endsWith('/leave')) {
     if (room) {
       const body = await readBody(req);
+      const seated = typeof room.find === 'function' ? room.find(body.playerId || '') : null;
+      const entryBalance = seated && seated.entryBalance != null ? seated.entryBalance : null;
       const result = room.removePlayer(body.playerId || '');
       const token = tokenFrom(req, body, query);
+      let settled = null;
       if (result && result.chips != null && token) {
         const user = userStore.userByToken(token);
-        if (user) userStore.setChips(token, result.chips);
+        if (user) settled = userStore.setChips(token, result.chips).user || null;
+      }
+      if (result && result.chips != null && entryBalance != null) {
+        // Con cuenta liquidada: saldo de la cuenta. Invitado: sus fichas de mesa.
+        const after = settled ? settled.chips : (seated.accountKey ? null : result.chips);
+        const username = settled ? settled.name : (seated.accountKey ? null : seated.name);
+        if (username && after !== entryBalance) {
+          txLog.add({
+            type: after > entryBalance ? 'win' : 'loss',
+            username,
+            game: room.game || 'blackjack',
+            amount: Math.abs(after - entryBalance),
+            balanceAfter: after,
+          });
+        }
       }
       return json(res, 200, { ok: true, chips: result && result.chips != null ? result.chips : null });
     }
@@ -408,4 +466,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica };
+module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog };

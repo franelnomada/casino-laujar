@@ -168,6 +168,7 @@ global.fetch = async (url, opts) => {
   const stamp = Date.now();
   process.env.USERS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-users-' + stamp + '.json');
   process.env.ROOMS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-rooms-' + stamp + '.json');
+  process.env.TX_FILE = require('path').join(os.tmpdir(), 'smoke-adm-tx-' + stamp + '.json');
   const srv = require('../server.js');
   global.fetch = realFetch; // de aquí en adelante, HTTP real contra el servidor
   const port = await new Promise(res => srv.server.listen(0, () => res(srv.server.address().port)));
@@ -258,6 +259,81 @@ global.fetch = async (url, opts) => {
   const over = await post('/api/admin/users/' + vicKey + '/chips', { token: admToken, delta: -99999999 });
   check('Admin: quitar de más deja el saldo en 0 sin bajar de ahí',
     over.status === 200 && over.data.after === 0);
+
+  // ---------- Consola de transacciones pública (lobby) ----------
+  const { MAX_ENTRIES } = require('../js/transactions.js');
+  const txAll = async () => ((await get('/api/transactions')).data.transactions) || [];
+  const txOpen = await get('/api/transactions');
+  check('TX: /api/transactions es público y responde 200',
+    txOpen.status === 200 && txOpen.data.ok === true && Array.isArray(txOpen.data.transactions));
+
+  // Ganar: el saldo sube al salir de la mesa -> entrada 'win'
+  const hugoReg = await post('/api/auth/register', { name: 'Hugo', password: 'hugo123', chips: 1000 });
+  const hugoRoom = await post('/api/rooms', { name: 'Hugo', game: 'blackjack', chips: 1000, token: hugoReg.data.token });
+  srv.rooms.get(hugoRoom.data.code).find(hugoRoom.data.playerId).chips = 1500; // la mesa rinde 500 de más
+  const hugoLeave = await post('/api/rooms/' + hugoRoom.data.code + '/leave',
+    { playerId: hugoRoom.data.playerId, token: hugoReg.data.token });
+  const winEntry = (await txAll()).find(t => t.username === 'Hugo');
+  check('TX: ganar al salir crea una entrada win con amount y game correctos',
+    hugoLeave.status === 200 && hugoLeave.data.chips === 1500 && !!winEntry &&
+    winEntry.type === 'win' && winEntry.amount === 500 &&
+    winEntry.game === 'blackjack' && winEntry.balanceAfter === 1500);
+
+  // Perder: el saldo baja al salir -> entrada 'loss' (con el juego de la mesa)
+  const martaReg = await post('/api/auth/register', { name: 'Marta', password: 'marta123', chips: 1000 });
+  const martaRoom = await post('/api/rooms', { name: 'Marta', game: 'poker', blindMinutes: 5, chips: 1000, token: martaReg.data.token });
+  srv.rooms.get(martaRoom.data.code).find(martaRoom.data.playerId).chips = 760;
+  const martaLeave = await post('/api/rooms/' + martaRoom.data.code + '/leave',
+    { playerId: martaRoom.data.playerId, token: martaReg.data.token });
+  const lossEntry = (await txAll()).find(t => t.username === 'Marta');
+  check('TX: perder al salir crea una entrada loss con amount y game correctos',
+    martaLeave.status === 200 && !!lossEntry &&
+    lossEntry.type === 'loss' && lossEntry.amount === 240 &&
+    lossEntry.game === 'poker' && lossEntry.balanceAfter === 760);
+
+  // Invitado sin cuenta: aparece con su nombre de sala
+  const ghostRoom = await post('/api/rooms', { name: 'InvitadoX', game: 'roulette', chips: 800 });
+  srv.rooms.get(ghostRoom.data.code).find(ghostRoom.data.playerId).chips = 950;
+  await post('/api/rooms/' + ghostRoom.data.code + '/leave', { playerId: ghostRoom.data.playerId });
+  const guestEntry = (await txAll()).find(t => t.username === 'InvitadoX');
+  check('TX: un invitado sin cuenta se registra con su nombre de sala',
+    !!guestEntry && guestEntry.type === 'win' && guestEntry.amount === 150 &&
+    guestEntry.game === 'roulette' && guestEntry.balanceAfter === 950);
+
+  // Sin cambio de saldo al salir -> no se registra nada (ni con cuenta ni invitado)
+  const nicoReg = await post('/api/auth/register', { name: 'Nico', password: 'nico1234', chips: 1000 });
+  const nicoRoom = await post('/api/rooms', { name: 'Nico', game: 'blackjack', chips: 1000, token: nicoReg.data.token });
+  await post('/api/rooms/' + nicoRoom.data.code + '/leave', { playerId: nicoRoom.data.playerId, token: nicoReg.data.token });
+  const stayRoom = await post('/api/rooms', { name: 'Fantasma', game: 'blackjack', chips: 640 });
+  await post('/api/rooms/' + stayRoom.data.code + '/leave', { playerId: stayRoom.data.playerId });
+  const still = await txAll();
+  check('TX: salir de la mesa sin cambio de saldo NO genera ninguna entrada',
+    !still.some(t => t.username === 'Nico' || t.username === 'Fantasma'));
+
+  // Ajustes del panel: delta + -> admin_grant, delta − -> admin_revoke (admin y afectado)
+  const adminTxs = await txAll();
+  const grant = adminTxs.find(t => t.type === 'admin_grant' && t.target === 'victima');
+  const revoke = adminTxs.find(t => t.type === 'admin_revoke' && t.target === 'victima' &&
+    t.balanceAfter === subOk.data.after);
+  const wipe = adminTxs.find(t => t.type === 'admin_revoke' && t.target === 'victima' && t.balanceAfter === 0);
+  check('TX: delta positivo crea admin_grant con el admin y el usuario afectado',
+    !!grant && grant.username === 'franelnomada' && grant.amount === 500 &&
+    grant.balanceAfter === addOk.data.after);
+  check('TX: delta negativo crea admin_revoke con el admin y el usuario afectado',
+    !!revoke && revoke.username === 'franelnomada' && revoke.amount === 200 && !!wipe);
+
+  // El límite y el orden del endpoint (al final: la carga evicta las entradas ya verificadas)
+  let lastId = null;
+  for (let i = 0; i < MAX_ENTRIES + 5; i++) {
+    lastId = srv.txLog.add({ type: 'win', username: 'Carga' + i, game: 'blackjack', amount: 1, balanceAfter: i }).id;
+  }
+  const bulk = await get('/api/transactions');
+  const bulkList = bulk.data.transactions || [];
+  check('TX: GET devuelve como mucho el límite configurado',
+    bulk.status === 200 && bulkList.length === MAX_ENTRIES);
+  check('TX: GET devuelve las entradas de más reciente a más antigua',
+    !!bulkList[0] && bulkList[0].id === lastId &&
+    bulkList.every((t, i) => i === 0 || bulkList[i - 1].ts >= t.ts));
 
   await new Promise(res => srv.server.close(res));
 

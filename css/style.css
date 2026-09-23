@@ -546,3 +546,10 @@ body.at-welcome #topbar { display: none; }
 .admin-room li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,.08); }
 .btn.danger { background: #8e2b2b; border-color: #c0392b; color: #fff; }
 .btn.danger:hover { background: #c0392b; }
+
+/* ---- Consola de transacciones (lobby) ---- */
+.tx-console-box { margin-top: 1rem; }
+.tx-console { background: #101418; border: 1px solid #2a2f36; border-radius: 10px; padding: .6rem .8rem; max-height: 260px; overflow-y: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; line-height: 1.5; }
+.tx-line { color: #cfd6de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-line.tx-win { color: #6fdc8c; }
+.tx-line.tx-loss { color: #ef7b7b; }
