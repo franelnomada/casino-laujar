@@ -13,6 +13,7 @@ const { UserStore } = require('./js/users.js');
 const { TransactionLog } = require('./js/transactions.js');
 const { FirebaseRest } = require('./js/firebase-rest.js');
 const { RoomReplica } = require('./js/rooms-remote.js');
+const { addChatMessage } = require('./js/room-chat.js');
 
 
 const ROOT = __dirname;
@@ -64,6 +65,8 @@ const roomsReplica = new RoomReplica({
       else if (data.game === 'roulette') room = new RouletteRoom(code);
       else room = new BlackjackRoom(code);
       Object.assign(room, data);
+      room.chat = Array.isArray(room.chat) ? room.chat : [];
+      room.chatLastSent = new Map();
       rooms.set(code, room);
       return true;
     } catch (e) { return false; }
@@ -359,6 +362,15 @@ async function handleApi(req, res, pathname, query) {
     }, 250);
     req.on('close', () => clearInterval(timer));
     return;
+  }
+
+  // Chat: mismo canal de versión que el resto del estado; no hay conexión extra.
+  if (req.method === 'POST' && pathname.endsWith('/chat')) {
+    if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
+    const body = await readBody(req);
+    const result = addChatMessage(room, body.playerId, body.text);
+    if (!result.ok) return json(res, result.status, { error: result.error });
+    return json(res, 200, { ok: true, message: result.message });
   }
 
   // Acciones de juego

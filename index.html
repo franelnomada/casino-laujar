@@ -175,7 +175,14 @@
         <p id="net-rl-message" class="message" role="status"></p>
       </div>
       <div id="net-poker" class="hidden">
-        <div class="poker-meta"><b>♠ Texas Hold’em</b><span id="pk-blinds"></span><span id="pk-clock"></span></div>
+        <div class="poker-meta">
+          <button class="pk-compact-btn" type="button" onclick="Net.leave()" title="Salir de la mesa" aria-label="Salir de la mesa">←</button>
+          <b>♠ Texas Hold’em</b>
+          <span>💬 <strong id="pk-room-code"></strong></span>
+          <span id="pk-blinds"></span>
+          <span id="pk-clock"></span>
+          <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
+        </div>
         <div id="pk-table" class="poker-table">
           <div class="pk-dealer">CRUPIER <div id="pk-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
           <div class="pk-center">
@@ -188,21 +195,32 @@
           <div id="pk-seats" class="pk-seats"></div>
         </div>
         <div class="controls pk-controls">
-          <p id="pk-status" role="status"></p>
-          <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
+          <div class="pk-turn">
+            <p id="pk-status" role="status"></p>
+            <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
+          </div>
           <div id="pk-actions" class="hidden">
             <div class="btn-row">
               <button id="pk-fold" class="btn" onclick="Poker.act('fold')">Retirarse</button>
               <button id="pk-call" class="btn primary" onclick="Poker.call()">Pasar</button>
               <button id="pk-allin" class="btn" onclick="Poker.act('allIn')">All-in</button>
-              <label for="pk-amount">Hasta</label>
-              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1">
+              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1" aria-label="Importe de la subida" title="Importe de la subida">
               <button id="pk-raise" class="btn" onclick="Poker.raise()">Subir</button>
             </div>
           </div>
-          <details class="hint"><summary>Ciegas, turnos y límite de tiempo</summary>D = botón dealer · SB = ciega pequeña · BB = ciega grande. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis, o retirarse.</details>
+          <details class="hint"><summary>Reglas de la mesa</summary><span class="pk-rules-copy">D = dealer · SB/BB = ciegas. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis o retirarse.</span></details>
           <p id="pk-results" class="message"></p>
         </div>
+      </div>
+      <div id="net-chat" class="room-chat" aria-labelledby="net-chat-title">
+        <h2 id="net-chat-title">💬 Chat de la mesa</h2>
+        <div id="net-chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <form id="net-chat-form" class="chat-form" onsubmit="Net.sendChat(event)">
+          <label class="sr-only" for="net-chat-input">Mensaje para la mesa</label>
+          <input id="net-chat-input" class="name-input" type="text" maxlength="200" autocomplete="off" placeholder="Escribe un mensaje…">
+          <button id="net-chat-send" class="btn primary" type="submit">Enviar</button>
+        </form>
+        <p id="net-chat-status" class="chat-status" role="status"></p>
       </div>
       <div id="net-message" class="message" role="status"></div>
       <div id="net-blackjack-controls" class="controls">

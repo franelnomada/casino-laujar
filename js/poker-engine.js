@@ -1,5 +1,6 @@
 // Texas Hold'em: lógica autoritativa, sin DOM ni temporizadores propios.
 const { randomInt } = require('node:crypto');
+const { ensureChat, chatFor } = require('./room-chat.js');
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 function buildDeck() {
   const cards = ['♠','♥','♦','♣'].flatMap(suit => RANKS.map(rank => ({ rank, suit })));
@@ -53,6 +54,7 @@ class PokerRoom {
     this.blindMinutes=[5,10,15,20].includes(options.blindMinutes) ? options.blindMinutes : 10;
     this.startedAt=null; this.level=0; this.smallBlind=10; this.bigBlind=20;
     this.currentBet=0; this.minRaise=20; this.pending=[]; this.turnDeadline=0;
+    this.chat=[]; this.chatLastSent=new Map();
   }
   touch() { this.version++; this.lastActivity=Date.now(); }
   find(id) { return this.players.find(p=>p.id===id); }
@@ -217,7 +219,7 @@ class PokerRoom {
     } : null;
     return {game:this.game,code:this.code,version:this.version,phase:this.phase,handNo:this.handNo,privateHand,
       hostId:this.hostId,dealerId:this.dealerId,sbId:this.sbId,bbId:this.bbId,turnId:this.turnId,
-      message:this.message,board:this.board,events:this.events,serverNow:now,visualUntil:this.visualUntil,
+      message:this.message,chat:chatFor(this),board:this.board,events:this.events,serverNow:now,visualUntil:this.visualUntil,
       turnDeadline:this.turnDeadline,smallBlind:this.smallBlind,bigBlind:this.bigBlind,level:this.level,
       nextBlindAt:this.startedAt===null||this.level>=10?null:this.startedAt+(this.level+1)*this.blindMinutes*60000,
       blindMinutes:this.blindMinutes,pot:this.players.reduce((n,q)=>n+q.total,0),pots:this.pots,

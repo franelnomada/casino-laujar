@@ -3,6 +3,7 @@
 //  Sin DOM, sin red: lógica pura y testeable.
 // ================================================
 const SplitHands = require('./split-hands.js');
+const { ensureChat, chatFor } = require('./room-chat.js');
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const SHOE_DECKS = 6;
@@ -60,6 +61,8 @@ class BlackjackRoom {
     this.message = 'Esperando jugadores…';
     this.turnOrder = []; // ids en orden de turno (derecha → izquierda)
     this.turnId = null;  // jugador al que le toca
+    this.chat = [];
+    this.chatLastSent = new Map();
     this.lastActivity = Date.now();
   }
 
@@ -312,6 +315,7 @@ class BlackjackRoom {
       version: this.version,
       phase: this.phase,
       message: this.message,
+      chat: chatFor(this),
       turnId: this.turnId,
       dealer: {
         cards: finished ? this.dealerHand : this.dealerHand.slice(0, 1),

@@ -5,6 +5,7 @@
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 const MAX_PLAYERS = 10;
 const START_CHIPS = 1000;
+const { ensureChat, chatFor } = require('./room-chat.js');
 
 function roulettePayout(id, n, amount) {
   const win = (mult) => amount + amount * mult;
@@ -41,6 +42,8 @@ class RouletteRoom {
     this.lastNumber = null;
     this.lastPayouts = {};
     this.message = 'Coloca tus apuestas y gira cuando quieras.';
+    this.chat = [];
+    this.chatLastSent = new Map();
     this.lastActivity = Date.now();
   }
 
@@ -145,7 +148,7 @@ class RouletteRoom {
       sum + Object.values(mine || {}).reduce((a, b) => a + b, 0), 0);
     return {
       code: this.code, game: this.game, version: this.version, phase: this.phase,
-      message: this.message, lastNumber: this.lastNumber, lastPayouts: this.lastPayouts,
+      message: this.message, chat: chatFor(this), lastNumber: this.lastNumber, lastPayouts: this.lastPayouts,
       tableTotal: tableTotal, bets: this.bets,
       players: this.players.filter(q => !q.left).map(q => ({ id: q.id, name: q.name, chips: q.chips, bet: q.bet })),
     };

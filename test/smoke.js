@@ -1,10 +1,14 @@
 // Test de humo de la lógica (sin navegador). Ejecutar con: node test/smoke.js
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { CHAT_MAX_LENGTH, CHAT_COOLDOWN_MS } = require('../js/room-chat.js');
 
 // --- Stubs mínimos de DOM ---
 const fakeEl = () => ({
-  textContent: '', innerHTML: '', style: {},
+  textContent: '', innerHTML: '', value: '', style: {},
+  children: [], firstChild: null, firstElementChild: null,
+  scrollHeight: 0, scrollTop: 0, clientHeight: 0,
   classList: { add() {}, remove() {}, toggle() {} },
   appendChild() {}, querySelector() { return null; },
   querySelectorAll() { return []; },
@@ -164,7 +168,6 @@ global.fetch = async (url, opts) => {
     check('Net: invitado: saldo local aplicado sin token', App.chips === 900 && !leaveReq.token);
 
   // ---------- Panel de admin: ban, kick y permisos (servidor real) ----------
-  const os = require('os');
   const stamp = Date.now();
   process.env.USERS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-users-' + stamp + '.json');
   process.env.ROOMS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-rooms-' + stamp + '.json');
@@ -181,6 +184,65 @@ global.fetch = async (url, opts) => {
     const r = await fetch(base + p);
     return { status: r.status, data: await r.json() };
   };
+
+  // ---------- Chat de sala (viaja en el estado del long-poll) ----------
+  const chatCreated = await post('/api/rooms', { name: 'Ana chat', game: 'blackjack' });
+  const chatCode = chatCreated.data.code;
+  const chatA = chatCreated.data.playerId;
+  const chatJoin = await post('/api/rooms/' + chatCode + '/join', { name: 'Bruno chat' });
+  const chatB = chatJoin.data.playerId;
+  const versionBeforeChat = srv.rooms.get(chatCode).version;
+  const stateForB = get('/api/rooms/' + chatCode + '/state?player=' + chatB + '&v=' + versionBeforeChat);
+  await new Promise(resolve => setTimeout(resolve, 75)); // deja el GET sospechoso esperando
+  const sentChat = await post('/api/rooms/' + chatCode + '/chat', {
+    playerId: chatA,
+    text: '  Hola   mesa  ',
+  });
+  const chatForB = await Promise.race([
+    stateForB,
+    new Promise((resolve, reject) => setTimeout(() => reject(new Error('El long-poll del chat no se despertó')), 1500)),
+  ]);
+  check('Chat: un jugador publica, despierta a otro y este lo recibe en /state',
+    sentChat.status === 200 && chatForB.status === 200 && chatForB.data.version > versionBeforeChat &&
+    chatForB.data.chat.some(m => m.id === sentChat.data.message.id && m.playerId === chatA &&
+      m.name === 'Ana chat' && m.text === 'Hola mesa'));
+
+  const outsiderRoom = await post('/api/rooms', { name: 'Ajena' });
+  const outsiderSend = await post('/api/rooms/' + chatCode + '/chat', {
+    playerId: outsiderRoom.data.playerId,
+    text: 'No pertenezco',
+  });
+  check('Chat: un playerId de otra sala recibe 403', outsiderSend.status === 403);
+
+  const emptyChat = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: '   \t  ' });
+  const emptyTypeChat = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: 123 });
+  check('Chat: mensajes vacíos, solo espacios o no text reciben 400',
+    emptyChat.status === 400 && emptyTypeChat.status === 400);
+
+  const longText = '😀'.repeat(CHAT_MAX_LENGTH + 15);
+  const longSent = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatB, text: longText });
+  check('Chat: el texto largo se recorta de forma consistente a 200 caracteres',
+    longSent.status === 200 && Array.from(longSent.data.message.text).length === CHAT_MAX_LENGTH);
+
+  const chatRoom = srv.rooms.get(chatCode);
+  chatRoom.chatLastSent.set(chatA, 0);
+  const firstRate = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: 'Primero' });
+  const tooSoon = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: 'Demasiado rápido' });
+  check('Chat: el segundo mensaje inmediato recibe 429 con error claro',
+    firstRate.status === 200 && tooSoon.status === 429 && /espera/i.test(tooSoon.data.error || ''));
+  await new Promise(resolve => setTimeout(resolve, CHAT_COOLDOWN_MS + 60));
+  const afterRate = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: 'Ya ha pasado' });
+  check('Chat: el mismo jugador puede enviar después del tiempo de espera', afterRate.status === 200);
+
+  for (let i = 0; i < 56; i++) {
+    chatRoom.chatLastSent.set(chatA, 0); // la prueba de masa no debe esperar 1 s por mensaje
+    const bulkMessage = await post('/api/rooms/' + chatCode + '/chat', { playerId: chatA, text: 'Carga ' + i });
+    if (bulkMessage.status !== 200) break;
+  }
+  const cappedChat = await get('/api/rooms/' + chatCode + '/state?player=' + chatB + '&v=0');
+  check('Chat: la sala conserva como máximo los 50 mensajes más recientes',
+    cappedChat.status === 200 && cappedChat.data.chat.length === 50 &&
+    cappedChat.data.chat[cappedChat.data.chat.length - 1].text === 'Carga 55');
 
   // Cuentas: franelnomada queda como admin por defecto (ADMIN_USERS)
   const admReg = await post('/api/auth/register', { name: 'franelnomada', password: 'admin123', chips: 1000 });

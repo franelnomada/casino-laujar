@@ -302,6 +302,35 @@ body { overscroll-behavior-y: contain; }
 .share-row { text-align: center; margin-bottom: 14px; }
 .lost-text { font-size: 1.05rem; color: #f0b8b8; margin-bottom: 10px; max-width: 480px; }
 
+/* Chat compartido por blackjack, póker y ruleta. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.room-chat {
+  max-width: 760px; margin: 20px auto 0; padding: 14px;
+  background: rgba(13, 17, 23, .88); border: 1px solid rgba(212, 175, 55, .35);
+  border-radius: 14px; box-shadow: 0 8px 24px #0005;
+}
+.room-chat h2 { color: var(--gold-light); font-size: 1rem; margin-bottom: 8px; }
+.chat-messages { height: 220px; overflow-y: auto; overflow-wrap: anywhere; scrollbar-gutter: stable; }
+.chat-empty { color: #9aa7b5; font-size: .9rem; padding: 1.2rem 0; }
+.chat-message { display: grid; grid-template-columns: minmax(70px, auto) auto 1fr; gap: 4px 8px; padding: 6px 4px; border-bottom: 1px solid #ffffff12; font-size: .9rem; }
+.chat-message .chat-name { color: var(--gold-light); font-weight: bold; }
+.chat-message .chat-time { color: #8b98a5; font-size: .78rem; }
+.chat-message .chat-text { grid-column: 1 / -1; white-space: pre-wrap; }
+.chat-form { display: flex; gap: 8px; margin-top: 10px; }
+.chat-form .name-input { flex: 1; min-width: 0; }
+.chat-status { min-height: 1.1em; color: #ff9e8e; font-size: .82rem; margin-top: 5px; }
+.chat-status:empty { min-height: 0; margin-top: 0; }
+@media (max-width: 600px) {
+  .room-chat { padding: 10px; }
+  .chat-messages { height: 180px; }
+  .chat-form { flex-wrap: wrap; }
+  .chat-form .name-input { flex-basis: 100%; }
+  .chat-form .btn { width: 100%; }
+}
+
 /* ==== Zapato de cartas (shoe) ==== */
 .shoe {
   position: absolute; top: 16px; right: 26px;
@@ -462,6 +491,192 @@ body.at-welcome #topbar { display: none; }
   .poker-meta { font-size: .85rem; gap: 6px 12px; }
 }
 
+/* ==== Póker compacto: una sola pantalla, sin scroll vertical ==== */
+body.in-poker-room { height: 100dvh; min-height: 0; overflow: hidden; }
+body.in-poker-room #topbar { height: 50px; padding: 5px 16px; flex-shrink: 0; }
+body.in-poker-room .brand { font-size: 1.05rem; }
+body.in-poker-room .chips-display { padding: 5px 10px; font-size: .82rem; }
+body.in-poker-room .auth-topbar { padding: 5px 10px; font-size: .82rem; }
+body.in-poker-room #app {
+  width: 100%; max-width: 1600px; height: calc(100dvh - 50px);
+  min-height: 0; padding: 0; overflow: hidden;
+}
+body.in-poker-room #screen-room {
+  height: 100%; min-height: 0; padding: 8px; display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px; gap: 8px; overflow: hidden;
+}
+body.in-poker-room #screen-room > .btn-back,
+body.in-poker-room #screen-room > h1,
+body.in-poker-room #screen-room > .subtitle,
+body.in-poker-room #screen-room > .share-row,
+body.in-poker-room #net-message,
+body.in-poker-room #net-blackjack-controls { display: none !important; }
+body.in-poker-room #net-poker {
+  min-width: 0; min-height: 0; height: 100%; display: grid;
+  grid-template-rows: 30px minmax(0, 1fr) auto; gap: 6px; overflow: hidden;
+}
+body.in-poker-room .poker-meta {
+  min-width: 0; margin: 0; padding: 3px 7px; gap: 8px; flex-wrap: nowrap;
+  justify-content: center; align-items: center; border-radius: 9px;
+  background: #121d29e8; border: 1px solid #d4af3738; font-size: .78rem;
+}
+body.in-poker-room .poker-meta > span { white-space: nowrap; }
+body.in-poker-room #pk-clock { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pk-compact-btn {
+  width: 28px; height: 28px; flex: 0 0 28px; padding: 0; border: 1px solid #ffffff35;
+  border-radius: 7px; color: var(--text); background: #263547; cursor: pointer;
+}
+.pk-compact-btn:hover { border-color: var(--gold); }
+body.in-poker-room .poker-table {
+  width: 100%; max-width: 1100px; height: 100%; min-height: 0; margin: 0 auto;
+  display: block; padding: 0; border-width: 8px; border-radius: 48% / 44%; overflow: visible;
+}
+body.in-poker-room .poker-table::before { inset: 14px; }
+body.in-poker-room .pk-dealer { position: absolute; top: 1%; left: 50%; z-index: 3; transform: translateX(-50%); }
+body.in-poker-room .pk-dealer .shoe { width: 31px; height: 43px; margin: 3px auto 0; }
+body.in-poker-room .pk-dealer .shoe i { height: 5px; margin-top: 3px; }
+body.in-poker-room .pk-center {
+  position: absolute; top: 48%; left: 50%; z-index: 2;
+  transform: translate(-50%, -50%); width: min(54%, 500px);
+}
+body.in-poker-room .pk-brand { font-size: .8rem; letter-spacing: 2px; }
+body.in-poker-room .pk-pot { margin: 4px 0; font-size: 1rem; }
+body.in-poker-room .pk-board { min-height: 58px; margin-bottom: 3px; gap: 4px; }
+body.in-poker-room .pk-board .playing-card { width: 40px; height: 58px; padding: 3px; font-size: .82rem; }
+body.in-poker-room .pk-board .suit { font-size: 1.05rem; }
+body.in-poker-room .pk-private-hand { min-height: 1.2em; margin-top: 2px; font-size: .72rem; }
+body.in-poker-room #pk-phase { font-size: .72rem; }
+body.in-poker-room .pk-seats { position: absolute; inset: 0; display: block; }
+body.in-poker-room .pk-seat {
+  position: absolute; width: clamp(92px, 15%, 126px); padding: 4px 3px;
+  border-radius: 10px; background: #0b201ddd; box-shadow: 0 3px 9px #0007;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px 3px; align-items: center;
+}
+body.in-poker-room .pk-seat .pk-name { grid-column: 1; }
+body.in-poker-room .pk-seat .pk-badges { grid-column: 2; justify-self: end; }
+body.in-poker-room .pk-seat .pk-chips { grid-column: 1; }
+body.in-poker-room .pk-seat .pk-bet { grid-column: 2; justify-self: end; white-space: nowrap; }
+body.in-poker-room .pk-seat .pk-hole,
+body.in-poker-room .pk-seat .pk-result { grid-column: 1 / -1; }
+body.in-poker-room .pk-seat .pk-result:empty { display: none; }
+body.in-poker-room .pk-seat:has(.pk-result:not(:empty)) .pk-bet { display: none; }
+body.in-poker-room .pk-seat-0 { right: .5%; top: 28%; }
+body.in-poker-room .pk-seat-1 { right: 2%; top: 58%; }
+body.in-poker-room .pk-seat-2 { right: 18%; bottom: 3%; }
+body.in-poker-room .pk-seat-3 { left: 18%; bottom: 3%; }
+body.in-poker-room .pk-seat-4 { left: 2%; top: 58%; }
+body.in-poker-room .pk-seat-5 { left: .5%; top: 28%; }
+body.in-poker-room .pk-name { font-size: .74rem; line-height: 1.05; }
+body.in-poker-room .pk-chips,
+body.in-poker-room .pk-bet,
+body.in-poker-room .pk-badges,
+body.in-poker-room .pk-result { min-height: 1.05em; font-size: .64rem; line-height: 1.05; }
+body.in-poker-room .pk-seat .pk-name,
+body.in-poker-room .pk-seat .pk-chips,
+body.in-poker-room .pk-seat .pk-bet,
+body.in-poker-room .pk-seat .pk-badges { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.in-poker-room .pk-seat .pk-result { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.in-poker-room .pk-badges { margin: 1px 0; }
+body.in-poker-room .pk-hole { min-height: 46px; margin: 2px 0; gap: 2px; }
+body.in-poker-room .pk-hole .playing-card { width: 32px; height: 46px; padding: 2px; font-size: .68rem; }
+body.in-poker-room .pk-hole .suit { font-size: .85rem; }
+
+/* Barra persistente: el estado y las acciones ocupan una zona reservada. */
+body.in-poker-room .pk-controls {
+  position: relative; display: grid; grid-template-columns: minmax(150px, .75fr) minmax(0, 2fr);
+  gap: 4px 10px; align-items: center; margin: 0; padding: 7px 9px; border-radius: 11px;
+}
+.pk-turn { min-width: 0; display: flex; align-items: center; gap: 8px; }
+body.in-poker-room #pk-status { margin: 0; font-size: .78rem; }
+body.in-poker-room #pk-start { min-height: 36px; padding: 7px 12px; font-size: .78rem; }
+body.in-poker-room #pk-actions, body.in-poker-room #pk-actions .btn-row { min-width: 0; }
+body.in-poker-room #pk-actions .btn-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+body.in-poker-room #pk-actions .btn,
+body.in-poker-room #pk-amount { min-width: 0; width: 100%; min-height: 36px; padding: 6px 7px; font-size: .75rem; }
+body.in-poker-room .pk-controls details { position: relative; justify-self: end; font-size: .68rem; }
+body.in-poker-room .pk-controls details[open] .pk-rules-copy {
+  display: block; position: absolute; right: 0; bottom: 18px; width: min(300px, 70vw);
+  padding: 8px; border-radius: 7px; background: #101923; box-shadow: 0 4px 14px #000; z-index: 8;
+}
+body.in-poker-room #pk-results { grid-column: 1 / -1; min-height: 0; margin: 0; font-size: .7rem; line-height: 1.15; }
+body.in-poker-room .room-chat {
+  width: auto; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 9px;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 5px; overflow: hidden;
+}
+body.in-poker-room .room-chat h2 { margin: 0; font-size: .82rem; }
+body.in-poker-room .chat-messages { height: auto; min-height: 0; font-size: .76rem; }
+body.in-poker-room .chat-message { grid-template-columns: minmax(52px, auto) 1fr; padding: 4px 2px; font-size: .74rem; }
+body.in-poker-room .chat-time { display: none; }
+body.in-poker-room .chat-text { grid-column: 2; }
+body.in-poker-room .chat-form { margin: 0; gap: 5px; }
+body.in-poker-room .chat-form .name-input { min-height: 36px; }
+body.in-poker-room .chat-form .btn { min-height: 36px; padding: 6px 9px; font-size: .75rem; }
+
+@media (max-height: 700px) {
+  body.in-poker-room .pk-seat-0 { top: 11%; }
+  body.in-poker-room .pk-seat-5 { top: 11%; }
+  body.in-poker-room .pk-seat-1 { top: 39%; }
+  body.in-poker-room .pk-seat-4 { top: 39%; }
+  body.in-poker-room .pk-seat-2, body.in-poker-room .pk-seat-3 { bottom: 2%; }
+  body.in-poker-room .pk-hole { min-height: 37px; }
+  body.in-poker-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
+  body.in-poker-room .pk-hole .suit { font-size: .72rem; }
+}
+
+@media (max-width: 760px) {
+  body.in-poker-room #topbar { padding: 5px 10px; }
+  body.in-poker-room #screen-room { padding: 5px; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) 78px; gap: 5px; }
+  body.in-poker-room #net-poker { grid-template-rows: 27px minmax(0, 1fr) auto; gap: 4px; }
+  body.in-poker-room .poker-meta { padding: 2px 5px; gap: 5px; justify-content: space-between; font-size: .67rem; }
+  body.in-poker-room .poker-meta > b { display: none; }
+  body.in-poker-room .poker-table { border-width: 5px; border-radius: 46% / 41%; }
+  body.in-poker-room .pk-dealer { font-size: .58rem; }
+  body.in-poker-room .pk-dealer .shoe { width: 25px; height: 34px; }
+  body.in-poker-room .pk-dealer .shoe i:nth-child(2) { display: none; }
+  body.in-poker-room .pk-center { width: 58%; }
+  body.in-poker-room .pk-brand, body.in-poker-room .pk-private-hand { display: none; }
+  body.in-poker-room .pk-pot { margin: 0 0 2px; font-size: .78rem; }
+  body.in-poker-room .pk-board { min-height: 43px; gap: 2px; }
+  body.in-poker-room .pk-board .playing-card { width: 29px; height: 43px; padding: 2px; font-size: .66rem; }
+  body.in-poker-room .pk-board .suit { font-size: .82rem; }
+  body.in-poker-room #pk-phase { font-size: .62rem; }
+  body.in-poker-room .pk-seat { width: clamp(80px, 25%, 96px); padding: 3px 2px; }
+  body.in-poker-room .pk-seat-0 { top: 11%; }
+  body.in-poker-room .pk-seat-5 { top: 11%; }
+  body.in-poker-room .pk-seat-1 { top: 39%; }
+  body.in-poker-room .pk-seat-4 { top: 39%; }
+  body.in-poker-room .pk-seat-2, body.in-poker-room .pk-seat-3 { bottom: 2%; }
+  body.in-poker-room .pk-hole { min-height: 37px; }
+  body.in-poker-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
+  body.in-poker-room .pk-hole .suit { font-size: .72rem; }
+  body.in-poker-room .pk-controls { grid-template-columns: 1fr; gap: 3px; padding: 5px 6px; }
+  .pk-turn { justify-content: center; }
+  body.in-poker-room #pk-status { font-size: .68rem; }
+  body.in-poker-room #pk-start { min-height: 32px; padding: 5px 9px; font-size: .7rem; }
+  body.in-poker-room #pk-actions .btn-row { grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  body.in-poker-room #pk-actions .btn, body.in-poker-room #pk-amount { min-height: 32px; padding: 4px 3px; font-size: .66rem; }
+  body.in-poker-room #pk-amount { grid-column: span 2; }
+  body.in-poker-room .pk-controls details { display: none; }
+  body.in-poker-room #pk-results { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .62rem; text-align: center; }
+  body.in-poker-room .room-chat { padding: 5px 7px; grid-template-rows: 24px auto; gap: 2px; }
+  body.in-poker-room .room-chat h2 { font-size: .65rem; }
+  body.in-poker-room .chat-messages { height: 24px; }
+  body.in-poker-room .chat-message:not(:last-child) { display: none; }
+  body.in-poker-room .chat-empty { padding: 2px 0; }
+  body.in-poker-room .chat-form { grid-column: 2; }
+  body.in-poker-room .chat-form .name-input { min-height: 32px; padding: 6px 8px; }
+  body.in-poker-room .chat-form .btn { min-height: 32px; }
+  body.in-poker-room .chat-status { display: none; }
+}
+@media (max-height: 620px) and (max-width: 760px) {
+  body.in-poker-room #screen-room { grid-template-rows: minmax(0, 1fr) 58px; }
+  body.in-poker-room .room-chat { grid-template-rows: 20px auto; }
+  body.in-poker-room .chat-messages { height: 20px; }
+  body.in-poker-room .pk-name, body.in-poker-room .pk-chips { font-size: .58rem; }
+  body.in-poker-room .pk-hole { min-height: 32px; }
+  body.in-poker-room .pk-hole .playing-card { width: 23px; height: 32px; }
+}
+
 /* ==== Cuentas de jugador ==== */
 .topbar-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .auth-topbar {
@@ -533,7 +748,7 @@ body.at-welcome #topbar { display: none; }
 }
 .open-room-info { flex: 1; color: #9aa7b5; font-size: .9rem; min-width: 8rem; }
 
-/* ---------- Panel de administraci�n ---------- */
+/* ---------- Panel de administraci�n ---------- */
 #screen-admin { max-width: 780px; }
 .admin-block { margin: 18px 0; background: rgba(0,0,0,.25); border: 1px solid rgba(212,175,55,.25); border-radius: 12px; padding: 14px 16px; }
 .admin-block h2 { margin: 0 0 10px; font-size: 1.05rem; color: #d4af37; }

@@ -9,6 +9,7 @@ const Net = {
   state: null,
   polling: false,
   rlChip: 5,
+  chatIds: new Set(),
 
   // ---------- Sesión ----------
   init() {
@@ -190,7 +191,9 @@ const Net = {
   enterRoom() {
     this.state = null;
     this._prevCounts = {}; this._prevDealer = 0;
+    this.clearChat();
     if (typeof Poker !== 'undefined') Poker.reset();
+    document.body.classList.toggle('in-poker-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
     document.getElementById('net-blackjack-controls').classList.add('hidden');
@@ -231,9 +234,104 @@ const Net = {
 
   disconnect() {
     if (typeof Poker !== 'undefined') Poker.reset();
+    document.body.classList.toggle('in-poker-room', false);
     this.code = null;
     this.state = null;
+    this.clearChat();
     localStorage.removeItem(this.KEY);
+  },
+
+  clearChat() {
+    this.chatIds.clear();
+    const list = document.getElementById('net-chat-messages');
+    while (list && list.firstChild) list.removeChild(list.firstChild);
+    const input = document.getElementById('net-chat-input');
+    if (input) input.value = '';
+    const status = document.getElementById('net-chat-status');
+    if (status) status.textContent = '';
+  },
+
+  renderChat(messages) {
+    const list = document.getElementById('net-chat-messages');
+    if (!list) return;
+    const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
+    let added = 0;
+
+    for (const message of messages) {
+      if (!message || this.chatIds.has(message.id)) continue;
+      const row = document.createElement('article');
+      row.className = 'chat-message';
+      if (row.dataset) row.dataset.messageId = String(message.id);
+      const name = document.createElement('span');
+      name.className = 'chat-name';
+      name.textContent = String(message.name || 'Jugador');
+      const time = document.createElement('time');
+      time.className = 'chat-time';
+      const date = new Date(message.ts);
+      if (Number.isNaN(date.getTime())) {
+        time.textContent = '';
+      } else {
+        time.dateTime = date.toISOString();
+        time.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      const text = document.createElement('span');
+      text.className = 'chat-text';
+      text.textContent = String(message.text || '');
+      row.appendChild(name);
+      row.appendChild(time);
+      row.appendChild(text);
+      list.appendChild(row);
+      this.chatIds.add(message.id);
+      added++;
+    }
+
+    while (list.children.length > 50) {
+      const first = list.firstElementChild;
+      if (first) {
+        if (first.dataset && first.dataset.messageId) this.chatIds.delete(first.dataset.messageId);
+        list.removeChild(first);
+      } else break;
+    }
+    if (added) {
+      let empty = list.querySelector('.chat-empty');
+      if (empty) list.removeChild(empty);
+      if (nearBottom) list.scrollTop = list.scrollHeight;
+    } else if (!list.children.length) {
+      const empty = document.createElement('p');
+      empty.className = 'chat-empty';
+      empty.textContent = 'Todavía no hay mensajes. ¡Saluda a la mesa!';
+      list.appendChild(empty);
+    }
+  },
+
+  async sendChat(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const input = document.getElementById('net-chat-input');
+    const status = document.getElementById('net-chat-status');
+    const send = document.getElementById('net-chat-send');
+    const text = input ? input.value : '';
+    if (!this.code || !text.trim()) return;
+    if (status) status.textContent = '';
+    if (send) send.disabled = true;
+    try {
+      const r = await fetch('/api/rooms/' + this.code + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: this.playerId, text }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        if (status) status.textContent = data.error || 'No se pudo enviar el mensaje.';
+        return;
+      }
+      if (input) input.value = '';
+      // El siguiente long-poll trae el historial y lo pinta por su ID.
+    } catch (e) {
+      if (status) status.textContent = 'No se pudo conectar con el servidor.';
+    } finally {
+      if (send) send.disabled = false;
+      if (input) input.focus();
+    }
   },
 
   showError(text) {
@@ -299,6 +397,7 @@ const Net = {
 
   roomLost() {
     if (typeof Poker !== 'undefined') Poker.reset();
+    document.body.classList.toggle('in-poker-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-roulette').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
@@ -351,12 +450,17 @@ const Net = {
   render() {
     const s = this.state;
     if (!s) return;
+    this.renderChat(s.chat || []);
     const notBJ = s.game === 'poker' || s.game === 'roulette';
     document.getElementById('net-blackjack-table').classList.toggle('hidden', notBJ);
     document.getElementById('net-blackjack-controls').classList.toggle('hidden', notBJ);
     document.getElementById('net-poker').classList.toggle('hidden', s.game !== 'poker');
     document.getElementById('net-roulette').classList.toggle('hidden', s.game !== 'roulette');
-    if (s.game === 'poker') { Poker.render(s); return; }
+    document.body.classList.toggle('in-poker-room', s.game === 'poker');
+    if (s.game === 'poker') {
+      document.getElementById('pk-room-code').textContent = s.code || '';
+      Poker.render(s); return;
+    }
     if (s.game === 'roulette') { this.renderRoulette(s); return; }
 
     // Dealer (animación SOLO cuando aparece una carta nueva, no en cada refresco)

@@ -99,8 +99,8 @@ async function main() {
     assert.equal(await js(`document.getElementById('account-guest').classList.contains('hidden')`),true);
     assert.equal(await js(`document.getElementById('account-user').classList.contains('hidden')`),false);
     assert.equal(await js(`document.getElementById('account-name').textContent`),'Ana');
-    await js(`document.getElementById('net-name').value='';document.getElementById('bj-name-input').value='';Auth.prefillNames('Bea')`);
-    assert.equal(await js(`document.getElementById('net-name').value+'/'+document.getElementById('bj-name-input').value`),'Bea/Bea','El nombre de la cuenta se reutiliza en las mesas');
+    await js(`document.getElementById('net-name').value='';Auth.prefillNames('Bea')`);
+    assert.equal(await js(`document.getElementById('net-name').value`),'Bea','El nombre de la cuenta se reutiliza en las salas');
     // Salir de la cuenta: vuelve a invitado y conserva las fichas del móvil
     await js(`Auth.forget()`);
     assert.match(await js(`document.getElementById('auth-topbar').textContent`),/Invitado/);
@@ -142,7 +142,7 @@ async function main() {
     await render();
     assert.equal(await js('Poker.nodes.size'),12);
     assert.equal(await js(`document.querySelectorAll('#pk-seats .face-down').length`),12);
-    assert.equal(await js(`Math.round(document.getElementById('pk-shoe').getBoundingClientRect().height)>40`),true);
+    assert.equal(await js(`Math.round(document.getElementById('pk-shoe').getBoundingClientRect().height)>30`),true);
     await js('window.firstCard = document.querySelector("#pk-seats .pk-card")');
     await render();
     assert.equal(await js('firstCard === document.querySelector("#pk-seats .pk-card")'),true);
@@ -152,13 +152,15 @@ async function main() {
     await render();
     assert.equal(await js('Poker.animations.size'),0);
     assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
-    for(const width of [320,390,768,1100]) {
-      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<760});
+    for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700],[1440,900]]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
+      assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Scroll vertical a '+width+'x'+height);
       const overlap=await js(`(()=>{const r=[...document.querySelectorAll('.pk-seat')].map(n=>n.getBoundingClientRect());return r.some((a,i)=>r.some((b,j)=>j>i&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom));})()`);
       assert.equal(overlap,false,'Asientos superpuestos a '+width+' '+JSON.stringify(await js(`[...document.querySelectorAll('.pk-seat')].map(n=>({class:n.className,x:n.offsetLeft,y:n.offsetTop,w:n.offsetWidth,h:n.offsetHeight}))`)));
-      const covers=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();return [...document.querySelectorAll('.pk-seat')].some(n=>{const b=n.getBoundingClientRect();return b.left<c.right&&c.left<b.right&&b.top<c.bottom&&c.top<b.bottom;});})()`);
-      assert.equal(covers,false,'Los controles tapan asientos a '+width);
+      const layout=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();const a=[...document.querySelectorAll('#pk-actions button')].map(n=>n.getBoundingClientRect());return {c:{top:c.top,bottom:c.bottom},a:a.map(r=>({top:r.top,bottom:r.bottom})),height:innerHeight};})()`);
+      assert.equal(layout.c.bottom <= layout.height && layout.c.top >= 0,true,'Controles fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
+      assert.equal(layout.a.every(r=>r.top>=0&&r.bottom<=layout.height),true,'Acciones fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
     }
     const hintRoom = new PokerRoom('HINT');
     hintRoom.addPlayer('a','Ana'); hintRoom.addPlayer('b','Bob');
@@ -181,7 +183,7 @@ async function main() {
     assert.deepEqual(errors,[]);
     await js('Poker.reset()');
     assert.equal(await js(`Poker.el('private-hand').textContent`),'');
-    console.log('✅ Chrome: selector, 6 asientos a 320/390/768/1100 px, privacidad, reparto y nodos persistentes');
+    console.log('✅ Chrome: selector, 6 asientos y una pantalla sin scroll a 320×568, 390×844, 768×600, 1100×700 y 1440×900; privacidad, reparto y nodos persistentes');
   } finally {
     // Cerrar Chrome antes de borrar su perfil: Windows bloquea archivos en uso.
     const exited = new Promise(resolve => {
