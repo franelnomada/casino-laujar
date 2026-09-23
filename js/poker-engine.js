@@ -32,16 +32,18 @@ function five(cards) {
   if (groups[0][0] === 2) return [1, ...groups.map(g => g[1])];
   return [0, ...values];
 }
-function evaluate(cards) {
-  let best = [];
+function bestFive(cards) {
+  let best = { score: [], cards: [] };
   for (let a=0;a<cards.length-4;a++) for(let b=a+1;b<cards.length-3;b++)
     for(let c=b+1;c<cards.length-2;c++) for(let d=c+1;d<cards.length-1;d++)
       for(let e=d+1;e<cards.length;e++) {
-        const score = five([cards[a],cards[b],cards[c],cards[d],cards[e]]);
-        if (compare(score,best)>0) best=score;
+        const hand = [cards[a],cards[b],cards[c],cards[d],cards[e]];
+        const score = five(hand);
+        if (compare(score,best.score)>0) best = { score, cards: hand.map(card => ({ ...card })) };
       }
   return best;
 }
+function evaluate(cards) { return bestFive(cards).score; }
 const LABELS = ['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color'];
 const fail = error => ({ ok: false, error });
 class PokerRoom {
@@ -53,7 +55,7 @@ class PokerRoom {
     this.message='Esperando al menos dos jugadores.';
     this.blindMinutes=[5,10,15,20].includes(options.blindMinutes) ? options.blindMinutes : 10;
     this.startedAt=null; this.level=0; this.smallBlind=10; this.bigBlind=20;
-    this.currentBet=0; this.minRaise=20; this.pending=[]; this.turnDeadline=0;
+    this.currentBet=0; this.minRaise=20; this.pending=[]; this.turnDeadline=0; this.nextHandAt=0;
     this.chat=[]; this.chatLastSent=new Map();
   }
   touch() { this.version++; this.lastActivity=Date.now(); }
@@ -82,6 +84,7 @@ class PokerRoom {
     const at=Math.max(now,this.visualUntil);
     this.events.push({id:++this.eventNo,type,target,index,at,duration});
     this.visualUntil=at+duration;
+    return this.events[this.events.length-1];
   }
   start(id, now=Date.now(), deck=null) {
     if(id!==this.hostId) return fail('Solo el anfitrión abre la siguiente mano.');
@@ -93,7 +96,7 @@ class PokerRoom {
     this.smallBlind=10*2**this.level; this.bigBlind=this.smallBlind*2;
     this.dealerId=this.order(this.dealerId,alive)[0].id;
     this.deck=deck ? deck.map(c=>({...c})) : buildDeck();
-    this.board=[]; this.pots=[]; this.events=[]; this.visualUntil=now; this.handNo++;
+    this.board=[]; this.pots=[]; this.events=[]; this.visualUntil=now; this.nextHandAt=0; this.handNo++;
     this.players.forEach(p=>Object.assign(p,{hand:[],bet:0,total:0,folded:!alive(p),inHand:alive(p),allIn:false,result:'',actedAt:null}));
     const count=this.players.filter(alive).length;
     this.sbId=count===2 ? this.dealerId : this.order(this.dealerId,alive)[0].id;
@@ -186,7 +189,8 @@ class PokerRoom {
       this.pots.push({amount,winners:winners.map(p=>p.id),refund:false});
     }
     this.phase='finished';
-    this.event('showdown','table',0,now,1200);
+    const reveal=this.event('showdown','table',0,now,1200);
+    this.nextHandAt=reveal.at+reveal.duration+4000;
     this.message='Mano resuelta. '+this.players.filter(p=>p.result.startsWith('Gana')).map(p=>p.name+': '+p.result).join(' · ');
     this.touch();
   }
@@ -201,6 +205,13 @@ class PokerRoom {
     this.touch();return {ok:true,chips:p.chips};
   }
   tick(now=Date.now()) {
+    if(this.phase==='finished' && this.nextHandAt && now>=this.nextHandAt) {
+      const host=this.find(this.hostId);
+      const enough=this.players.filter(p=>!p.left&&p.chips>0).length>=2;
+      if(host&&!host.left&&enough) this.start(host.id,now);
+      else this.nextHandAt=0;
+      return;
+    }
     if(this.turnId && now>=this.turnDeadline && now>=this.visualUntil) {
       const p=this.find(this.turnId);
       this.action(p.id,p.bet>=this.currentBet?'check':'fold',null,now);
@@ -220,6 +231,7 @@ class PokerRoom {
     return {game:this.game,code:this.code,version:this.version,phase:this.phase,handNo:this.handNo,privateHand,
       hostId:this.hostId,dealerId:this.dealerId,sbId:this.sbId,bbId:this.bbId,turnId:this.turnId,
       message:this.message,chat:chatFor(this),board:this.board,events:this.events,serverNow:now,visualUntil:this.visualUntil,
+      showdown:this.phase==='finished'&&this.showdown,nextHandAt:this.nextHandAt,
       turnDeadline:this.turnDeadline,smallBlind:this.smallBlind,bigBlind:this.bigBlind,level:this.level,
       nextBlindAt:this.startedAt===null||this.level>=10?null:this.startedAt+(this.level+1)*this.blindMinutes*60000,
       blindMinutes:this.blindMinutes,pot:this.players.reduce((n,q)=>n+q.total,0),pots:this.pots,
@@ -230,7 +242,8 @@ class PokerRoom {
       players:this.players.filter(q=>!q.left||q.inHand).map(q=>({id:q.id,name:q.name,chips:q.chips,bet:q.bet,total:q.total,
         folded:q.folded,allIn:q.allIn,inHand:q.inHand,left:q.left,result:q.result,
         cards:(q.id===id||(this.phase==='finished'&&this.showdown&&!q.folded))?q.hand:q.hand.map(()=>null),
-        handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?LABELS[evaluate([...q.hand,...this.board])[0]]:''}))};
+        handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?LABELS[evaluate([...q.hand,...this.board])[0]]:'',
+        bestHand:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?bestFive([...q.hand,...this.board]).cards:[]}))};
   }
 }
-module.exports={PokerRoom,buildDeck,evaluate,compare};
+module.exports={PokerRoom,buildDeck,evaluate,bestFive,compare};

@@ -152,6 +152,17 @@ async function main() {
     await render();
     assert.equal(await js('Poker.animations.size'),0);
     assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
+    await js(`Net.renderChat([{id:'chat-1',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);
+    assert.equal(await js(`document.getElementById('net-chat').classList.contains('is-open')`),false,'El chat empieza cerrado');
+    assert.equal(await js(`getComputedStyle(document.getElementById('net-chat-messages')).display`),'none','El historial está oculto al inicio');
+    await js('Net.openChat()');
+    const chatBox=await js(`(()=>{const r=document.getElementById('net-chat').getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,messages:document.querySelectorAll('#net-chat-messages .chat-message').length,closeVisible:getComputedStyle(document.getElementById('net-chat-close')).display!=='none'};})()`);
+    assert.equal(chatBox.left===0&&chatBox.top===0&&chatBox.right===chatBox.width&&chatBox.bottom===chatBox.height,true,'El chat abierto ocupa toda la pantalla '+JSON.stringify(chatBox));
+    assert.equal(chatBox.messages===2&&chatBox.closeVisible,true,'El historial y la cruz se ven al abrir');
+    await js(`document.getElementById('net-chat-close').click()`);
+    assert.equal(await js(`Net.chatVisible===false&&!document.getElementById('net-chat').classList.contains('is-open')`),true,'La cruz cierra el chat');
+    await js(`Net.openChat();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+    assert.equal(await js(`Net.chatVisible===false&&document.querySelectorAll('#net-chat-messages .chat-message').length===2`),true,'Escape cierra el chat conservando el historial');
     for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700],[1440,900]]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
@@ -162,9 +173,18 @@ async function main() {
       assert.equal(layout.c.bottom <= layout.height && layout.c.top >= 0,true,'Controles fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
       assert.equal(layout.a.every(r=>r.top>=0&&r.bottom<=layout.height),true,'Acciones fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
     }
+    const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
+    const showRoom=new PokerRoom('WIN');showRoom.addPlayer('a','Ana');showRoom.addPlayer('b','Bruno');
+    showRoom.board=cards('Q♠ J♠ 10♠ 2♥ 7♦');showRoom.dealerId='a';
+    showRoom.players.forEach((p,i)=>Object.assign(p,{inHand:true,total:100,chips:900,hand:cards(i?'2♣ 8♥':'A♠ K♠')}));
+    showRoom.finish(true,0);showRoom.events=[];
+    await js(`Poker.reset();App.show('room');Net.playerId='b';Net.state=${JSON.stringify(showRoom.stateFor('b',5200))};Net.render()`);
+    const winnerUi=await js(`({title:document.getElementById('pk-winner-title').textContent,cards:document.querySelectorAll('#pk-winning-hands .playing-card').length,winners:document.querySelectorAll('.pk-seat.winner').length,shown:!document.getElementById('pk-showdown').classList.contains('hidden')})`);
+    assert.equal(winnerUi.shown&&winnerUi.winners===1&&winnerUi.cards===5&&/Ana gana con/.test(winnerUi.title),true,'Showdown con ganador, resaltado y cinco cartas '+JSON.stringify(winnerUi));
+    await send('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
+    assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'El resultado del showdown no añade scroll');
     const hintRoom = new PokerRoom('HINT');
     hintRoom.addPlayer('a','Ana'); hintRoom.addPlayer('b','Bob');
-    const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
     hintRoom.phase='flop'; hintRoom.handNo=1;
     hintRoom.players.forEach(p=>p.inHand=true);
     hintRoom.find('a').hand=cards('A♠ K♠'); hintRoom.find('b').hand=cards('2♥ 2♦');
@@ -183,7 +203,7 @@ async function main() {
     assert.deepEqual(errors,[]);
     await js('Poker.reset()');
     assert.equal(await js(`Poker.el('private-hand').textContent`),'');
-    console.log('✅ Chrome: selector, 6 asientos y una pantalla sin scroll a 320×568, 390×844, 768×600, 1100×700 y 1440×900; privacidad, reparto y nodos persistentes');
+    console.log('✅ Chrome: chat modal, showdown ganador y Poker sin scroll en móvil y escritorio');
   } finally {
     // Cerrar Chrome antes de borrar su perfil: Windows bloquea archivos en uso.
     const exited = new Promise(resolve => {

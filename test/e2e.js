@@ -135,6 +135,9 @@ for (let guard = 0; pkState.phase !== 'finished' && guard < 12; guard++) {
 }
 check('api poker: mano completa y conservación de fichas', pkState.phase === 'finished' && pkState.board.length === 5 && pkState.players.reduce((sum,p) => sum+p.chips,0) === 2000);
 check('api poker: showdown revela manos', pkState.players.every(p => p.cards.every(c => c && c.rank)));
+const pkWinnerId=pkRoom.pots.find(p=>!p.refund).winners[0];
+const pkWinner=pkState.players.find(p=>p.id===pkWinnerId);
+check('api poker: ganador resaltable con combinación exacta', pkWinner.bestHand.length===5&&pkWinner.handName&&pkWinner.result.includes('Gana'));
 rooms.delete(pkCode);
 server.close();
 console.log(failures === 0 ? '\n🎉 Todos los tests e2e pasan' : `\n💥 ${failures} test(s) fallidos`);

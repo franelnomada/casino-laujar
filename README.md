@@ -86,11 +86,11 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
 ## Póker Texas Hold’em online
 
 - Pulsa **Crear mesa**, elige **Póker Texas Hold’em**, selecciona el intervalo de ciegas y pulsa **Abrir mesa**. Invita con el mismo enlace/código que en blackjack.
-- 2–6 jugadores, cada uno entra con sus fichas disponibles (1.000 por defecto si no hay saldo previo), sin recompras. El anfitrión inicia cada mano cuando hay al menos dos jugadores con fichas.
+- 2–6 jugadores, cada uno entra con sus fichas disponibles (1.000 por defecto si no hay saldo previo). El anfitrión abre la primera mano; al terminar cada mano, el servidor muestra el resultado y reparte automáticamente la siguiente tras una pausa de 5 segundos.
 - Botón D y ciegas SB/BB rotan en sentido horario. En heads-up el botón pone SB y habla primero preflop; BB habla primero después del flop.
 - Ciegas iniciales 10/20: se duplican cada 5, 10, 15 o 20 minutos (configurable). Se aplican al comenzar la siguiente mano; máximo nivel 11 (10.240/20.480).
 - Retirarse, pasar/igualar, apostar/subir hasta un total y all-in; botes laterales, empates y devolución del exceso no igualado.
-- Las cartas rivales permanecen privadas hasta showdown; las de jugadores retirados no se revelan.
+- Las cartas rivales permanecen privadas hasta showdown; las de jugadores retirados no se revelan. Al mostrar, el ganador se resalta y aparece en el centro su categoría junto con las cinco cartas exactas de la combinación ganadora.
 - Reparto secuencial desde el mazo, 850 ms por carta privada y 1 s por comunitaria; controles bloqueados durante el reparto. Movimiento reducido respetado sin acortar los turnos.
 - Cada turno dura 45 s: al agotarse pasa si no debe fichas o se retira. Recargar permite reconectar con la sesión del dispositivo.
 - Se puede entrar entre manos. Al terminar sin dos jugadores con fichas, cread otra mesa.

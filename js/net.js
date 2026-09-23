@@ -10,9 +10,15 @@ const Net = {
   polling: false,
   rlChip: 5,
   chatIds: new Set(),
+  chatVisible: false,
 
   // ---------- Sesión ----------
   init() {
+    if (document.addEventListener) {
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && this.chatVisible) this.closeChat();
+      });
+    }
     const saved = this.loadSession();
     if (saved) {
       const btn = document.getElementById('net-resume');
@@ -243,12 +249,41 @@ const Net = {
 
   clearChat() {
     this.chatIds.clear();
+    this.closeChat(false);
     const list = document.getElementById('net-chat-messages');
     while (list && list.firstChild) list.removeChild(list.firstChild);
     const input = document.getElementById('net-chat-input');
     if (input) input.value = '';
     const status = document.getElementById('net-chat-status');
     if (status) status.textContent = '';
+  },
+
+  openChat() {
+    const panel = document.getElementById('net-chat');
+    const toggle = document.getElementById('net-chat-toggle');
+    if (!panel) return;
+    panel.classList.add('is-open');
+    panel.setAttribute('aria-modal', 'true');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    document.body.classList.toggle('chat-open', true);
+    this.chatVisible = true;
+    const list = document.getElementById('net-chat-messages');
+    if (list) list.scrollTop = list.scrollHeight;
+    const input = document.getElementById('net-chat-input');
+    if (input && typeof input.focus === 'function') input.focus();
+  },
+
+  closeChat(restoreFocus = true) {
+    const panel = document.getElementById('net-chat');
+    if (panel) {
+      panel.classList.remove('is-open');
+      panel.setAttribute('aria-modal', 'false');
+    }
+    const toggle = document.getElementById('net-chat-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    document.body.classList.toggle('chat-open', false);
+    this.chatVisible = false;
+    if (restoreFocus && toggle && typeof toggle.focus === 'function') toggle.focus();
   },
 
   renderChat(messages) {

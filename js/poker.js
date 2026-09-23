@@ -8,6 +8,8 @@ const Poker = {
     this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null;
     this.el('seats').innerHTML = ''; this.el('board').innerHTML = '';
     this.el('private-hand').textContent = '';
+    this.el('winning-hands').innerHTML = '';
+    this.el('showdown').classList.add('hidden');
   },
   now() { return Date.now() + (this.offset || 0); },
   render(s) {
@@ -83,11 +85,32 @@ const Poker = {
       this.animations.add(a); a.onfinish = () => this.animations.delete(a);
     }
   },
+  showResult(s, resultsReady) {
+    const panel = this.el('showdown');
+    const mainPot = s.pots.find(pot => !pot.refund) || s.pots[0];
+    const winners = mainPot ? mainPot.winners.map(id => s.players.find(p => p.id === id)).filter(Boolean) : [];
+    panel.classList.toggle('hidden', !resultsReady || !winners.length);
+    if (!resultsReady || !winners.length) {
+      this.el('winning-hands').innerHTML = '';
+      return;
+    }
+    const names = winners.map(p => p.name).join(' y ');
+    this.el('winner-title').textContent = s.showdown ?
+      winners.map(p => `${p.name} gana con ${p.handName}`).join(' · ') :
+      `${names} ${winners.length > 1 ? 'ganan' : 'gana'} la mano`;
+    const signatures = new Set(winners.map(p => (p.bestHand || []).map(c => c.rank + c.suit).join(',')));
+    const sharedHand = signatures.size === 1;
+    this.el('winning-detail').textContent = s.showdown ?
+      (sharedHand ? 'Estas son las cinco cartas de la combinación ganadora:' : 'Combinación principal de la mano:') : 'La partida terminó antes del showdown.';
+    this.el('winning-hands').innerHTML = (winners[0].bestHand || []).map(card => Blackjack.cardHTML(card)).join('');
+  },
+
   update() {
     const s = this.state; if (!s) return;
     const now = this.now(); const dealing = now < s.visualUntil;
     const show = s.events.find(e => e.type === 'showdown');
     const resultsReady = s.phase === 'finished' && (!show || now >= show.at);
+    const winnerIds = new Set(s.pots.flatMap(pot => pot.winners));
     for (const node of this.nodes.values()) {
       if (node._arrival && now >= node._arrival) node.dataset.arrived = 'true';
       node.style.visibility = node._arrival && now < node._arrival ? 'hidden' : '';
@@ -108,9 +131,11 @@ const Poker = {
     const turn = s.players.find(p => p.id === s.turnId);
     const mine = s.turnId === Net.playerId;
     const canAct = mine && !dealing && !this.busy && !!turn;
+    this.showResult(s, resultsReady);
     for (const seat of this.el('seats').children) {
       const p = s.players.find(p => p.id === seat.dataset.player);
       seat.classList.toggle('active', !dealing && p.id === s.turnId);
+      seat.classList.toggle('winner', resultsReady && winnerIds.has(p.id));
       const awarded = s.pots.filter(pot => pot.winners.includes(p.id)).reduce((sum,pot) => {
         const i = pot.winners.indexOf(p.id);
         return sum + Math.floor(pot.amount / pot.winners.length) + (i < pot.amount % pot.winners.length ? 1 : 0);
@@ -118,14 +143,17 @@ const Poker = {
       seat.querySelector('.pk-chips').textContent = '💰 ' + (s.phase === 'finished' && !resultsReady ? p.chips - awarded : p.chips);
       seat.querySelector('.pk-result').textContent = resultsReady ? [p.result,p.handName].filter(Boolean).join(' · ') : '';
     }
+    const enoughPlayers = s.players.filter(p => !p.left && p.chips > 0).length >= 2;
     this.el('status').textContent = dealing ? 'Repartiendo, espera a que lleguen las cartas…' : turn ?
       (mine ? 'Tu turno' : 'Turno de ' + turn.name) + ' · ' + Math.max(0,Math.ceil((s.turnDeadline-now)/1000)) + ' s' :
-      s.players.filter(p => !p.left && p.chips > 0).length < 2 ? 'Se necesitan dos jugadores con fichas. Puedes crear otra mesa para volver a empezar.' :
-      'El anfitrión puede repartir la siguiente mano.';
+      !enoughPlayers ? 'Se necesitan dos jugadores con fichas. Puedes crear otra mesa para volver a empezar.' :
+      s.phase === 'finished' ? `Mano terminada · siguiente en ${Math.max(0,Math.ceil((s.nextHandAt-now)/1000))} s` :
+      'El anfitrión puede repartir la mano inicial.';
     this.el('clock').textContent = s.nextBlindAt ? (s.nextBlindAt <= now ? 'Subida pendiente para la siguiente mano' : 'Subida en ' + Math.ceil((s.nextBlindAt-now)/60000) + ' min') : 'Ciegas cada ' + s.blindMinutes + ' min';
     const start = this.el('start');
-    start.classList.toggle('hidden', !['lobby','finished'].includes(s.phase) || s.hostId !== Net.playerId);
-    start.disabled = dealing || this.busy || s.players.filter(p => !p.left && p.chips > 0).length < 2;
+    start.classList.toggle('hidden', s.phase !== 'lobby' || s.hostId !== Net.playerId);
+    start.textContent = 'Repartir primera mano';
+    start.disabled = dealing || this.busy || !enoughPlayers;
     this.el('actions').classList.toggle('hidden', !mine);
     for (const id of ['fold','call','raise','allin','amount']) this.el(id).disabled = !canAct;
     this.el('raise').disabled = !canAct || !s.canRaise;

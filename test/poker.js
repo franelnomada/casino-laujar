@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { PokerRoom, buildDeck, evaluate, compare } = require('../js/poker-engine');
+const { PokerRoom, buildDeck, evaluate, bestFive, compare } = require('../js/poker-engine');
 const cards = s => s.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
 const r = new PokerRoom('TEST');
 r.addPlayer('a','Ana');r.addPlayer('b','Bob');r.addPlayer('c','Cris');
@@ -15,10 +15,16 @@ act('raise',60);act('call');act('call');assert.equal(r.phase,'flop');assert.equa
 for(const phase of ['turn','river','finished']) { act('check');act('check');act('check');assert.equal(r.phase,phase); }
 assert.equal(r.players.reduce((n,p)=>n+p.chips,0),3000);
 assert.equal(r.board.length,5);assert.equal(new Set([...r.board,...r.players.flatMap(p=>p.hand)].map(c=>c.rank+c.suit)).size,11);
+const shown=r.stateFor('a',r.visualUntil+1);const shownWinner=shown.players.find(p=>p.id===r.pots[0].winners[0]);
+const available=new Set([...r.board,...r.players.flatMap(p=>p.hand)].map(c=>c.rank+c.suit));
+assert.equal(shownWinner.bestHand.length,5,'El showdown expone cinco cartas ganadoras');
+assert.ok(shownWinner.bestHand.every(c=>available.has(c.rank+c.suit)),'Las cartas ganadoras pertenecen a la mano');
+assert.ok(shownWinner.handName,'El ganador recibe el nombre de su combinación');
 assert.equal(r.start('a',601001).ok,true);assert.equal(r.smallBlind,20);assert.equal(r.dealerId,'b');
 console.log('✅ Poker: mano completa, turnos, privacidad, reparto secuencial y subida de ciegas');
 assert.equal(evaluate(cards('A♠ 2♥ 3♦ 4♣ 5♠ K♥ Q♦'))[1],5);
 assert.equal(evaluate(cards('A♠ K♠ Q♠ J♠ 10♠ 2♥ 3♦'))[0],8);
+assert.deepEqual(bestFive(cards('A♠ K♠ Q♠ J♠ 10♠ 2♥ 3♦')).cards.map(c=>c.rank+c.suit),['A♠','K♠','Q♠','J♠','10♠']);
 assert.ok(compare(evaluate(cards('A♠ A♥ A♦ K♣ K♠ 2♥ 3♦')),evaluate(cards('K♥ K♦ K♣ A♣ A♦ 2♠ 3♥')))>0);
 const heads = new PokerRoom('HEAD');heads.addPlayer('a','A');heads.addPlayer('b','B');heads.start('a',0);
 assert.equal(heads.dealerId,heads.sbId);assert.equal(heads.turnId,'a');
@@ -34,6 +40,10 @@ side.finish(true,0);
 assert.deepEqual(side.players.map(p=>p.chips),[2200,2000,1800]);
 assert.deepEqual(side.pots.map(p=>p.amount),[300,200,100]);
 console.log('✅ Poker: botes laterales y devolución de exceso');
+const automatic=new PokerRoom('AUTO');automatic.addPlayer('a','Ana');automatic.addPlayer('b','Bob');
+automatic.phase='finished';automatic.visualUntil=0;automatic.nextHandAt=5000;automatic.tick(5000);
+assert.equal(automatic.phase,'preflop','El servidor inicia automáticamente la siguiente mano');
+assert.equal(automatic.handNo,1);
 // Simulación reproducible de decisiones: nunca perder ni crear fichas.
 for(let trial=0;trial<50;trial++) {
   const t=new PokerRoom('SIMU');['a','b','c','d'].forEach(x=>t.addPlayer(x,x));t.start('a',0);
@@ -74,7 +84,7 @@ hint.board = cards('Q♠ J♠ 10♠');
 assert.equal(hint.stateFor('a').privateHand.labels[3], 'Escalera de color');
 assert.equal(hint.stateFor('b').privateHand.labels[3], 'Pareja');
 assert.equal(hint.stateFor('b').privateHand.playerId, 'b');
-assert.ok(hint.stateFor('b').players.every(p => !p.handName && !p.privateHand));
+assert.ok(hint.stateFor('b').players.every(p => !p.handName && !p.bestHand.length && !p.privateHand));
 assert.deepEqual(hint.stateFor('b').players[0].cards, [null,null]);
 assert.equal(hint.stateFor('unknown').privateHand, null);
 hint.find('a').inHand = false;

@@ -192,6 +192,11 @@
             <div id="pk-phase"></div>
             <div id="pk-private-hand" class="pk-private-hand" role="status" aria-live="polite"></div>
           </div>
+          <div id="pk-showdown" class="pk-showdown hidden" role="status" aria-live="polite">
+            <div id="pk-winner-title" class="pk-winner-title"></div>
+            <div id="pk-winning-detail" class="pk-winning-detail"></div>
+            <div id="pk-winning-hands" class="cards pk-winning-hands"></div>
+          </div>
           <div id="pk-seats" class="pk-seats"></div>
         </div>
         <div class="controls pk-controls">
@@ -212,8 +217,13 @@
           <p id="pk-results" class="message"></p>
         </div>
       </div>
-      <div id="net-chat" class="room-chat" aria-labelledby="net-chat-title">
-        <h2 id="net-chat-title">💬 Chat de la mesa</h2>
+      <div id="net-chat" class="room-chat" role="dialog" aria-modal="false" aria-labelledby="net-chat-title">
+        <div class="room-chat-head">
+          <button id="net-chat-toggle" class="room-chat-toggle" type="button" onclick="Net.openChat()" aria-expanded="false" aria-controls="net-chat-messages">
+            <span aria-hidden="true">💬</span><span id="net-chat-title">Chat de la mesa</span>
+          </button>
+          <button id="net-chat-close" class="room-chat-close" type="button" onclick="Net.closeChat()" aria-label="Cerrar chat">×</button>
+        </div>
         <div id="net-chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
         <form id="net-chat-form" class="chat-form" onsubmit="Net.sendChat(event)">
           <label class="sr-only" for="net-chat-input">Mensaje para la mesa</label>
