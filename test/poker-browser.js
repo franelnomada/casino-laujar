@@ -152,17 +152,24 @@ async function main() {
     await render();
     assert.equal(await js('Poker.animations.size'),0);
     assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
-    await js(`Net.renderChat([{id:'chat-1',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);
+    await js(`Net.renderChat([{id:'chat-1',playerId:'p0',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',playerId:'p0',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);
     assert.equal(await js(`document.getElementById('net-chat').classList.contains('is-open')`),false,'El chat empieza cerrado');
     assert.equal(await js(`getComputedStyle(document.getElementById('net-chat-messages')).display`),'none','El historial está oculto al inicio');
+    assert.equal(await js(`document.querySelectorAll('#net-chat-preview .chat-preview-message').length`),2,'La previsualización muestra los mensajes iniciales');
+    await js(`Net.renderChat([{id:'chat-3',playerId:'p0',name:'Ana',text:'Tercer mensaje',ts:Date.now()},{id:'chat-4',playerId:'p0',name:'Luis',text:'Cuarto mensaje',ts:Date.now()}])`);
+    const chatActivity=await js(`({preview:document.querySelectorAll('#net-chat-preview .chat-preview-message').length,last:document.getElementById('net-chat-preview').textContent,unread:!document.getElementById('net-chat-unread').classList.contains('hidden')})`);
+    assert.equal(chatActivity.preview===3&&/Cuarto mensaje/.test(chatActivity.last)&&chatActivity.unread,true,'La previsualización muestra 3 mensajes y avisa de nuevos mensajes');
+    await js('Net.openChat()');
+    assert.equal(await js(`document.getElementById('net-chat-unread').classList.contains('hidden')`),true,'Abrir el chat limpia el indicador de no leídos');
+    await js('Net.closeChat()');
     await js('Net.openChat()');
     const chatBox=await js(`(()=>{const r=document.getElementById('net-chat').getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,messages:document.querySelectorAll('#net-chat-messages .chat-message').length,closeVisible:getComputedStyle(document.getElementById('net-chat-close')).display!=='none'};})()`);
     assert.equal(chatBox.left===0&&chatBox.top===0&&chatBox.right===chatBox.width&&chatBox.bottom===chatBox.height,true,'El chat abierto ocupa toda la pantalla '+JSON.stringify(chatBox));
-    assert.equal(chatBox.messages===2&&chatBox.closeVisible,true,'El historial y la cruz se ven al abrir');
+    assert.equal(chatBox.messages===4&&chatBox.closeVisible,true,'El historial y la cruz se ven al abrir');
     await js(`document.getElementById('net-chat-close').click()`);
     assert.equal(await js(`Net.chatVisible===false&&!document.getElementById('net-chat').classList.contains('is-open')`),true,'La cruz cierra el chat');
     await js(`Net.openChat();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
-    assert.equal(await js(`Net.chatVisible===false&&document.querySelectorAll('#net-chat-messages .chat-message').length===2`),true,'Escape cierra el chat conservando el historial');
+    assert.equal(await js(`Net.chatVisible===false&&document.querySelectorAll('#net-chat-messages .chat-message').length===4`),true,'Escape cierra el chat conservando el historial');
     for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700],[1440,900]]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
@@ -181,6 +188,8 @@ async function main() {
     await js(`Poker.reset();App.show('room');Net.playerId='b';Net.state=${JSON.stringify(showRoom.stateFor('b',5200))};Net.render()`);
     const winnerUi=await js(`({title:document.getElementById('pk-winner-title').textContent,cards:document.querySelectorAll('#pk-winning-hands .playing-card').length,winners:document.querySelectorAll('.pk-seat.winner').length,shown:!document.getElementById('pk-showdown').classList.contains('hidden')})`);
     assert.equal(winnerUi.shown&&winnerUi.winners===1&&winnerUi.cards===5&&/Ana gana con/.test(winnerUi.title),true,'Showdown con ganador, resaltado y cinco cartas '+JSON.stringify(winnerUi));
+    await js(`window.firstWinningCard=document.querySelector('#pk-winning-hands .playing-card');Poker.update();Poker.update()`);
+    assert.equal(await js(`firstWinningCard===document.querySelector('#pk-winning-hands .playing-card')`),true,'Las cartas ganadoras no se recrean en cada actualización');
     await send('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});
     assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'El resultado del showdown no añade scroll');
     const hintRoom = new PokerRoom('HINT');

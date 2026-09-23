@@ -1,11 +1,11 @@
 // Mesa de póker: nodos de cartas persistentes y animación desde el mazo real.
 const Poker = {
-  state: null, nodes: new Map(), animations: new Set(), timer: null, busy: false,
+  state: null, nodes: new Map(), animations: new Set(), timer: null, busy: false, showKey: null,
   el(id) { return document.getElementById('pk-' + id); },
   reset() {
     clearInterval(this.timer); this.timer = null;
     for (const a of this.animations) a.cancel();
-    this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null;
+    this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null; this.showKey = null;
     this.el('seats').innerHTML = ''; this.el('board').innerHTML = '';
     this.el('private-hand').textContent = '';
     this.el('winning-hands').innerHTML = '';
@@ -89,11 +89,17 @@ const Poker = {
     const panel = this.el('showdown');
     const mainPot = s.pots.find(pot => !pot.refund) || s.pots[0];
     const winners = mainPot ? mainPot.winners.map(id => s.players.find(p => p.id === id)).filter(Boolean) : [];
-    panel.classList.toggle('hidden', !resultsReady || !winners.length);
-    if (!resultsReady || !winners.length) {
-      this.el('winning-hands').innerHTML = '';
+    const visible = resultsReady && winners.length > 0;
+    const winnerKey = winners.map(p => p.id + ':' + (p.bestHand || []).map(c => c.rank + c.suit).join(',')).join('|');
+    const resultKey = [s.code, s.handNo, resultsReady, s.showdown, winnerKey].join(':');
+    const changed = resultKey !== this.showKey;
+    this.showKey = resultKey;
+    panel.classList.toggle('hidden', !visible);
+    if (!visible) {
+      if (changed) this.el('winning-hands').innerHTML = '';
       return;
     }
+    if (!changed) return;
     const names = winners.map(p => p.name).join(' y ');
     this.el('winner-title').textContent = s.showdown ?
       winners.map(p => `${p.name} gana con ${p.handName}`).join(' · ') :

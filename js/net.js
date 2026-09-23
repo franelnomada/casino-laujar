@@ -11,6 +11,8 @@ const Net = {
   rlChip: 5,
   chatIds: new Set(),
   chatVisible: false,
+  chatPrimed: false,
+  chatUnread: false,
 
   // ---------- Sesión ----------
   init() {
@@ -249,8 +251,12 @@ const Net = {
 
   clearChat() {
     this.chatIds.clear();
+    this.chatPrimed = false;
+    this.chatUnread = false;
     this.closeChat(false);
     const list = document.getElementById('net-chat-messages');
+    const preview = document.getElementById('net-chat-preview');
+    if (preview) preview.innerHTML = '';
     while (list && list.firstChild) list.removeChild(list.firstChild);
     const input = document.getElementById('net-chat-input');
     if (input) input.value = '';
@@ -267,6 +273,9 @@ const Net = {
     if (toggle) toggle.setAttribute('aria-expanded', 'true');
     document.body.classList.toggle('chat-open', true);
     this.chatVisible = true;
+    this.chatUnread = false;
+    const dot = document.getElementById('net-chat-unread');
+    if (dot) dot.classList.add('hidden');
     const list = document.getElementById('net-chat-messages');
     if (list) list.scrollTop = list.scrollHeight;
     const input = document.getElementById('net-chat-input');
@@ -283,7 +292,46 @@ const Net = {
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
     document.body.classList.toggle('chat-open', false);
     this.chatVisible = false;
+    this.chatUnread = false;
+    const dot = document.getElementById('net-chat-unread');
+    if (dot) dot.classList.add('hidden');
     if (restoreFocus && toggle && typeof toggle.focus === 'function') toggle.focus();
+  },
+
+  markChatUnread() {
+    this.chatUnread = true;
+    const dot = document.getElementById('net-chat-unread');
+    if (dot) dot.classList.remove('hidden');
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate([90, 45, 90]);
+    } catch (e) { /* la vibración es opcional */ }
+  },
+
+  updateChatPreview() {
+    const list = document.getElementById('net-chat-messages');
+    const preview = document.getElementById('net-chat-preview');
+    if (!list || !preview) return;
+    preview.innerHTML = '';
+    const rows = [...list.querySelectorAll('.chat-message')].slice(-3);
+    if (!rows.length) {
+      const empty = document.createElement('div');
+      empty.className = 'chat-preview-message';
+      empty.textContent = 'Sin mensajes todavía';
+      preview.appendChild(empty);
+      return;
+    }
+    for (const row of rows) {
+      const line = document.createElement('div');
+      line.className = 'chat-preview-message';
+      const name = document.createElement('b');
+      name.textContent = (row.querySelector('.chat-name') || {}).textContent || 'Jugador';
+      const text = document.createElement('span');
+      text.textContent = (row.querySelector('.chat-text') || {}).textContent || '';
+      line.appendChild(name);
+      line.appendChild(document.createTextNode(': '));
+      line.appendChild(text);
+      preview.appendChild(line);
+    }
   },
 
   renderChat(messages) {
@@ -291,6 +339,7 @@ const Net = {
     if (!list) return;
     const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
     let added = 0;
+    let unread = false;
 
     for (const message of messages) {
       if (!message || this.chatIds.has(message.id)) continue;
@@ -317,8 +366,10 @@ const Net = {
       row.appendChild(text);
       list.appendChild(row);
       this.chatIds.add(message.id);
+      if (this.chatPrimed && message.playerId && message.playerId !== this.playerId && !this.chatVisible) unread = true;
       added++;
     }
+    this.chatPrimed = true;
 
     while (list.children.length > 50) {
       const first = list.firstElementChild;
@@ -337,6 +388,8 @@ const Net = {
       empty.textContent = 'Todavía no hay mensajes. ¡Saluda a la mesa!';
       list.appendChild(empty);
     }
+    this.updateChatPreview();
+    if (unread) this.markChatUnread();
   },
 
   async sendChat(event) {
