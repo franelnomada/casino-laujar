@@ -63,6 +63,7 @@ class BlackjackRoom {
     this.turnId = null;  // jugador al que le toca
     this.chat = [];
     this.chatLastSent = new Map();
+    this.roundStartChips = new Map();
     this.lastActivity = Date.now();
   }
 
@@ -116,6 +117,7 @@ class BlackjackRoom {
       p.doubled = false; p.result = ''; p.confirmed = p.chips < 1;
     });
     this.message = 'Ronda de apuestas abierta.';
+    this.roundStartChips = new Map(this.players.map(p => [p.id, p.chips]));
     this.maybeDeal();
     this.touch();
     return { ok: true };
@@ -301,7 +303,16 @@ class BlackjackRoom {
       p.chips += earnings;
     });
     this.phase = 'finished';
-    this.message = 'Dealer: ' + dealerVal + (dealerBusted ? ' (se pasa)' : '') + ' — mano resuelta.';
+    const summary = this.players.filter(p => p.bet > 0).map(p => {
+      const stored = this.roundStartChips instanceof Map
+        ? this.roundStartChips.get(p.id) : (this.roundStartChips || {})[p.id];
+      const startingChips = Number.isFinite(stored) ? stored : p.chips;
+      const delta = p.chips - startingChips;
+      if (delta > 0) return `${p.name} gana ${delta} fichas`;
+      if (delta < 0) return `${p.name} pierde ${Math.abs(delta)} fichas`;
+      return `${p.name} empata`;
+    }).join(' · ');
+    this.message = 'Dealer: ' + dealerVal + (dealerBusted ? ' (se pasa)' : '') + ' — ' + (summary || 'Mano resuelta.');
     this.touch();
   }
 

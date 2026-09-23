@@ -183,13 +183,19 @@ async function main() {
     }
     const blackjackRoom=new BlackjackRoom('BJVIEW');
     blackjackRoom.addPlayer('a','Ana');blackjackRoom.addPlayer('b','Bruno');blackjackRoom.start();
-    await js(`App.show('room');Net.playerId='a';Net.state=${JSON.stringify(blackjackRoom.stateFor('a'))};Net.render()`);
+    blackjackRoom.bet('a',50);blackjackRoom.bet('b',50);blackjackRoom.confirm('a');blackjackRoom.confirm('b');
+    const blackjackState=blackjackRoom.stateFor('a');
+    await js(`App.show('room');Net.playerId='a';Net.state=${JSON.stringify(blackjackState)};Net.render()`);
+    const bjAnimation=await js(`getComputedStyle(document.querySelector('#net-seats .fly-in')).animationDuration`);
+    assert.equal(bjAnimation,'1s','Las cartas de Blackjack animan durante 1 segundo');
     for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700]]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
       const bjLayout=await js(`(()=>{const t=document.getElementById('net-blackjack-table').getBoundingClientRect();const c=document.getElementById('net-blackjack-controls').getBoundingClientRect();return {mode:document.body.classList.contains('in-blackjack-room'),meta:getComputedStyle(document.getElementById('net-blackjack-meta')).display,table:t.height,controls:c.bottom,viewport:innerHeight};})()`);
       assert.equal(bjLayout.mode&&bjLayout.meta!=='none'&&bjLayout.table>180&&bjLayout.controls<=bjLayout.viewport,true,'Blackjack compacto en '+width+'x'+height+' '+JSON.stringify(bjLayout));
       assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Blackjack sin scroll a '+width+'x'+height);
     }
+    await js(`Net.state=${JSON.stringify({...blackjackState,phase:'finished',message:'Dealer: 20 — Ana gana 50 fichas'})};Net.render()`);
+    assert.match(await js(`document.getElementById('net-blackjack-result').textContent`),/Ana gana 50 fichas/,'Blackjack muestra el importe ganado al terminar');
     const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
     const showRoom=new PokerRoom('WIN');showRoom.addPlayer('a','Ana');showRoom.addPlayer('b','Bruno');
     showRoom.board=cards('Q♠ J♠ 10♠ 2♥ 7♦');showRoom.dealerId='a';

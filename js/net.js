@@ -551,6 +551,7 @@ const Net = {
     document.body.classList.toggle('in-blackjack-room', s.game === 'blackjack');
     if (s.game === 'blackjack') {
       document.getElementById('bj-room-code').textContent = s.code || '';
+      document.getElementById('net-blackjack-result').textContent = s.phase === 'finished' ? (s.message || '') : '';
     }
     if (s.game === 'poker') {
       document.getElementById('pk-room-code').textContent = s.code || '';

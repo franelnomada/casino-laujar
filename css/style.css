@@ -408,7 +408,7 @@ body { overscroll-behavior-y: contain; }
   100% { transform: none; opacity: 1; }
 }
 .playing-card.fly-in {
-  animation: fly-in .65s cubic-bezier(.3,.7,.4,1) both;
+  animation: fly-in 1s cubic-bezier(.3,.7,.4,1) both;
 }
 @media (prefers-reduced-motion: reduce) {
   .playing-card.fly-in { animation: none; }
@@ -769,7 +769,7 @@ body.in-blackjack-room .dealer-cards { min-height: 48px; gap: 3px; }
 body.in-blackjack-room .dealer-cards .playing-card { width: 30px; height: 44px; padding: 2px; font-size: .66rem; }
 body.in-blackjack-room .dealer-cards .playing-card .suit { font-size: .82rem; }
 body.in-blackjack-room #net-seats {
-  flex: 1 1 auto; min-height: 0; margin: 0; padding-top: 4px; display: grid;
+  flex: 1 1 auto; min-height: 0; margin: 0; padding: 4px 4px 48px; display: grid;
   grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); align-content: end;
   align-items: end; gap: 5px; overflow: hidden;
 }
@@ -796,6 +796,11 @@ body.in-blackjack-room #net-blackjack-controls .chip { width: 40px; height: 40px
 body.in-blackjack-room #net-blackjack-controls .current-bet { margin: 0; font-size: .76rem; }
 body.in-blackjack-room #net-blackjack-controls .btn-row { margin: 0; gap: 5px; }
 body.in-blackjack-room #net-blackjack-controls .btn { min-height: 36px; padding: 6px 10px; font-size: .75rem; }
+body.in-blackjack-room #net-blackjack-controls .blackjack-result {
+  flex: 1 0 100%; min-height: 0; margin: 0 0 2px; color: var(--gold-light);
+  font-size: .72rem; line-height: 1.1; text-align: center; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 body.in-blackjack-room #net-blackjack-controls .waiting,
 body.in-blackjack-room #net-blackjack-controls .message { min-height: 0; margin: 0; font-size: .72rem; }
 body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)); }
