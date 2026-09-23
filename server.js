@@ -119,6 +119,77 @@ function tokenFrom(req, body, query) {
   return (body && body.token) || bearer || query.get('token') || '';
 }
 
+// Asocia un jugador de mesa a su cuenta (para poder liquidar/expulsar después)
+function linkAccount(room, playerId, token) {
+  if (!token) return;
+  const user = userStore.userForToken(token); // cuenta activa y no baneada
+  if (!user) return;
+  const p = typeof room.find === 'function' ? room.find(playerId) : null;
+  if (p) p.accountKey = user.key;
+}
+
+// Saca de todas las salas a los jugadores de una cuenta (uso: ban)
+function kickAccountFromRooms(accountKey) {
+  for (const room of rooms.values()) {
+    for (const p of (room.players || []).slice()) {
+      if (p.accountKey === accountKey && !p.left) {
+        const result = room.removePlayer(p.id);
+        if (result && result.chips != null) userStore.setChipsByKey(accountKey, result.chips);
+      }
+    }
+  }
+}
+
+// Panel de administración: /api/admin/...
+async function handleAdmin(req, res, pathname, query) {
+  const body = req.method === 'POST' ? await readBody(req) : {};
+  const token = tokenFrom(req, body, query);
+  if (!userStore.isAdmin(token)) return json(res, 403, { error: 'No tienes permisos de administrador.' });
+
+  if (req.method === 'GET' && pathname === '/api/admin/users') {
+    return json(res, 200, { users: userStore.listUsers() });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/admin/rooms') {
+    const list = [];
+    for (const r of rooms.values()) {
+      const players = (r.players || []).filter(p => !p.left);
+      if (!players.length) continue;
+      list.push({
+        code: r.code,
+        game: r.game || 'blackjack',
+        phase: r.phase,
+        players: players.map(p => ({ playerId: p.id, name: p.name, chips: p.chips, accountKey: p.accountKey || null })),
+      });
+    }
+    return json(res, 200, { rooms: list });
+  }
+
+  let m;
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/users\/([^\/]+)\/(ban|unban)$/))) {
+    const key = decodeURIComponent(m[1]).toLowerCase();
+    const result = m[2] === 'ban' ? userStore.ban(token, key) : userStore.unban(token, key);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    if (m[2] === 'ban') kickAccountFromRooms(key); // baneado: fuera de las mesas ya mismo
+    return json(res, 200, { ok: true, user: result.user });
+  }
+
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/rooms\/([A-Za-z0-9]{4})\/kick$/))) {
+    const room = rooms.get(m[1].toUpperCase());
+    if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
+    const playerId = body.playerId || '';
+    const p = typeof room.find === 'function' ? room.find(playerId) : null;
+    if (!p || p.left) return json(res, 404, { error: 'Ese jugador no está en la sala.' });
+    const accountKey = p.accountKey || null;
+    const result = room.removePlayer(playerId);
+    if (result && result.chips != null && accountKey) userStore.setChipsByKey(accountKey, result.chips);
+    room.touch(); // sube la versión: el expulsado lo ve en su siguiente sondeo
+    return json(res, 200, { ok: true, chips: result ? result.chips : null });
+  }
+
+  return json(res, 404, { error: 'Ruta de administración desconocida.' });
+}
+
 // Cuentas de jugador: /api/auth/...
 async function handleAuth(req, res, pathname, query) {
   const body = req.method === 'POST' ? await readBody(req) : {};
@@ -165,6 +236,9 @@ async function handleApi(req, res, pathname, query) {
   // Cuentas de jugador
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname, query);
 
+  // Panel de administración (protegido con isAdmin)
+  if (pathname.startsWith('/api/admin/')) return handleAdmin(req, res, pathname, query);
+
   // Crear sala
   if (req.method === 'POST' && pathname === '/api/rooms') {
     const body = await readBody(req);
@@ -178,6 +252,7 @@ async function handleApi(req, res, pathname, query) {
     rooms.set(code, room);
     const playerId = randomId();
     room.addPlayer(playerId, body.name, chips);
+    linkAccount(room, playerId, tokenFrom(req, body, query));
     return json(res, 200, { code, playerId });
   }
 
@@ -210,6 +285,7 @@ async function handleApi(req, res, pathname, query) {
     const chips = body.chips != null ? userStore.clampChips(body.chips) : null;
     const added = room.addPlayer(playerId, body.name, chips);
     if (!added.ok) return json(res, 400, { error: added.error });
+    linkAccount(room, playerId, tokenFrom(req, body, query));
     return json(res, 200, { code, playerId });
   }
 
@@ -218,7 +294,15 @@ async function handleApi(req, res, pathname, query) {
     if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
     const playerId = query.get('player') || '';
     const since = parseInt(query.get('v') || '0', 10);
-    const send = () => json(res, 200, room.stateFor(playerId));
+    const send = () => {
+      // Jugador que pide estado pero ya no está en la sala: fue expulsado (o se fue)
+      const p = typeof room.find === 'function' ? room.find(playerId) : null;
+      if (playerId && (!p || p.left)) {
+        return json(res, 200, { kicked: true, game: room.game || 'blackjack',
+          message: 'Un admin te ha expulsado de la mesa.' });
+      }
+      return json(res, 200, room.stateFor(playerId));
+    };
     if (room.version > since) return send();
     const started = Date.now();
     const timer = setInterval(() => {

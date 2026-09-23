@@ -532,3 +532,17 @@ body.at-welcome #topbar { display: none; }
   font-weight: bold;
 }
 .open-room-info { flex: 1; color: #9aa7b5; font-size: .9rem; min-width: 8rem; }
+
+/* ---------- Panel de administración ---------- */
+#screen-admin { max-width: 780px; }
+.admin-block { margin: 18px 0; background: rgba(0,0,0,.25); border: 1px solid rgba(212,175,55,.25); border-radius: 12px; padding: 14px 16px; }
+.admin-block h2 { margin: 0 0 10px; font-size: 1.05rem; color: #d4af37; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.admin-table th, .admin-table td { padding: 7px 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08); }
+.admin-table tr.banned td { opacity: .65; }
+.admin-room { margin-bottom: 14px; }
+.admin-room-head { margin-bottom: 6px; color: #d4af37; }
+.admin-room ul { list-style: none; margin: 0; padding: 0; }
+.admin-room li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,.08); }
+.btn.danger { background: #8e2b2b; border-color: #c0392b; color: #fff; }
+.btn.danger:hover { background: #c0392b; }

@@ -29,6 +29,7 @@ const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días
 const MAX_FAILS = 5;                          // intentos fallidos seguidos
 const LOCK_MS = 60 * 1000;                    // bloqueo temporal de la cuenta
 const MAX_CHIPS = 10000000;
+const ADMIN_USERS = ['franelnomada', 'fran']; // administradores del casino (lowercase)
 const DEFAULT_CHIPS = 1000;
 const NAME_RE = /^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u;
 const DEFAULT_USERS_FILE = 'casino-laujar-users.json';
@@ -80,14 +81,25 @@ class UserStore {
     };
   }
 
+  normalizeUser(user) {
+    if (!user || typeof user !== 'object') return null;
+    if (!user.key || !user.hash || !user.salt) return null;
+    // Migración de cuentas antiguas: aseguramos los campos nuevos
+    if (user.banned === undefined) user.banned = false;
+    if (user.isAdmin === undefined) user.isAdmin = ADMIN_USERS.includes(user.key);
+    if (typeof user.chips !== 'number') user.chips = this.clampChips(user.chips);
+    return user;
+  }
+
   restoreSnapshot(raw) {
     if (!raw || typeof raw !== 'object') return { users: 0, sessions: 0 };
     let users = 0;
     for (const user of raw.users || []) {
-      if (user && user.key && user.hash && user.salt) {
-        const prev = this.users.get(user.key);
-        if (!prev || (user.updatedAt || 0) >= (prev.updatedAt || 0)) {
-          this.users.set(user.key, user);
+      const normalized = this.normalizeUser(user);
+      if (normalized) {
+        const prev = this.users.get(normalized.key);
+        if (!prev || (normalized.updatedAt || 0) >= (prev.updatedAt || 0)) {
+          this.users.set(normalized.key, normalized);
           users++;
         }
       }
@@ -113,7 +125,7 @@ class UserStore {
       this.remoteLoaded = true;
       this.remoteOk = true;
       this.remoteError = '';
-      this.save(); // deja la caché local al día
+    this.save(); // deja la caché local al día
       return true;
     } catch (err) {
       this.remoteOk = false;
@@ -173,11 +185,12 @@ class UserStore {
   load() {
     try {
       const raw = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-      for (const user of raw.users || []) {
-        if (user && user.key && user.hash && user.salt) this.users.set(user.key, user);
+                                    for (const user of raw.users || []) {
+        const normalized = this.normalizeUser(user);
+        if (normalized) this.users.set(normalized.key, normalized);
       }
       const now = Date.now();
-      for (const [token, session] of Object.entries(raw.sessions || {})) {
+    for (const [token, session] of Object.entries(raw.sessions || {})) {
         if (session && session.expiresAt > now && this.users.has(session.key)) this.sessions.set(token, session);
       }
     } catch (e) { /* primera ejecución o fichero ilegible: empezamos limpios */ }
@@ -233,6 +246,8 @@ class UserStore {
       name: clean, key, salt,
       hash: hashPassword(password, salt),
       chips: this.clampChips(chips),
+      banned: false,
+      isAdmin: ADMIN_USERS.includes(key),
       createdAt: Date.now(), updatedAt: Date.now(),
     };
     this.users.set(key, user);
@@ -250,6 +265,9 @@ class UserStore {
     if (!user || !this.checkPassword(user, password)) {
       this.fail(key);
       return { ok: false, status: 401, error: 'Nombre o contraseña incorrectos.' };
+    }
+    if (user.banned) {
+      return { ok: false, status: 403, error: 'Esta cuenta ha sido suspendida.' };
     }
     this.fails.delete(key);
     const token = this.openSession(key);
@@ -292,13 +310,14 @@ class UserStore {
     if (!token) return null;
     const session = this.sessions.get(token);
     if (!session) return null;
-    if (session.expiresAt <= Date.now()) {
+        if (session.expiresAt <= Date.now()) {
       this.sessions.delete(token);
       this.save();
       return null;
     }
     const user = this.users.get(session.key);
     if (!user) { this.sessions.delete(token); return null; }
+    if (user.banned) { this.sessions.delete(token); this.save(); return null; }
     return user;
   }
 
@@ -343,7 +362,49 @@ class UserStore {
   }
 
   publicUser(user) {
-    return { name: user.name, chips: user.chips, createdAt: user.createdAt };
+    return { name: user.name, chips: user.chips, createdAt: user.createdAt, banned: !!user.banned, isAdmin: !!user.isAdmin };
+  }
+
+  // ---------- Administración ----------
+  isAdmin(adminToken) {
+    const user = this.userForToken(adminToken);
+    return !!(user && user.isAdmin);
+  }
+
+  ban(adminToken, key) {
+    if (!this.isAdmin(adminToken)) return { ok: false, status: 403, error: 'No tienes permisos de administrador.' };
+    const user = this.users.get(key);
+    if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
+    user.banned = true;
+    user.updatedAt = Date.now();
+    for (const [token, session] of this.sessions) if (session.key === key) this.sessions.delete(token);
+    this.save();
+    return { ok: true, user: this.publicUser(user) };
+  }
+
+  unban(adminToken, key) {
+    if (!this.isAdmin(adminToken)) return { ok: false, status: 403, error: 'No tienes permisos de administrador.' };
+    const user = this.users.get(key);
+    if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
+    user.banned = false;
+    user.updatedAt = Date.now();
+    this.save();
+    return { ok: true, user: this.publicUser(user) };
+  }
+
+  setChipsByKey(key, chips) {
+    const user = this.users.get(key);
+    if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
+    const value = Math.floor(Number(chips));
+    if (!Number.isFinite(value) || value < 0) return { ok: false, status: 400, error: 'Fichas no válidas.' };
+    user.chips = Math.min(value, MAX_CHIPS);
+    user.updatedAt = Date.now();
+    this.save();
+    return { ok: true, user: this.publicUser(user) };
+  }
+
+  listUsers() {
+    return [...this.users.values()].map(u => this.publicUser(u));
   }
 
   count() { return this.users.size; }

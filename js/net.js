@@ -63,7 +63,7 @@ const Net = {
       const r = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, game, blindMinutes: 10, chips: App.chips }),
+        body: JSON.stringify({ name, game, blindMinutes: 10, chips: App.chips, token: (typeof Auth !== 'undefined' && Auth.token) || '' }),
       });
       const data = await r.json();
       if (!r.ok) return this.showError(data.error || 'No se pudo crear la mesa online.');
@@ -118,7 +118,7 @@ const Net = {
       const r = await fetch('/api/rooms/' + code + '/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, chips: App.chips }),
+        body: JSON.stringify({ name, chips: App.chips, token: (typeof Auth !== 'undefined' && Auth.token) || '' }),
       });
       const data = await r.json();
       if (!r.ok) return this.showError(data.error || 'No se pudo unir.');
@@ -140,7 +140,8 @@ const Net = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, game: document.getElementById('net-game').value,
-          blindMinutes: Number(document.getElementById('net-blind-minutes').value), chips: App.chips }),
+          blindMinutes: Number(document.getElementById('net-blind-minutes').value), chips: App.chips,
+          token: (typeof Auth !== 'undefined' && Auth.token) || '' }),
       });
       const data = await r.json();
       if (!r.ok) return this.showError(data.error || 'No se pudo crear la sala.');
@@ -163,7 +164,7 @@ const Net = {
       const r = await fetch('/api/rooms/' + code + '/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, chips: App.chips }),
+        body: JSON.stringify({ name, chips: App.chips, token: (typeof Auth !== 'undefined' && Auth.token) || '' }),
       });
       const data = await r.json();
       if (!r.ok) return this.showError(data.error || 'No se pudo unir.');
@@ -206,9 +207,11 @@ const Net = {
   },
 
   async leave() {
-    if (this.code) {
+    const code = this.code;
+    this.code = null; // corta el sondeo al instante: un leave no debe leerse como "expulsado"
+    if (code) {
       try {
-        const r = await fetch('/api/rooms/' + this.code + '/leave', {
+        const r = await fetch('/api/rooms/' + code + '/leave', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -282,6 +285,8 @@ const Net = {
         }
         notFound = 0;
         const data = await r.json();
+        if (!this.code) break; // salimos (leave) mientras esperábamos: no procesar
+        if (data && data.kicked) { this.kickedOut(data.message); break; }
         this.version = data.version;
         this.state = data;
         this.render();
@@ -303,6 +308,19 @@ const Net = {
     this.showZone('lost', true);
     document.getElementById('net-message').textContent =
       '💔 Se ha perdido la sala: el servidor se ha reiniciado o la sala ha expirado. Las fichas online se reinician con él.';
+  },
+
+  // Un admin nos ha expulsado de la mesa: volvemos al lobby con el aviso
+  kickedOut(message) {
+    if (typeof Poker !== 'undefined') Poker.reset();
+    this.disconnect();
+    App.goLobby();
+    const text = '🚪 ' + (message || 'Un admin te ha expulsado de la mesa.');
+    const el = document.getElementById('net-lobby-message');
+    if (el) {
+      el.textContent = text;
+      setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 5000);
+    }
   },
 
   retry() {

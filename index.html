@@ -240,6 +240,28 @@
       </div>
     </section>
 
+    <!-- PANEL DE ADMINISTRACIÓN -->
+    <section id="screen-admin" class="screen hidden">
+      <button class="btn-back" onclick="Admin.close()">← Volver</button>
+      <h1>🛠 Panel de administración</h1>
+      <p class="subtitle">Cuentas, baneos y control de mesas activas.</p>
+
+      <div class="admin-block">
+        <h2>👥 Cuentas</h2>
+        <table class="admin-table">
+          <thead><tr><th>Nombre</th><th>Fichas</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="admin-users-body"></tbody>
+        </table>
+        <p id="admin-users-status" class="hint"></p>
+      </div>
+
+      <div class="admin-block">
+        <h2>🎲 Salas activas</h2>
+        <div id="admin-rooms"></div>
+        <p id="admin-rooms-status" class="hint"></p>
+      </div>
+    </section>
+
   </main>
 
   <!-- Modal recarga de fichas -->
@@ -262,6 +284,7 @@
       <div id="account-user" class="hidden">
         <p>Hola, <b id="account-name"></b></p>
         <p class="hint">Fichas en tu cuenta: <b id="account-chips">0</b></p>
+        <button id="account-admin" class="btn hidden" onclick="Auth.closePanel(); Admin.open()">🛠 Panel admin</button>
         <button class="btn" onclick="Auth.logout(); Auth.closePanel()">Cerrar sesión</button>
       </div>
       <button class="btn" onclick="Auth.closePanel()">Cerrar</button>
@@ -274,6 +297,7 @@
   <script src="js/blackjack.js"></script>
   <script src="js/poker.js"></script>
   <script src="js/net.js"></script>
+  <script src="js/admin.js"></script>
   <script>App.init(); Net.init(); Auth.init();</script>
 </body>
 </html>

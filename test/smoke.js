@@ -127,6 +127,7 @@ load('js/auth.js', 'Auth');
 load('js/net.js', 'Net');
 let leaveReq = null;
 let leaveReply = { ok: true, chips: 1500 };
+const realFetch = global.fetch; // HTTP real para los tests de admin (tras el stub)
 global.fetch = async (url, opts) => {
   leaveReq = JSON.parse((opts && opts.body) || '{}');
   return { ok: true, status: 200, json: async () => leaveReply };
@@ -160,7 +161,87 @@ global.fetch = async (url, opts) => {
   Net.code = 'MNOP'; Net.playerId = 'pid-4';
   leaveReply = { ok: true, chips: 900 };
   await Net.leave();
-  check('Net: invitado: saldo local aplicado sin token', App.chips === 900 && !leaveReq.token);
+    check('Net: invitado: saldo local aplicado sin token', App.chips === 900 && !leaveReq.token);
+
+  // ---------- Panel de admin: ban, kick y permisos (servidor real) ----------
+  const os = require('os');
+  const stamp = Date.now();
+  process.env.USERS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-users-' + stamp + '.json');
+  process.env.ROOMS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-rooms-' + stamp + '.json');
+  const srv = require('../server.js');
+  global.fetch = realFetch; // de aquí en adelante, HTTP real contra el servidor
+  const port = await new Promise(res => srv.server.listen(0, () => res(srv.server.address().port)));
+  const base = 'http://127.0.0.1:' + port;
+  const post = async (p, b) => {
+    const r = await fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) });
+    return { status: r.status, data: await r.json() };
+  };
+  const get = async (p) => {
+    const r = await fetch(base + p);
+    return { status: r.status, data: await r.json() };
+  };
+
+  // Cuentas: franelnomada queda como admin por defecto (ADMIN_USERS)
+  const admReg = await post('/api/auth/register', { name: 'franelnomada', password: 'admin123', chips: 1000 });
+  check('Admin: franelnomada se registra como administrador', admReg.status === 200 && admReg.data.user.isAdmin === true);
+  const admToken = admReg.data.token;
+  const vicReg = await post('/api/auth/register', { name: 'victima', password: 'vic1234', chips: 1000 });
+  const vicKey = 'victima';
+  const vicToken = vicReg.data.token;
+  const rndReg = await post('/api/auth/register', { name: 'rando', password: 'rando12', chips: 1000 });
+  const rndToken = rndReg.data.token;
+
+  // Un usuario normal no puede banear ni patear (403)
+  const noBan = await post('/api/admin/users/' + vicKey + '/ban', { token: rndToken });
+  check('Admin: sin permisos, ban devuelve 403', noBan.status === 403);
+
+  // Banear: corta sesión e impide el login con error claro (no cuelga)
+  const ban1 = await post('/api/admin/users/' + vicKey + '/ban', { token: admToken });
+  check('Admin: el admin banea correctamente', ban1.status === 200 && ban1.data.user.banned === true);
+  const blocked = await post('/api/auth/login', { name: 'victima', password: 'vic1234' });
+  check('Admin: banear impide el login (403, mensaje claro)', blocked.status === 403 && /suspendida/i.test(blocked.data.error || ''));
+  const meDead = await get('/api/auth/me?token=' + encodeURIComponent(vicToken));
+  check('Admin: la sesión del baneado deja de valer (me -> 401)', meDead.status === 401);
+
+  // Desbanear rehabilita el login con normalidad
+  const unban = await post('/api/admin/users/' + vicKey + '/unban', { token: admToken });
+  const backIn = await post('/api/auth/login', { name: 'victima', password: 'vic1234' });
+  check('Admin: desbanear permite volver a entrar', unban.status === 200 && backIn.status === 200 && !!backIn.data.token);
+  const vicToken2 = backIn.data.token;
+
+  // Kick por playerId: sale de la mesa, se liquida su saldo y lo ve en el sondeo
+  const created = await post('/api/rooms', { name: 'Victima', game: 'blackjack', chips: 500, token: vicToken2 });
+  const code = created.data.code;
+  const pid = created.data.playerId;
+  const roomsList = await get('/api/admin/rooms?token=' + encodeURIComponent(admToken));
+  check('Admin: /api/admin/rooms lista la sala con playerId',
+    roomsList.status === 200 && roomsList.data.rooms.some(r =>
+      r.code === code && r.players.some(p => p.playerId === pid && p.chips === 500)));
+  const noKick = await post('/api/admin/rooms/' + code + '/kick', { token: rndToken, playerId: pid });
+  check('Admin: kick sin permisos devuelve 403', noKick.status === 403);
+  const kick = await post('/api/admin/rooms/' + code + '/kick', { token: admToken, playerId: pid });
+  check('Admin: el admin expulsa al jugador', kick.status === 200 && kick.data.chips === 500);
+  const stKicked = await get('/api/rooms/' + code + '/state?player=' + pid + '&v=0');
+  check('Admin: el expulsado ve kicked en su siguiente sondeo', stKicked.status === 200 && stKicked.data.kicked === true);
+  const afterKick = await get('/api/auth/me?token=' + encodeURIComponent(vicToken2));
+  check('Admin: el kick liquida las fichas de la mesa en la cuenta (500)',
+    afterKick.status === 200 && afterKick.data.user.chips === 500);
+
+  // Banear a alguien sentado: sale de la mesa liquidando y pierde la sesión
+  const seated = await post('/api/rooms', { name: 'Victima', game: 'blackjack', chips: 777, token: vicToken2 });
+  const seatCode = seated.data.code;
+  const seatPid = seated.data.playerId;
+  const ban2 = await post('/api/admin/users/' + vicKey + '/ban', { token: admToken });
+  check('Admin: banear a un jugador sentado lo expulsa de la mesa', ban2.status === 200);
+  const seatKick = await get('/api/rooms/' + seatCode + '/state?player=' + seatPid + '&v=0');
+  check('Admin: el baneado de la mesa ve kicked', seatKick.status === 200 && seatKick.data.kicked === true);
+  const meSeat = await get('/api/auth/me?token=' + encodeURIComponent(vicToken2));
+  check('Admin: el saldo de la mesa (777) queda liquidado y la sesión muerta',
+    meSeat.status === 401 && srv.userStore.users.get(vicKey).chips === 777);
+  const blocked2 = await post('/api/auth/login', { name: 'victima', password: 'vic1234' });
+  check('Admin: tras el ban, el login sigue bloqueado', blocked2.status === 403);
+
+  await new Promise(res => srv.server.close(res));
 
   if (failures === 0) {
     console.log('\n✅ Smoke test pasado: todas las verificaciones correctas');

@@ -267,6 +267,8 @@ const Auth = {
     const userAcc = document.getElementById('account-user');
     if (guestAcc) guestAcc.classList.toggle('hidden', !!user);
     if (userAcc) userAcc.classList.toggle('hidden', !user);
+    const adminBtn = document.getElementById('account-admin');
+    if (adminBtn) adminBtn.classList.toggle('hidden', !(user && user.isAdmin));
     this.applyMode();
   },
 
