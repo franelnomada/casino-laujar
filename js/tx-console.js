@@ -62,7 +62,7 @@ const TxConsole = {
   },
 
   classFor(type) {
-    if (type === 'win' || type === 'admin_grant' || type === 'betting_bet' || type === 'betting_refund') return 'tx-win';
+    if (type === 'win' || type === 'admin_grant' || type === 'betting_bet' || type === 'betting_refund' || type === 'weekly_bonus') return 'tx-win';
     if (type === 'loss' || type === 'admin_revoke') return 'tx-loss';
     return '';
   },

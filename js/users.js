@@ -403,9 +403,9 @@ class UserStore {
     return { ok: true, user: this.publicUser(user) };
   }
 
-  // Suma (o resta, con delta negativo) fichas a una cuenta. Nunca baja de 0.
-  adjustChips(adminToken, key, delta) {
-    if (!this.isAdmin(adminToken)) return { ok: false, status: 403, error: 'No tienes permisos de administrador.' };
+  // Ajuste interno por clave. Los pagos de admin y el bonus automático usan
+  // este mismo cálculo para conservar límites, persistencia y réplica.
+  adjustChipsByKey(key, delta) {
     const user = this.users.get(key);
     if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
     const amount = Math.floor(Number(delta));
@@ -415,6 +415,26 @@ class UserStore {
     user.updatedAt = Date.now();
     this.save();
     return { ok: true, user: this.publicUser(user), delta: user.chips - before, before, after: user.chips };
+  }
+
+  grantScheduledChips(key, amount, bonusId) {
+    const user = this.users.get(key);
+    if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
+    if (user.lastScheduledBonus === bonusId) {
+      return { ok: true, skipped: true, user: this.publicUser(user), delta: 0, before: user.chips, after: user.chips };
+    }
+    const result = this.adjustChipsByKey(key, amount);
+    if (!result.ok) return result;
+    // La marca se persiste con la cuenta y evita duplicados tras reinicios.
+    user.lastScheduledBonus = String(bonusId);
+    this.save();
+    return { ...result, skipped: false };
+  }
+
+  // Suma (o resta, con delta negativo) fichas a una cuenta. Nunca baja de 0.
+  adjustChips(adminToken, key, delta) {
+    if (!this.isAdmin(adminToken)) return { ok: false, status: 403, error: 'No tienes permisos de administrador.' };
+    return this.adjustChipsByKey(key, delta);
   }
 
   listUsers() {

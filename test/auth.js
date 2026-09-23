@@ -227,7 +227,9 @@ check('api auth: un cuerpo enorme no tumba el servidor',
 }
 
 const ping = await get('/api/ping');
-check('api auth: el ping cuenta las cuentas', ping.status === 200 && ping.data.accounts >= 2 && typeof ping.data.rooms === 'number');
+check('api auth: el ping cuenta las cuentas y publica el bonus semanal',
+  ping.status === 200 && ping.data.accounts >= 2 && typeof ping.data.rooms === 'number' &&
+  ping.data.weeklyBonus && ping.data.weeklyBonus.amount === 1000 && ping.data.weeklyBonus.timeZone === 'Europe/Madrid');
 
 check('api auth: cerrar sesión responde ok', (await post('/api/auth/logout', {}, token)).status === 200);
 check('api auth: el token deja de valer tras salir', (await get('/api/auth/me', token)).status === 401);

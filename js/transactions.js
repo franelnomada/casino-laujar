@@ -12,7 +12,7 @@ const { FirebaseRest } = require('./firebase-rest.js');
 
 const MAX_ENTRIES = 200;
 const DEFAULT_FILE = 'casino-laujar-transactions.json';
-const TYPES = ['win', 'loss', 'admin_grant', 'admin_revoke', 'betting_bet', 'betting_refund'];
+const TYPES = ['win', 'loss', 'admin_grant', 'admin_revoke', 'betting_bet', 'betting_refund', 'weekly_bonus'];
 
 class TransactionLog {
   constructor(filePath) {

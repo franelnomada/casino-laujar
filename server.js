@@ -11,6 +11,7 @@ const { PokerRoom } = require('./js/poker-engine.js');
 const { RouletteRoom } = require('./js/roulette-engine.js');
 const { UserStore } = require('./js/users.js');
 const { TransactionLog } = require('./js/transactions.js');
+const { WeeklyChipBonus } = require('./js/weekly-bonus.js');
 const { BettingStore } = require('./js/betting.js');
 const { FirebaseRest } = require('./js/firebase-rest.js');
 const { RoomReplica } = require('./js/rooms-remote.js');
@@ -44,6 +45,9 @@ const userStore = new UserStore(USERS_PATH);
 const TX_PATH = process.env.TX_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-transactions.json');
 const txLog = new TransactionLog(TX_PATH);
+
+// ---- Bonus semanal: lunes, miércoles y viernes a las 10:00 (Madrid) ----
+const weeklyBonus = new WeeklyChipBonus({ userStore, txLog });
 
 // ---- Apuestas deportivas: eventos y apuestas persistentes ----
 const BETTING_PATH = process.env.BETTING_FILE ||
@@ -499,7 +503,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/')) {
     try {
       if (pathname === '/api/ping') {
-        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), uptime: process.uptime() });
+        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), weeklyBonus: weeklyBonus.info(), uptime: process.uptime() });
       }
       return await handleApi(req, res, pathname, new URLSearchParams(rawQuery || ''));
     } catch (err) {
@@ -531,4 +535,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog, bettingStore };
+module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus };

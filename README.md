@@ -26,6 +26,7 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
 - **Crear cuenta:** nombre (2–14 caracteres, letras/números/espacios) y contraseña (mínimo 6). La cuenta arranca con las fichas que tengas en ese móvil (1.000 por defecto).
 - **Entrar:** desde cualquier dispositivo, con el mismo nombre y contraseña; se recuperan las fichas virtuales de la cuenta.
 - **Fichas:** al estar dentro de una cuenta, cada cambio de saldo se guarda en el servidor (con un pequeño retardo, sin saturar). Al cerrar sesión se conserva el saldo del móvil, pero siguen mandando las fichas de la cuenta mientras dure la sesión. Si se juega con la misma cuenta en dos dispositivos a la vez, el último saldo guardado es el que queda.
+- **Regalo semanal:** todos los lunes, miércoles y viernes a las **10:00 (Europe/Madrid)** se entregan automáticamente **1.000 fichas** a cada cuenta activa, esté conectada o no. Cada entrega queda marcada por fecha, por lo que reinicios o despliegues no la duplican; las cuentas baneadas no participan.
 - **Sesión:** token de 30 días guardado en el dispositivo. Si el servidor se reinicia o el token caduca, la app vuelve sola a modo invitado sin perder las fichas locales.
 - **Seguridad:** las contraseñas se guardan con hash `scrypt` y sal propia (nunca en claro) y hay bloqueo temporal de 1 minuto tras 5 intentos fallidos. Es protección básica de andar por casa: no reutilicéis una contraseña importante.
 - **Dónde se guardan:** fichero JSON en el temporal del servidor (`/tmp/casino-laujar-users.json`), como las salas. Para moverlo, las variables de entorno `USERS_FILE` (ruta completa) o `DATA_DIR` (carpeta) lo cambian; con `DATA_DIR` apuntando a un disco persistente, las cuentas sobreviven a los redespliegues.
@@ -117,7 +118,8 @@ js/blackjack.js       → Blackjack local (hot-seat, hasta 5 jugadores)
 js/roulette.js        → Ruleta europea local
 js/net.js             → Cliente multijugador (salas, long-polling)
 js/bj-engine.js       → Motor de blackjack del servidor (autoritativo)
-js/users.js           → Cuentas del servidor (scrypt, sesiones, JSON)
+js/users.js           → Cuentas del servidor (scrypt, sesiones, fichas y markers)
+js/weekly-bonus.js    → Reparto automático de fichas de lunes/miércoles/viernes
 js/transactions.js    → Registro de transacciones de fichas (consola del lobby)
 js/tx-console.js      → Consola pública de transacciones en el lobby (cliente)
 js/betting.js         → Eventos, mercados, apuestas y liquidaciones (servidor)
