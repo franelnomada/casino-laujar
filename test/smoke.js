@@ -241,6 +241,24 @@ global.fetch = async (url, opts) => {
   const blocked2 = await post('/api/auth/login', { name: 'victima', password: 'vic1234' });
   check('Admin: tras el ban, el login sigue bloqueado', blocked2.status === 403);
 
+  // Añadir/eliminar fichas desde el panel: sumar, restar, sin bajar de 0
+  const unban2 = await post('/api/admin/users/' + vicKey + '/unban', { token: admToken });
+  check('Admin: desbanear para probar fichas', unban2.status === 200);
+  const chipsBase = srv.userStore.users.get(vicKey).chips;
+  const addNo = await post('/api/admin/users/' + vicKey + '/chips', { token: rndToken, delta: 100 });
+  check('Admin: ajustar fichas sin permisos devuelve 403', addNo.status === 403);
+  const addBad = await post('/api/admin/users/' + vicKey + '/chips', { token: admToken, delta: 0 });
+  check('Admin: ajustar fichas con cantidad no válida devuelve 400', addBad.status === 400);
+  const addOk = await post('/api/admin/users/' + vicKey + '/chips', { token: admToken, delta: 500 });
+  check('Admin: el admin añade 500 fichas (antes ' + chipsBase + ' -> ' + addOk.data.after + ')',
+    addOk.status === 200 && addOk.data.after === chipsBase + 500);
+  const subOk = await post('/api/admin/users/' + vicKey + '/chips', { token: admToken, delta: -200 });
+  check('Admin: el admin quita 200 fichas (después ' + subOk.data.after + ')',
+    subOk.status === 200 && subOk.data.after === chipsBase + 300);
+  const over = await post('/api/admin/users/' + vicKey + '/chips', { token: admToken, delta: -99999999 });
+  check('Admin: quitar de más deja el saldo en 0 sin bajar de ahí',
+    over.status === 200 && over.data.after === 0);
+
   await new Promise(res => srv.server.close(res));
 
   if (failures === 0) {

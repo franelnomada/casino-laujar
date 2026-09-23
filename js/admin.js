@@ -64,6 +64,10 @@ const Admin = {
           '<td class="admin-name"></td>' +
           '<td>💰 ' + Number(u.chips || 0).toLocaleString('es-ES') + '</td>' +
           '<td>' + (u.banned ? '🚫 Baneada' : '✔ Activa') + (u.isAdmin ? ' · 🛠 admin' : '') + '</td>' +
+          '<td><button class="btn" onclick="Admin.adjustChips(\'' +
+            encodeURIComponent(String(u.name).toLowerCase()) + '\',1)">+ Fichas</button> ' +
+            '<button class="btn" onclick="Admin.adjustChips(\'' +
+            encodeURIComponent(String(u.name).toLowerCase()) + '\',-1)">− Fichas</button></td>' +
           '<td>' + (u.isAdmin ? '' :
                         '<button class="btn' + (u.banned ? '' : ' danger') + '" onclick="Admin.toggleBan(\'' +
             encodeURIComponent(String(u.name).toLowerCase()) + '\',' + (u.banned ? 'false' : 'true') + ')">' +
@@ -83,6 +87,20 @@ const Admin = {
     if (r.status !== 200) { this.sayUsers(r.data.error || 'No se pudo actualizar la cuenta.'); return; }
     this.loadUsers();
     this.loadRooms(); // un ban puede expulsar a alguien de una mesa
+  },
+
+  // Añadir/eliminar fichas: multiplica +1/-1 por la cantidad pedida.
+  async adjustChips(keyEncoded, sign) {
+    const key = decodeURIComponent(keyEncoded);
+    const raw = typeof prompt === 'function'
+      ? prompt((sign > 0 ? 'Añadir fichas a ' : 'Quitar fichas a ') + key + '.\n¿Cuántas?')
+      : null;
+    if (raw == null) return; // cancelado
+    const qty = Math.floor(Number(raw));
+    if (!Number.isFinite(qty) || qty <= 0) { this.sayUsers('Cantidad no válida.'); return; }
+    const r = await this.post('/api/admin/users/' + encodeURIComponent(key) + '/chips', { delta: sign > 0 ? qty : -qty });
+    if (r.status !== 200) { this.sayUsers(r.data.error || 'No se pudieron ajustar las fichas.'); return; }
+    this.loadUsers();
   },
 
   async loadRooms() {

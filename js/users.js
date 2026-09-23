@@ -403,6 +403,20 @@ class UserStore {
     return { ok: true, user: this.publicUser(user) };
   }
 
+  // Suma (o resta, con delta negativo) fichas a una cuenta. Nunca baja de 0.
+  adjustChips(adminToken, key, delta) {
+    if (!this.isAdmin(adminToken)) return { ok: false, status: 403, error: 'No tienes permisos de administrador.' };
+    const user = this.users.get(key);
+    if (!user) return { ok: false, status: 404, error: 'Cuenta no encontrada.' };
+    const amount = Math.floor(Number(delta));
+    if (!Number.isFinite(amount) || amount === 0) return { ok: false, status: 400, error: 'Cantidad no válida.' };
+    const before = user.chips;
+    user.chips = Math.min(Math.max(0, before + amount), MAX_CHIPS);
+    user.updatedAt = Date.now();
+    this.save();
+    return { ok: true, user: this.publicUser(user), delta: user.chips - before, before, after: user.chips };
+  }
+
   listUsers() {
     return [...this.users.values()].map(u => this.publicUser(u));
   }

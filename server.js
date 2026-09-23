@@ -174,6 +174,13 @@ async function handleAdmin(req, res, pathname, query) {
     return json(res, 200, { ok: true, user: result.user });
   }
 
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/users\/([^\/]+)\/chips$/))) {
+    const key = decodeURIComponent(m[1]).toLowerCase();
+    const result = userStore.adjustChips(token, key, body.delta);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, user: result.user, delta: result.delta, before: result.before, after: result.after });
+  }
+
   if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/rooms\/([A-Za-z0-9]{4})\/kick$/))) {
     const room = rooms.get(m[1].toUpperCase());
     if (!room) return json(res, 404, { error: 'Sala no encontrada.' });
