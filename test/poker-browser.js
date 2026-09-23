@@ -5,6 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { PokerRoom } = require('../js/poker-engine');
+const { BlackjackRoom } = require('../js/bj-engine');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 async function main() {
   const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -179,6 +180,15 @@ async function main() {
       const layout=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();const a=[...document.querySelectorAll('#pk-actions button')].map(n=>n.getBoundingClientRect());return {c:{top:c.top,bottom:c.bottom},a:a.map(r=>({top:r.top,bottom:r.bottom})),height:innerHeight};})()`);
       assert.equal(layout.c.bottom <= layout.height && layout.c.top >= 0,true,'Controles fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
       assert.equal(layout.a.every(r=>r.top>=0&&r.bottom<=layout.height),true,'Acciones fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
+    }
+    const blackjackRoom=new BlackjackRoom('BJVIEW');
+    blackjackRoom.addPlayer('a','Ana');blackjackRoom.addPlayer('b','Bruno');blackjackRoom.start();
+    await js(`App.show('room');Net.playerId='a';Net.state=${JSON.stringify(blackjackRoom.stateFor('a'))};Net.render()`);
+    for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700]]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
+      const bjLayout=await js(`(()=>{const t=document.getElementById('net-blackjack-table').getBoundingClientRect();const c=document.getElementById('net-blackjack-controls').getBoundingClientRect();return {mode:document.body.classList.contains('in-blackjack-room'),meta:getComputedStyle(document.getElementById('net-blackjack-meta')).display,table:t.height,controls:c.bottom,viewport:innerHeight};})()`);
+      assert.equal(bjLayout.mode&&bjLayout.meta!=='none'&&bjLayout.table>180&&bjLayout.controls<=bjLayout.viewport,true,'Blackjack compacto en '+width+'x'+height+' '+JSON.stringify(bjLayout));
+      assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Blackjack sin scroll a '+width+'x'+height);
     }
     const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
     const showRoom=new PokerRoom('WIN');showRoom.addPlayer('a','Ana');showRoom.addPlayer('b','Bruno');

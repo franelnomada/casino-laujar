@@ -729,6 +729,108 @@ body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-ar
   body.in-poker-room .pk-hole .playing-card { width: 23px; height: 32px; }
 }
 
+/* ==== Blackjack compacto: misma sala que Poker, sin cambiar sus reglas ==== */
+.blackjack-meta { display: none; }
+body.in-blackjack-room { height: 100dvh; min-height: 0; overflow: hidden; }
+body.in-blackjack-room #topbar { height: 50px; padding: 5px 16px; flex-shrink: 0; }
+body.in-blackjack-room .brand { font-size: 1.05rem; }
+body.in-blackjack-room .chips-display { padding: 5px 10px; font-size: .82rem; }
+body.in-blackjack-room .auth-topbar { padding: 5px 10px; font-size: .82rem; }
+body.in-blackjack-room #app {
+  width: 100%; max-width: 1600px; height: calc(100dvh - 50px);
+  min-height: 0; padding: 0; overflow: hidden;
+}
+body.in-blackjack-room #screen-room {
+  height: 100%; min-height: 0; padding: 8px; display: grid;
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: 30px minmax(0, 1fr) auto;
+  gap: 6px; overflow: hidden;
+}
+body.in-blackjack-room #screen-room > .btn-back,
+body.in-blackjack-room #screen-room > h1,
+body.in-blackjack-room #screen-room > .subtitle,
+body.in-blackjack-room #screen-room > .share-row,
+body.in-blackjack-room #net-message { display: none !important; }
+body.in-blackjack-room .blackjack-meta {
+  display: flex; min-width: 0; margin: 0; padding: 3px 7px; gap: 8px; flex-wrap: nowrap;
+  justify-content: center; align-items: center; border-radius: 9px;
+  background: #121d29e8; border: 1px solid #d4af3738; font-size: .78rem;
+}
+body.in-blackjack-room .blackjack-meta > span { white-space: nowrap; }
+body.in-blackjack-room #net-blackjack-table {
+  width: 100%; max-width: 1100px; height: 100%; min-height: 0; margin: 0 auto;
+  display: flex; flex-direction: column; padding: 12px 14px 18px;
+  border-width: 8px; border-radius: 48% / 44%; overflow: hidden;
+}
+body.in-blackjack-room #net-blackjack-table .shoe { top: 12px; right: 22px; width: 31px; height: 43px; }
+body.in-blackjack-room #net-blackjack-table .shoe i { height: 5px; margin-top: 3px; }
+body.in-blackjack-room .dealer-area { flex: 0 0 auto; margin-bottom: 4px; }
+body.in-blackjack-room .dealer-label { margin-bottom: 3px; font-size: .72rem; letter-spacing: 3px; }
+body.in-blackjack-room .dealer-cards { min-height: 48px; gap: 3px; }
+body.in-blackjack-room .dealer-cards .playing-card { width: 30px; height: 44px; padding: 2px; font-size: .66rem; }
+body.in-blackjack-room .dealer-cards .playing-card .suit { font-size: .82rem; }
+body.in-blackjack-room #net-seats {
+  flex: 1 1 auto; min-height: 0; margin: 0; padding-top: 4px; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); align-content: end;
+  align-items: end; gap: 5px; overflow: hidden;
+}
+body.in-blackjack-room .seat { width: auto; min-width: 0; padding: 4px 3px 6px; border-radius: 9px; }
+body.in-blackjack-room .p-name { font-size: .7rem; line-height: 1.05; }
+body.in-blackjack-room .p-chips { margin: 1px 0 2px; font-size: .64rem; }
+body.in-blackjack-room .seat-cards { min-height: 40px; gap: 2px; }
+body.in-blackjack-room .seat .playing-card { width: 27px; height: 40px; padding: 2px; font-size: .58rem; }
+body.in-blackjack-room .seat .playing-card .suit { font-size: .7rem; }
+body.in-blackjack-room .seat .score { margin-top: 2px; font-size: .65rem; }
+body.in-blackjack-room .bet-circle { width: 34px; height: 34px; margin: 3px auto 1px; border-width: 2px; font-size: .62rem; }
+body.in-blackjack-room .p-result { min-height: 1em; font-size: .62rem; line-height: 1; }
+body.in-blackjack-room .split-hands { gap: 3px; }
+body.in-blackjack-room .split-hand { padding: 3px 1px; font-size: .6rem; }
+body.in-blackjack-room .split-hand .bet-circle { width: 28px; height: 28px; }
+body.in-blackjack-room #net-blackjack-controls {
+  display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 6px; min-height: 0; margin: 0; padding: 7px 9px; background: #121d29f5;
+  border: 1px solid #d4af3740; border-radius: 11px;
+}
+body.in-blackjack-room #net-blackjack-controls .controls { margin: 0; }
+body.in-blackjack-room #net-blackjack-controls .chip-row { margin: 0; gap: 5px; }
+body.in-blackjack-room #net-blackjack-controls .chip { width: 40px; height: 40px; font-size: .72rem; }
+body.in-blackjack-room #net-blackjack-controls .current-bet { margin: 0; font-size: .76rem; }
+body.in-blackjack-room #net-blackjack-controls .btn-row { margin: 0; gap: 5px; }
+body.in-blackjack-room #net-blackjack-controls .btn { min-height: 36px; padding: 6px 10px; font-size: .75rem; }
+body.in-blackjack-room #net-blackjack-controls .waiting,
+body.in-blackjack-room #net-blackjack-controls .message { min-height: 0; margin: 0; font-size: .72rem; }
+body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)); }
+
+@media (max-width: 760px) {
+  body.in-blackjack-room #topbar { padding: 5px 10px; }
+  body.in-blackjack-room #screen-room { padding: 5px; grid-template-rows: 27px minmax(0, 1fr) auto; gap: 4px; }
+  body.in-blackjack-room .blackjack-meta { padding: 2px 5px; gap: 5px; justify-content: space-between; font-size: .67rem; }
+  body.in-blackjack-room .blackjack-meta > b { display: none; }
+  body.in-blackjack-room #net-blackjack-table { padding: 8px 7px 12px; border-width: 5px; border-radius: 46% / 41%; }
+  body.in-blackjack-room #net-blackjack-table .shoe { top: 8px; right: 14px; width: 25px; height: 34px; }
+  body.in-blackjack-room #net-blackjack-table .shoe i:nth-child(2) { display: none; }
+  body.in-blackjack-room .dealer-label { font-size: .58rem; }
+  body.in-blackjack-room .dealer-cards { min-height: 37px; }
+  body.in-blackjack-room .dealer-cards .playing-card { width: 23px; height: 34px; font-size: .56rem; }
+  body.in-blackjack-room .dealer-cards .playing-card .suit { font-size: .68rem; }
+  body.in-blackjack-room #net-seats { grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 3px; }
+  body.in-blackjack-room .seat { padding: 3px 2px 4px; }
+  body.in-blackjack-room .seat .playing-card { width: 23px; height: 33px; font-size: .52rem; }
+  body.in-blackjack-room .seat .playing-card .suit { font-size: .62rem; }
+  body.in-blackjack-room .bet-circle { width: 28px; height: 28px; }
+  body.in-blackjack-room #net-blackjack-controls { padding: 5px 6px; gap: 3px; }
+  body.in-blackjack-room #net-blackjack-controls .chip { width: 34px; height: 34px; }
+  body.in-blackjack-room #net-blackjack-controls .btn { min-height: 32px; padding: 4px 7px; font-size: .66rem; }
+  body.in-blackjack-room #net-blackjack-controls .current-bet,
+  body.in-blackjack-room #net-blackjack-controls .waiting,
+  body.in-blackjack-room #net-blackjack-controls .message { font-size: .62rem; }
+}
+@media (max-height: 620px) and (max-width: 760px) {
+  body.in-blackjack-room #net-seats { gap: 2px; }
+  body.in-blackjack-room .seat { padding-top: 2px; }
+  body.in-blackjack-room .seat-cards { min-height: 30px; }
+  body.in-blackjack-room .seat .playing-card { width: 21px; height: 30px; }
+}
+
 /* ==== Cuentas de jugador ==== */
 .topbar-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .auth-topbar {

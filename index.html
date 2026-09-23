@@ -141,6 +141,12 @@
       <div class="share-row">
         <button class="btn" onclick="Net.copyLink()">🔗 Copiar enlace de invitación</button>
       </div>
+      <div id="net-blackjack-meta" class="blackjack-meta poker-meta">
+        <button class="pk-compact-btn" type="button" onclick="Net.leave()" title="Salir de la mesa" aria-label="Salir de la mesa">←</button>
+        <b>♠ Blackjack</b>
+        <span>💬 <strong id="bj-room-code"></strong></span>
+        <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
+      </div>
       <div id="net-blackjack-table" class="bj-table net-table">
         <div class="shoe" aria-hidden="true"><i></i><i></i><i></i></div>
         <div class="dealer-area">

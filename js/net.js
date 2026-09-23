@@ -202,6 +202,7 @@ const Net = {
     this.clearChat();
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
+    document.body.classList.toggle('in-blackjack-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
     document.getElementById('net-blackjack-controls').classList.add('hidden');
@@ -243,6 +244,7 @@ const Net = {
   disconnect() {
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
+    document.body.classList.toggle('in-blackjack-room', false);
     this.code = null;
     this.state = null;
     this.clearChat();
@@ -486,6 +488,7 @@ const Net = {
   roomLost() {
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
+    document.body.classList.toggle('in-blackjack-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-roulette').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
@@ -545,6 +548,10 @@ const Net = {
     document.getElementById('net-poker').classList.toggle('hidden', s.game !== 'poker');
     document.getElementById('net-roulette').classList.toggle('hidden', s.game !== 'roulette');
     document.body.classList.toggle('in-poker-room', s.game === 'poker');
+    document.body.classList.toggle('in-blackjack-room', s.game === 'blackjack');
+    if (s.game === 'blackjack') {
+      document.getElementById('bj-room-code').textContent = s.code || '';
+    }
     if (s.game === 'poker') {
       document.getElementById('pk-room-code').textContent = s.code || '';
       Poker.render(s); return;
