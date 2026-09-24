@@ -1,5 +1,5 @@
 // ==============================================
-//  Casino Night — cuentas (registro, sesión, fichas)
+//  L&F Casino Club — cuentas (registro, sesión, fichas)
 //  Invitado por defecto: sin cuenta todo funciona igual,
 //  pero el nombre y las fichas solo viven en este móvil.
 // ==============================================

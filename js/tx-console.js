@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — consola pública de transacciones (lobby)
+//  L&F Casino Club — consola pública de transacciones (lobby)
 //  Muestra en tiempo real lo que pasa con las fichas de todos.
 //  Los textos se construyen aquí a partir de los campos que
 //  devuelve GET /api/transactions (el servidor no los formatea).

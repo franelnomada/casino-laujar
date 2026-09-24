@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — panel de administración (ban/unban/kick)
+//  L&F Casino Club — panel de administración (ban/unban/kick)
 //  Solo para cuentas con isAdmin (franelnomada). Usa el token
 //  de Auth en la cabecera Authorization: Bearer.
 // ============================================================

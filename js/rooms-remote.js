@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — persistencia de salas en dos niveles:
+//  L&F Casino Club — persistencia de salas en dos niveles:
 //   1) Caché local en JSON (sobrevive a reinicios del proceso
 //      en la misma instancia).
 //   2) Remoto opcional en Firebase Realtime Database por REST

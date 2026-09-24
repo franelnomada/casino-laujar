@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — cuentas de jugador (registro, sesión y fichas)
+//  L&F Casino Club — cuentas de jugador (registro, sesión y fichas)
 //  Sin dependencias: hash scrypt + sal de node:crypto.
 //
 //  Persistencia en dos niveles:

@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — apuestas deportivas (eventos, mercados y liquidaciones)
+//  L&F Casino Club — apuestas deportivas (eventos, mercados y liquidaciones)
 //  Persistencia local JSON + réplica opcional en Firebase RTDB.
 //  Los saldos y la consola se resuelven con UserStore y TransactionLog.
 // ============================================================

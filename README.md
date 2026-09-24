@@ -1,6 +1,6 @@
-# 🎰 Casino Laujar
+# 🎰 L&F Casino Club
 
-Casino multijugador online de los ludópatas de Laujar de Andarax. Blackjack (local y online por salas) y Ruleta Europea, con fichas virtuales — nunca dinero real.
+L&F Casino Club es un casino multijugador online con fichas virtuales — nunca dinero real. Incluye Blackjack (local y online por salas), Ruleta Europea, póker y apuestas deportivas.
 
 ## Probar en local
 
@@ -48,7 +48,7 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
    ```bash
    git init
    git add .
-   git commit -m "Casino Laujar v1"
+   git commit -m "L&F Casino Club v1"
    git branch -M main
    git remote add origin https://github.com/franelnomada/casino-laujar.git
    git push -u origin main

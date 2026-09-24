@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — cliente REST mínimo para Firebase Realtime
+//  L&F Casino Club — cliente REST mínimo para Firebase Realtime
 //  Database. Sin dependencias: fetch global + JWT RS256 a mano
 //  para cuentas de servicio. Lo comparten las cuentas
 //  (js/users.js) y las salas (js/rooms-remote.js).

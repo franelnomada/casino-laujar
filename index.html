@@ -7,10 +7,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Casino Night">
+  <meta name="apple-mobile-web-app-title" content="L&F Casino Club">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Casino Night 🎰</title>
+  <title>L&F Casino Club 🎰</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap">
@@ -18,8 +18,13 @@
 </head>
 <body>
   <header id="topbar">
-    <div class="brand" onclick="App.goLobby()">🎰 <span>Casino Night</span></div>
+    <div class="brand" onclick="App.goLobby()">🎰 <span>L&F Casino Club</span></div>
     <div class="topbar-right">
+      <div class="topbar-session" aria-label="Sesión de juego">
+        <label class="sr-only" for="net-name">Nombre para jugar</label>
+        <input id="net-name" class="name-input topbar-name" maxlength="12" placeholder="Nombre para jugar" aria-label="Nombre para jugar">
+        <button id="net-resume" class="btn topbar-resume hidden" type="button" onclick="Net.resume()">↩ Volver</button>
+      </div>
       <div class="chips-display" title="Tus fichas">💰 <span id="chips-amount">0</span> fichas</div>
       <button id="auth-topbar" class="auth-topbar" onclick="Auth.openPanel()" title="Entrar o crear cuenta">👤 Invitado</button>
     </div>
@@ -29,8 +34,8 @@
     <!-- WELCOME -->
     <section id="screen-welcome" class="screen">
       <div class="welcome-box">
-        <img src="assets/logo.png" alt="Casino Laujar" class="welcome-logo">
-        <h1 class="welcome-title">Bienvenido al casino de los ludópatas de Laujar de Andarax</h1>
+        <img src="assets/logo.png" alt="L&F Casino Club" class="welcome-logo">
+        <h1 class="welcome-title">Bienvenido a L&F Casino Club</h1>
         <p class="welcome-sub">Hagan sus apuestas 🎲</p>
         <button class="btn primary welcome-enter" onclick="App.show('lobby')">Entrar al casino 🎰</button>
 
@@ -62,7 +67,7 @@
     <!-- LOBBY / PORTAL -->
     <section id="screen-lobby" class="screen hidden">
       <div id="lobby-home" class="lobby-home">
-        <h1>Casino Night</h1>
+        <h1>L&F Casino Club</h1>
         <p class="subtitle">Elige una sección para empezar a jugar.</p>
         <div class="portal-grid" aria-label="Secciones del casino">
           <button class="portal-card" type="button" onclick="App.openLobbySection('games')">
@@ -103,35 +108,39 @@
       <div id="lobby-section-games" class="lobby-section hidden">
         <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
         <h1>🎰 Juegos</h1>
-        <p class="subtitle">Crea tu mesa o únete a la aventura que ya está en marcha.</p>
+        <p class="subtitle">Elige un juego para abrir una mesa directamente o únete a una que ya esté en marcha.</p>
 
-        <h2 class="lobby-sub">📱 Multijugador online</h2>
-      <div class="net-box">
-        <div class="net-row">
-          <input id="net-name" class="name-input" maxlength="12" placeholder="Tu nombre">
-          <button id="net-resume" class="btn hidden" onclick="Net.resume()">↩ Volver</button>
+        <div class="lobby-grid games-grid" aria-label="Juegos disponibles">
+          <button class="game-card" type="button" onclick="Net.quickStart('blackjack')">
+            <span class="game-card-icon" aria-hidden="true">🃏</span>
+            <h2>Blackjack</h2>
+            <p>Llega a 21 sin pasarte. El dealer juega a 17. Blackjack paga 3:2.</p>
+          </button>
+          <button class="game-card" type="button" onclick="Net.quickStart('roulette')">
+            <span class="game-card-icon" aria-hidden="true">🎡</span>
+            <h2>Ruleta Europea</h2>
+            <p>Plenos, colores, pares, docanas… 36 números y un solo cero.</p>
+          </button>
+          <button class="game-card" type="button" onclick="Net.quickStart('poker')">
+            <span class="game-card-icon" aria-hidden="true">♠️</span>
+            <h2>Póker online</h2>
+            <p>Texas Hold’em sin límite · 2–6 jugadores · Ciegas progresivas.</p>
+          </button>
         </div>
-        <div class="net-row">
-          <button class="btn primary" onclick="Net.openCreate()">🎰 Crear mesa</button>
-          <span class="net-or">— o —</span>
-          <input id="net-code" class="name-input code-input" maxlength="4" placeholder="CÓDIGO">
-          <button class="btn" onclick="Net.joinRoom()">Unirse</button>
+
+        <!-- Controles ocultos conservados para Net.quickStart/openCreate/createRoom. -->
+        <div id="net-create-options" class="hidden" aria-hidden="true">
+          <input id="net-game" type="hidden" value="blackjack">
+          <div id="net-poker-options" class="hidden"></div>
+          <input id="net-blind-minutes" type="hidden" value="10">
         </div>
-        <div id="net-create-options" class="hidden">
-          <label for="net-game">¿Qué juego quieres abrir?</label>
-          <select id="net-game" class="name-input" onchange="Net.gameChanged()">
-            <option value="blackjack">Blackjack</option><option value="roulette">Ruleta</option><option value="poker">Póker Texas Hold’em</option>
-          </select>
-          <div id="net-poker-options" class="hidden">
-            <label for="net-blind-minutes">Duplicar ciegas cada</label>
-            <select id="net-blind-minutes" class="name-input">
-              <option value="5">5 minutos</option><option value="10" selected>10 minutos</option>
-              <option value="15">15 minutos</option><option value="20">20 minutos</option>
-            </select>
-            <p class="hint">Juegas con tus fichas disponibles · Ciegas 10/20 · Subidas entre manos · 45 s por turno.</p>
+
+        <h2 class="lobby-sub">🔗 Unirse por código</h2>
+        <div class="net-box join-code-box">
+          <div class="net-row">
+            <input id="net-code" class="name-input code-input" maxlength="4" placeholder="CÓDIGO" aria-label="Código de la sala">
+            <button class="btn primary" type="button" onclick="Net.joinRoom()">Unirse</button>
           </div>
-          <button class="btn primary" onclick="Net.createRoom()">Abrir mesa</button>
-        </div>
         <p id="net-lobby-message" role="status"></p>
       </div>
 
@@ -235,7 +244,7 @@
         <div id="pk-table" class="poker-table">
           <div class="pk-dealer">CRUPIER <div id="pk-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
           <div class="pk-center">
-            <div class="pk-brand">CASINO LAUJAR</div>
+            <div class="pk-brand">L&F CASINO CLUB</div>
             <div id="pk-pot" class="pk-pot"></div>
             <div id="pk-board" class="cards pk-board"></div>
             <div id="pk-phase"></div>

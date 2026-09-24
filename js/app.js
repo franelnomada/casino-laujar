@@ -1,5 +1,5 @@
 // ==============================
-//  Casino Night — app core
+//  L&F Casino Club — app core
 // ==============================
 const App = {
   CHIPS_KEY: 'casino-night-chips',

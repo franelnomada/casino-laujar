@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — servidor (estático + API de salas)
+//  L&F Casino Club — servidor (estático + API de salas)
 //  Sin dependencias. Uso:  node server.js
 // ============================================================
 const http = require('http');
@@ -529,7 +529,7 @@ if (require.main === module) {
         if (net.family === 'IPv4' && !net.internal) lanIp = net.address;
       }
     }
-    console.log('🎰 Casino Night abierto:');
+    console.log('🎰 L&F Casino Club abierto:');
     console.log('   Local:  http://localhost:' + PORT);
     console.log('   Móvil:  http://' + lanIp + ':' + PORT + '   (misma red WiFi)');
   });

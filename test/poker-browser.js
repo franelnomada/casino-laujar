@@ -43,6 +43,56 @@ async function main() {
     assert.equal(await js('typeof Net'), 'object', JSON.stringify(await js('({url:location.href,ready:document.readyState,scripts:[...document.scripts].map(s=>s.src),body:document.body.innerText.slice(0,1500)})')) + JSON.stringify(errors));
     assert.equal(await js(`Net.openCreate('poker'); document.getElementById('net-game').value`),'poker');
     assert.equal(await js(`getComputedStyle(document.getElementById('net-poker-options')).display !== 'none'`),true);
+    // Juegos: las tarjetas grandes abren mesa y el resto del lobby queda debajo.
+    await js(`App.goLobby();[...document.querySelectorAll('.portal-card')].find(card => card.getAttribute('onclick').includes("openLobbySection('games')")).click()`);
+    const gamesUi = await js(`(() => {
+      const section = document.getElementById('lobby-section-games');
+      const cards = [...section.querySelectorAll('.game-card')];
+      const follows = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        names: cards.map(card => card.querySelector('h2').textContent),
+        calls: cards.map(card => card.getAttribute('onclick')),
+        visible: cards.every(card => getComputedStyle(card).display !== 'none' && card.getBoundingClientRect().height >= 150),
+        order: follows(section.querySelector('.games-grid'), section.querySelector('.join-code-box')) &&
+          follows(section.querySelector('.join-code-box'), section.querySelector('.open-rooms-box')),
+        noOldHeading: !section.textContent.includes('Multijugador online'),
+        noGameSelect: !section.querySelector('select#net-game'),
+        noOpenButton: ![...section.querySelectorAll('button')].some(button => button.textContent.includes('Abrir mesa')),
+        nameInTopbar: !!document.querySelector('#topbar #net-name'),
+        resumeInTopbar: !!document.querySelector('#topbar #net-resume')
+      };
+    })()`);
+    assert.deepEqual(gamesUi.names,['Blackjack','Ruleta Europea','Póker online']);
+    assert.deepEqual(gamesUi.calls,["Net.quickStart('blackjack')","Net.quickStart('roulette')","Net.quickStart('poker')"]);
+    assert.equal(gamesUi.visible,true,'Las tres tarjetas deben verse antes de las demás opciones');
+    assert.equal(gamesUi.order,true,'Tarjetas, código y salas deben conservar ese orden');
+    assert.equal(gamesUi.noOldHeading,true);
+    assert.equal(gamesUi.noGameSelect,true);
+    assert.equal(gamesUi.noOpenButton,true);
+    assert.equal(gamesUi.nameInTopbar,true);
+    assert.equal(gamesUi.resumeInTopbar,true);
+    for (const [index, game] of ['blackjack','roulette','poker'].entries()) {
+      await js(`App.openLobbySection('games');document.querySelectorAll('.game-card')[${index}].click()`);
+      for(let i=0;i<100;i++){if(await js(`!document.getElementById('screen-room').classList.contains('hidden') && Net.code`))break;await wait(100);}
+      assert.equal(await js('document.getElementById(' + JSON.stringify('net-game') + ').value'),game,'La tarjeta debe abrir '+game);
+      await js('(async () => { await Net.leave(); })()');
+    }
+    // Unirse por código y botón de Salas abiertas.
+    const hosted = await (await fetch(url + '/api/rooms', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:'Anfitriona',game:'blackjack',blindMinutes:10,chips:1000})})).json();
+    await js(`(async () => { App.openLobbySection('games');document.getElementById('net-code').value=${JSON.stringify(hosted.code)};await Net.joinRoom(); })()`);
+    for(let i=0;i<100;i++){if(await js(`!document.getElementById('screen-room').classList.contains('hidden') && Net.code === ${JSON.stringify(hosted.code)}`))break;await wait(100);}
+    const joinState = await js(`({code:Net.code,message:document.getElementById('net-lobby-message').textContent,roomVisible:!document.getElementById('screen-room').classList.contains('hidden')})`);
+    assert.equal(joinState.code,hosted.code,'El código debe permitir entrar a una mesa: '+JSON.stringify(joinState));
+    await js(`(async () => { await Net.leave();App.openLobbySection('games');await Net.loadOpenRooms(true); })()`);
+    for(let i=0;i<100;i++){if(await js(`[...document.querySelectorAll('.open-room-code')].some(code => code.textContent === ${JSON.stringify(hosted.code)})`))break;await wait(100);}
+    const openRoomCode = await js(`[...document.querySelectorAll('.open-room-row')].find(row => row.querySelector('.open-room-code').textContent === ${JSON.stringify(hosted.code)})?.querySelector('button')?.textContent`);
+    assert.equal(openRoomCode,'Unirse','La sala abierta debe conservar su botón Unirse');
+    await js(`[...document.querySelectorAll('.open-room-row')].find(row => row.querySelector('.open-room-code').textContent === ${JSON.stringify(hosted.code)}).querySelector('button').click()`);
+    for(let i=0;i<100;i++){if(await js(`!document.getElementById('screen-room').classList.contains('hidden') && Net.code === ${JSON.stringify(hosted.code)}`))break;await wait(100);}
+    const openJoinState = await js(`({code:Net.code,message:document.getElementById('net-lobby-message').textContent,roomVisible:!document.getElementById('screen-room').classList.contains('hidden')})`);
+    assert.equal(openJoinState.code,hosted.code,'El botón de Salas abiertas debe entrar a la sala: '+JSON.stringify(openJoinState));
+    await js('(async () => { await Net.leave(); })()');
     // Cuentas de jugador: tarjeta de acceso, pestañas, modal y sesión simulada
     await js(`App.show('welcome')`); // la tarjeta de acceso vive en el welcome
     assert.equal(await js(`document.querySelectorAll('.auth-card').length`),1);

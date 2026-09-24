@@ -1,5 +1,5 @@
 // ============================================================
-//  Casino Night — registro público de transacciones de fichas
+//  L&F Casino Club — registro público de transacciones de fichas
 //  Consola en vivo del lobby. Persistencia igual que users.js:
 //  caché local JSON + remoto opcional en Firebase RTDB por REST.
 //  Se guardan solo las últimas MAX_ENTRIES entradas.

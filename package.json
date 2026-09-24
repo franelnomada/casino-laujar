@@ -1,7 +1,7 @@
 {
   "name": "casino-laujar",
   "version": "1.0.0",
-  "description": "Casino multijugador de los ludópatas de Laujar de Andarax",
+  "description": "L&F Casino Club, casino multijugador con fichas virtuales",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
