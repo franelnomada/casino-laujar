@@ -1195,6 +1195,7 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 .bof-symbol::after { content: ''; position: absolute; inset: 4px; border: 1px solid #ffffff12; border-radius: 6px; pointer-events: none; }
 .bof-symbol.expanded { background: radial-gradient(circle at 50% 20%, #9a6a1a, #60420c 48%, #2b1e08); box-shadow: 0 0 10px #e2b63e, 0 0 25px #d4af3777, inset 0 0 0 2px #ffe08a; animation: bof-expanded-pulse 1.25s ease-in-out infinite; }
 .bof-symbol.winning { z-index: 2; background: radial-gradient(circle at 50% 20%, #5c3a55, #2b1830 55%, #130d18); box-shadow: 0 0 9px #e15cff, 0 0 22px #e15cffaa, inset 0 0 0 2px #ffd5ff; animation: bof-winning-pop .55s ease-in-out infinite alternate; }
+.bof-symbol.is-near-miss-book { color: #fff0a4; background: radial-gradient(circle at 50% 35%, #8a5319, #291306 70%); box-shadow: 0 0 8px #ffd65a, 0 0 20px #ff9d0088, inset 0 0 0 2px #ffe9a1; animation: bof-near-book-glow .38s ease-in-out infinite alternate; }
 .bof-lines { position: relative; z-index: 1; min-height: 3.2em; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 5px; padding: 10px 5px 0; color: #cad6d5; font-size: .8rem; text-align: center; }
 .bof-win { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid #c694e355; border-radius: 999px; background: #2b183077; color: #ffdff8; }
 .bof-win.is-current { border-color: #f1a9ff; box-shadow: 0 0 16px #e15cff88; animation: bof-line-in .3s cubic-bezier(.2,1.5,.4,1); }
@@ -1258,6 +1259,7 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 @keyframes bof-reel-settle { 0% { transform: translateY(-11%) scaleY(.98); } 55% { transform: translateY(5%) scaleY(1.02); } 100% { transform: none; } }
 @keyframes bof-expanded-pulse { 0%,100% { filter: brightness(1); transform: scale(1); } 50% { filter: brightness(1.4); transform: scale(1.06); } }
 @keyframes bof-winning-pop { from { transform: scale(.94); filter: brightness(1.05); } to { transform: scale(1.08); filter: brightness(1.45); } }
+@keyframes bof-near-book-glow { from { transform: scale(.94); filter: brightness(1); } to { transform: scale(1.08); filter: brightness(1.65); } }
 @keyframes bof-line-in { from { opacity: 0; transform: translateY(7px) scale(.82); } to { opacity: 1; transform: none; } }
 @keyframes bof-title-glow { 0%,100% { text-shadow: 0 0 8px #fff3aa, 0 2px 2px #6d3b05, 0 0 24px #d4af37; } 50% { text-shadow: 0 0 14px #fffbd0, 0 2px 2px #6d3b05, 0 0 38px #e7a927; } }
 @keyframes bof-free-flash { 0%,100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }

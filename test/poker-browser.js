@@ -94,6 +94,35 @@ async function main() {
           assert.equal(fit.controlsInside,true,'Los mandos están integrados dentro de la máquina');
         }
         await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+        const nearMiss = await js(`(async()=>{
+          const originalAction=Net.action, originalRandom=Math.random, originalCounter=Net.slotSpinsSinceNearMiss;
+          const source=Net.state, me=source.players.find(p=>p.id===Net.playerId);
+          const realGrid=Array.from({length:5},()=>['9','J','Q']);
+          const realResult={spinId:(me.lastResult?.spinId||0)+1,grid:realGrid,rawGrid:realGrid,expandedReels:[],lines:[],win:0,bookCount:2,awarded:0,expandedSymbol:null,mode:'normal',activeLines:1,betPerLine:5,totalBet:5,freeSpinsRemaining:0,bonusWinTotal:0,bonusStarted:false,bonusEnded:false,jackpotContribution:1,jackpotPick:false,bigWin:false};
+          const chipsBefore=me.chips, fakeResponse={...source,version:source.version+1,players:[{...me,chips:chipsBefore-5,lastResult:realResult}]};
+          Net.action=async()=>{Net.state=fakeResponse;Net.version=fakeResponse.version;return fakeResponse;};
+          Math.random=()=>0;Net.slotSpinsSinceNearMiss=5;
+          window.__nearMissSeen=false;
+          const observer=new MutationObserver(()=>{if(document.querySelector('#bof-reels .is-near-miss-book'))window.__nearMissSeen=true;});
+          observer.observe(document.getElementById('bof-reels'),{subtree:true,attributes:true,childList:true});
+          const outcome=await Net.slotSpin();
+          observer.disconnect();
+          const shown=Array.from(document.querySelectorAll('#bof-reels .bof-reel')).map(reel=>[...reel.querySelectorAll('.bof-symbol')].map(symbol=>symbol.textContent));
+          const realShown=realGrid.map((reel,reelIndex)=>reel.map((id,row)=>source.symbols.find(symbol=>symbol.id===id)?.glyph||'·')).flat();
+          const finalShown=shown.flat();
+          const bonusDecision=(Net.slotSpinsSinceNearMiss=5,Net.slotShouldUseNearMiss({...realResult,bookCount:3,awarded:10,bonusStarted:true}));
+          const winDecision=(Net.slotSpinsSinceNearMiss=5,Net.slotShouldUseNearMiss({...realResult,win:1}));
+          const cooldownDecision=(Net.slotSpinsSinceNearMiss=0,Net.slotShouldUseNearMiss(realResult));
+          Net.action=originalAction;Math.random=originalRandom;Net.slotSpinsSinceNearMiss=originalCounter;Net.state=source;Net.render();
+          return {nearMiss:outcome.nearMiss,fakeSeen:window.__nearMissSeen,finalReal:JSON.stringify(finalShown)===JSON.stringify(realShown),economicUnchanged:outcome.result.win===0&&fakeResponse.players[0].lastResult.win===0&&fakeResponse.players[0].chips===chipsBefore-5,bonusDecision,winDecision,cooldownDecision};
+        })()`);
+        assert.equal(nearMiss.nearMiss,true,'El near-miss se activa con resultado perdedor sin bonus');
+        assert.equal(nearMiss.fakeSeen,true,'Los reels muestran temporalmente el libro visual');
+        assert.equal(nearMiss.finalReal,true,'Al terminar se muestra exclusivamente el grid real del servidor');
+        assert.equal(nearMiss.economicUnchanged,true,'El near-miss no modifica premio ni resultado económico');
+        assert.equal(nearMiss.bonusDecision,false,'Un resultado real con 3 libros nunca activa near-miss');
+        assert.equal(nearMiss.winDecision,false,'Una tirada ganadora no activa near-miss');
+        assert.equal(nearMiss.cooldownDecision,false,'El cooldown evita near-miss consecutivos');
         await js('Net.slotLines=10;Net.slotChip=5;Net.slotBetChanged();Net.slotSpin()');
         for(let i=0;i<150;i++){if(await js('!Net.slotAnimating'))break;await wait(100);}
         const slotAfter = await js(`({busy:Net.slotAnimating,disabled:document.getElementById('bof-spin').disabled,cost:document.getElementById('bof-total-cost').textContent,result:Net.state.players.find(p=>p.id===Net.playerId).lastResult})`);

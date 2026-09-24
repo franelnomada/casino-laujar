@@ -1,6 +1,9 @@
 // ================================================
 //  Cliente multijugador (salas online, long-polling)
 // ================================================
+const NEAR_MISS_CHANCE = 1 / 17; // 0 desactiva completamente el efecto visual
+const NEAR_MISS_COOLDOWN = 5;     // mínimo de spins entre dos near-miss
+
 const Net = {
   KEY: 'casino-night-net-session',
   code: null,
@@ -15,6 +18,7 @@ const Net = {
   slotAnimating: false,
   slotSpinPending: false,
   slotLastSpinId: 0,
+  slotSpinsSinceNearMiss: NEAR_MISS_COOLDOWN,
   chatIds: new Set(),
   chatVisible: false,
   chatPrimed: false,
@@ -210,6 +214,7 @@ const Net = {
     this.state = null;
     this._prevCounts = {}; this._prevDealer = 0;
     this.slotAnimating = false; this.slotSpinPending = false; this.slotLastSpinId = 0;
+    this.slotSpinsSinceNearMiss = NEAR_MISS_COOLDOWN;
     this.clearChat();
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
@@ -753,6 +758,24 @@ const Net = {
     return reels;
   },
 
+  slotShouldUseNearMiss(result) {
+    const eligible = !!result && result.mode === 'normal' && result.win === 0 && result.bookCount < 3;
+    // El dado se consulta solo en spins normales perdedores sin bonus.
+    const roll = eligible ? Math.random() : 1;
+    const activate = eligible && this.slotSpinsSinceNearMiss >= NEAR_MISS_COOLDOWN && roll < NEAR_MISS_CHANCE;
+    this.slotSpinsSinceNearMiss = activate ? 0 : this.slotSpinsSinceNearMiss + 1;
+    return activate;
+  },
+
+  slotNearMissBookHTML(s, result, reel) {
+    const ids = (result.grid[reel] || []).slice();
+    ids[1] = 'book';
+    return ids.map((id, row) => {
+      const symbol = (s.symbols || []).find(item => item.id === id);
+      return `<div class="bof-symbol near-miss-book${row === 1 ? ' is-near-miss-book' : ''}" data-reel="${reel}" data-row="${row}">${symbol ? symbol.glyph : '·'}</div>`;
+    }).join('');
+  },
+
   async slotSpin() {
     if (this.slotAnimating || !this.state || this.state.game !== 'book-of-fran') return;
     const me = this.state.players.find(player => player.id === this.playerId);
@@ -782,11 +805,41 @@ const Net = {
       return;
     }
     const result = response.players.find(player => player.id === this.playerId).lastResult;
-    if (!result) { this.slotAnimating = false; this.slotUpdateControls(response); return; }
+    if (!result) { this.slotAnimating = false; this.slotUpdateControls(response); return { nearMiss: false, result: null }; }
+    const nearMiss = this.slotShouldUseNearMiss(result);
     const reelNodes = reels ? [...reels.querySelectorAll('.bof-reel')] : [];
-    for (let reel = 0; reel < 5; reel++) {
-      await this.slotWait(reel === 0 ? 220 : 125);
-      if (reelNodes[reel]) {
+    if (nearMiss) {
+      // Dos libros "de mentira" crean expectativa; el tercero nunca aparece.
+      for (const reel of [0, 1]) {
+        await this.slotWait(reel === 0 ? 200 : 175);
+        if (!reelNodes[reel]) continue;
+        reelNodes[reel].classList.remove('is-spinning');
+        reelNodes[reel].classList.add('is-stopping');
+        reelNodes[reel].innerHTML = this.slotNearMissBookHTML(response, result, reel);
+        setTimeout(() => reelNodes[reel] && reelNodes[reel].classList.remove('is-stopping'), 430);
+      }
+      // Los restantes giran más de lo normal y solo ellos muestran el resultado real al parar.
+      for (let reel = 2; reel < 5; reel++) {
+        await this.slotWait(260);
+        if (!reelNodes[reel]) continue;
+        reelNodes[reel].classList.remove('is-spinning');
+        reelNodes[reel].classList.add('is-stopping');
+        reelNodes[reel].innerHTML = this.slotReelHTML(response, result, reel, null);
+        setTimeout(() => reelNodes[reel] && reelNodes[reel].classList.remove('is-stopping'), 430);
+      }
+      await this.slotWait(190);
+      // Pase final: los cinco reels vuelven a representar exclusivamente el resultado real.
+      for (const reel of [0, 1]) {
+        if (!reelNodes[reel]) continue;
+        reelNodes[reel].classList.remove('is-stopping');
+        reelNodes[reel].classList.add('is-stopping');
+        reelNodes[reel].innerHTML = this.slotReelHTML(response, result, reel, null);
+        setTimeout(() => reelNodes[reel] && reelNodes[reel].classList.remove('is-stopping'), 350);
+      }
+    } else {
+      for (let reel = 0; reel < 5; reel++) {
+        await this.slotWait(reel === 0 ? 220 : 125);
+        if (!reelNodes[reel]) continue;
         reelNodes[reel].classList.remove('is-spinning');
         reelNodes[reel].classList.add('is-stopping');
         reelNodes[reel].innerHTML = this.slotReelHTML(response, result, reel, null);
@@ -801,6 +854,7 @@ const Net = {
     this.slotLastSpinId = result.spinId || this.slotLastSpinId + 1;
     this.slotAnimating = false;
     this.slotUpdateControls(this.state);
+    return { nearMiss, result };
   },
 
   slotWait(milliseconds) {
