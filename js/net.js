@@ -214,6 +214,7 @@ const Net = {
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
     document.body.classList.toggle('in-blackjack-room', false);
+    document.body.classList.toggle('in-slot-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
     document.getElementById('net-blackjack-controls').classList.add('hidden');
@@ -258,6 +259,7 @@ const Net = {
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
     document.body.classList.toggle('in-blackjack-room', false);
+    document.body.classList.toggle('in-slot-room', false);
     this.code = null;
     this.state = null;
     this.clearChat();
@@ -565,8 +567,10 @@ const Net = {
   render() {
     const s = this.state;
     if (!s) return;
-    this.renderChat(s.chat || []);
-    const notBJ = s.game === 'poker' || s.game === 'roulette' || s.game === 'book-of-fran';
+    const slotRoom = s.game === 'book-of-fran';
+    document.body.classList.toggle('in-slot-room', slotRoom);
+    if (slotRoom) this.closeChat(false); else this.renderChat(s.chat || []);
+    const notBJ = s.game === 'poker' || s.game === 'roulette' || slotRoom;
     document.getElementById('net-blackjack-table').classList.toggle('hidden', notBJ);
     document.getElementById('net-blackjack-controls').classList.toggle('hidden', notBJ);
     document.getElementById('net-poker').classList.toggle('hidden', s.game !== 'poker');
@@ -792,6 +796,7 @@ const Net = {
     await this.slotWait(180);
     if (machine) machine.classList.remove('is-spinning');
     if (reels) reels.setAttribute('aria-busy', 'false');
+    if (result.jackpotPick) await this.slotJackpotFlow();
     await this.slotRevealWins(response, result);
     this.slotLastSpinId = result.spinId || this.slotLastSpinId + 1;
     this.slotAnimating = false;
@@ -820,6 +825,25 @@ const Net = {
     });
   },
 
+  slotRenderJackpot(jackpot) {
+    if (!jackpot) return;
+    const values = jackpot.values || {};
+    const update = (id, value) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      const next = String(value || 0);
+      if (element.textContent !== next) {
+        element.textContent = next;
+        const pot = element.closest('.bof-jackpot-pot');
+        if (pot) { pot.classList.remove('is-growing'); void pot.offsetWidth; pot.classList.add('is-growing'); }
+      }
+    };
+    update('bof-jackpot-pool', jackpot.jackpotPool);
+    update('bof-jackpot-bronze', values.BRONZE);
+    update('bof-jackpot-silver', values.SILVER);
+    update('bof-jackpot-gold', values.GOLD);
+  },
+
   slotRenderPaytable(s) {
     const table = document.getElementById('bof-paytable');
     if (!table) return;
@@ -828,6 +852,123 @@ const Net = {
       : `<div class="bof-pay-row book"><b>${symbol.glyph}</b><span>Comodín · 3 libros activan 10 giros gratis</span></div>`).join('');
     table.innerHTML = `<strong>Pagos por línea · 3 / 4 / 5 iguales</strong>${rows}`;
   },
+
+  slotJackpotOpen() {
+    const modal = document.getElementById('bof-jackpot-modal');
+    const continueButton = document.getElementById('bof-chest-continue');
+    const result = document.getElementById('bof-chest-result');
+    const prompt = document.getElementById('bof-jackpot-prompt');
+    if (!modal) return Promise.resolve();
+    if (this._jackpotOpen) return Promise.resolve();
+    this._jackpotOpen = true;
+    modal.classList.remove('hidden');
+    if (continueButton) continueButton.classList.add('hidden');
+    if (result) result.textContent = '';
+    if (prompt) prompt.textContent = 'Solo una contiene el jackpot. El resto te dirá qué había.';
+    modal.querySelectorAll('.bof-chest').forEach(chest => {
+      chest.disabled = false;
+      chest.classList.remove('is-open', 'is-missed', 'is-winner');
+      const lock = chest.querySelector('.bof-chest-box');
+      const label = chest.querySelector('b');
+      if (lock) lock.textContent = '🔒';
+      if (label) label.textContent = chest.classList.contains('bronze') ? 'CAJA I' : chest.classList.contains('silver') ? 'CAJA II' : 'CAJA III';
+    });
+    return new Promise(resolve => { this._jackpotModalResolve = resolve; });
+  },
+
+  async slotJackpotFlow() {
+    const token = typeof Auth !== 'undefined' && Auth.token;
+    const open = this.slotJackpotOpen();
+    if (!token) {
+      const result = document.getElementById('bof-chest-result');
+      const prompt = document.getElementById('bof-jackpot-prompt');
+      const continueButton = document.getElementById('bof-chest-continue');
+      if (result) result.innerHTML = '📖 Has activado el bonus. <b>Inicia sesión</b> y vuelve a entrar para abrir la caja del jackpot.';
+      if (prompt) prompt.textContent = 'El premio queda reservado para tu cuenta.';
+      if (continueButton) continueButton.classList.remove('hidden');
+    }
+    await open;
+  },
+
+  async slotJackpotPick(box) {
+    if (this._jackpotPicking) return;
+    const token = typeof Auth !== 'undefined' && Auth.token;
+    if (!token || typeof Auth === 'undefined') return;
+    this._jackpotPicking = true;
+    const modal = document.getElementById('bof-jackpot-modal');
+    const resultBox = document.getElementById('bof-chest-result');
+    const prompt = document.getElementById('bof-jackpot-prompt');
+    if (modal) modal.querySelectorAll('.bof-chest').forEach(chest => { chest.disabled = true; });
+    if (prompt) prompt.textContent = 'Abriendo la caja…';
+    try {
+      const response = await fetch('/api/slots/jackpot/pick', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ token, box }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo abrir la caja.');
+      const me = this.state.players.find(player => player.id === this.playerId);
+      if (me) { me.chips = data.playerChips; me.jackpotPickPending = false; }
+      if (this.state) this.state.jackpot = data.jackpot;
+      if (Auth.user) { Auth.user = data.user; App.chips = data.user.chips; App.updateChips(); }
+      const chipsLabel = document.getElementById('bof-chips');
+      if (chipsLabel) chipsLabel.textContent = 'Tus fichas: ' + data.playerChips;
+      this.slotUpdateControls(this.state);
+      this.slotRenderJackpot(data.jackpot);
+      if (resultBox) {
+        resultBox.innerHTML = `<strong>🏆 JACKPOT ${data.tier}</strong><span class="bof-chest-prize">+${data.value} fichas</span><small>${data.boxes.filter(item => item.box !== data.box).map(item => `Caja ${item.box}: ${item.tier} · ${item.value}`).join(' · ')}</small>`;
+      }
+      if (modal) modal.querySelectorAll('.bof-chest').forEach(chest => {
+        const number = Number(chest.dataset.box);
+        const item = data.boxes.find(value => value.box === number);
+        const lock = chest.querySelector('.bof-chest-box');
+        if (lock) lock.textContent = '🎁';
+        chest.classList.add('is-open');
+        chest.classList.add(item.box === data.box ? 'is-winner' : 'is-missed');
+        if (chest.querySelector('b')) chest.querySelector('b').textContent = `${item.tier} · ${item.value}`;
+      });
+      if (prompt) prompt.textContent = data.tier === 'GOLD' ? '¡EL ORO TE PERTENECE!' : `Has encontrado el JACKPOT ${data.tier}.`;
+      this._jackpotPickedData = data;
+      await this.slotJackpotCounter(data.value);
+      const continueButton = document.getElementById('bof-chest-continue');
+      if (continueButton) continueButton.classList.remove('hidden');
+    } catch (e) {
+      if (resultBox) resultBox.textContent = '⚠️ ' + e.message;
+      if (prompt) prompt.textContent = 'No se pudo elegir la caja.';
+      if (modal) modal.querySelectorAll('.bof-chest').forEach(chest => { chest.disabled = false; });
+      const continueButton = document.getElementById('bof-chest-continue');
+      if (continueButton) { continueButton.textContent = 'Continuar con los giros gratis 📖'; continueButton.classList.remove('hidden'); }
+    } finally {
+      this._jackpotPicking = false;
+    }
+  },
+
+  slotJackpotContinue() {
+    const modal = document.getElementById('bof-jackpot-modal');
+    if (modal) modal.classList.add('hidden');
+    this._jackpotOpen = false;
+    if (this._jackpotModalResolve) { const resolve = this._jackpotModalResolve; this._jackpotModalResolve = null; resolve(); }
+  },
+
+  slotJackpotCounter(total) {
+    const result = document.getElementById('bof-chest-result');
+    if (!result || !this._jackpotPickedData) return Promise.resolve();
+    const target = result.querySelector('.bof-chest-prize');
+    if (!target) return Promise.resolve();
+    const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { target.textContent = `+${total} fichas`; return Promise.resolve(); }
+    const start = performance.now();
+    return new Promise(resolve => {
+      const tick = now => {
+        const progress = Math.min(1, (now - start) / 650);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        target.textContent = `+${Math.floor(total * eased)} fichas`;
+        if (progress < 1) requestAnimationFrame(tick); else { target.textContent = `+${total} fichas`; resolve(); }
+      };
+      requestAnimationFrame(tick);
+    });
+  },
+
 
   async slotRevealWins(s, result) {
     const reels = document.getElementById('bof-reels');
@@ -892,6 +1033,9 @@ const Net = {
     const me = s.players.find(player => player.id === this.playerId);
     const result = me && me.lastResult;
     const free = !!(me && me.freeSpins > 0);
+    if (me && me.jackpotPickPending && !this.slotAnimating && !this.slotSpinPending && typeof Auth !== 'undefined' && Auth.token) {
+      this.slotJackpotFlow();
+    }
     if (chips) chips.textContent = 'Tus fichas: ' + (me ? me.chips : 0);
     if (mode) {
       const expanded = me && me.expandedSymbol ? (s.symbols.find(symbol => symbol.id === me.expandedSymbol) || {}).glyph : '';
@@ -902,10 +1046,11 @@ const Net = {
     if (bonusTotal) bonusTotal.textContent = me ? me.bonusWinTotal || 0 : 0;
     if (jackpot) jackpot.textContent = result && result.awarded
       ? `${result.awarded} giros · ${(s.symbols.find(symbol => symbol.id === result.expandedSymbol) || {}).glyph || '✨'} expandido`
-      : '3 libros · 10 giros';
+      : '3 libros · 10 giros + 1 caja';
     if (message) message.textContent = s.message || '';
     if (machine && !this.slotAnimating) machine.classList.toggle('bonus-active', free);
     this.slotUpdateControls(s);
+    this.slotRenderJackpot(s.jackpot);
     this.slotRenderPaytable(s);
     const players = document.getElementById('bof-players');
     if (players) players.innerHTML = s.players.map(player => `<div class="seat${player.id === this.playerId ? ' active' : ''}"><div class="p-name">${player.name}${player.id === this.playerId ? ' ⭐' : ''}</div><div class="p-chips">💰 ${player.chips}</div><div class="p-result">${player.freeSpins ? '📖 ' + player.freeSpins : ''}</div></div>`).join('');

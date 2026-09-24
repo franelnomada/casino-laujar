@@ -4,6 +4,21 @@
 // ================================================
 const { chatFor } = require('./room-chat.js');
 
+// RTP objetivo de la tragaperras (líneas + giros gratis), sin incluir el
+// jackpot: el 2% de JACKPOT_RATE se contabiliza por separado.
+const TARGET_RTP = 0.965;
+// Factor único aplicado a los multiplicadores para alcanzar TARGET_RTP sin
+// alterar pesos, probabilidad de bonus, líneas ni símbolo expandido.
+const RTP_PAYOUT_FACTOR = 1.052;
+
+function tunedPays(pays) {
+  return Object.freeze({
+    3: Math.round(pays[3] * RTP_PAYOUT_FACTOR * 100) / 100,
+    4: Math.round(pays[4] * RTP_PAYOUT_FACTOR * 100) / 100,
+    5: Math.round(pays[5] * RTP_PAYOUT_FACTOR * 100) / 100,
+  });
+}
+
 const SLOT_CONFIG = Object.freeze({
   REELS: 5,
   ROWS: 3,
@@ -14,8 +29,9 @@ const SLOT_CONFIG = Object.freeze({
   SPIN_COOLDOWN_MS: 300,
   BOOKS_TO_TRIGGER: 3,
   FREE_SPINS_AWARDED: 10,
-  BASE_RTP_TARGET: 0.93,
+  BASE_RTP_TARGET: TARGET_RTP,
   BIG_WIN_MULTIPLIER: 20,
+  JACKPOT_RATE: 0.02,
 });
 
 // Filas indexadas desde 0. Las 10 líneas se evalúan en este orden.
@@ -34,16 +50,16 @@ const PAYLINES = Object.freeze([
 
 // Los pagos son multiplicadores de la apuesta de ESA línea.
 const SYMBOLS = Object.freeze([
-  { id: '9', glyph: '9️⃣', weight: 26, pays: { 3: 10.65, 4: 35.49, 5: 106.47 } },
-  { id: '10', glyph: '🔟', weight: 22, pays: { 3: 14.2, 4: 46.41, 5: 141.96 } },
-  { id: 'J', glyph: 'J', weight: 18, pays: { 3: 21.29, 4: 70.98, 5: 212.94 } },
-  { id: 'Q', glyph: 'Q', weight: 14, pays: { 3: 31.94, 4: 106.47, 5: 319.41 } },
-  { id: 'K', glyph: 'K', weight: 11, pays: { 3: 49.69, 4: 159.71, 5: 496.86 } },
-  { id: 'A', glyph: 'A', weight: 8.5, pays: { 3: 70.98, 4: 230.69, 5: 709.8 } },
-  { id: 'ankh', glyph: '\u{132f9}', weight: 5.5, pays: { 3: 113.57, 4: 354.9, 5: 1064.7 } },
-  { id: 'cobra', glyph: '\u{1f40d}', weight: 3, pays: { 3: 184.55, 4: 567.84, 5: 1774.5 } },
-  { id: 'scarab', glyph: '\u{13153}', weight: 1.25, pays: { 3: 319.41, 4: 993.72, 5: 5441.1 } },
-  { id: 'crown', glyph: '\u{1f451}', weight: .25, pays: { 3: 567.84, 4: 1774.5, 5: 7098 } },
+  { id: '9', glyph: '9️⃣', weight: 26, pays: tunedPays({ 3: 10.65, 4: 35.49, 5: 106.47 }) },
+  { id: '10', glyph: '🔟', weight: 22, pays: tunedPays({ 3: 14.2, 4: 46.41, 5: 141.96 }) },
+  { id: 'J', glyph: 'J', weight: 18, pays: tunedPays({ 3: 21.29, 4: 70.98, 5: 212.94 }) },
+  { id: 'Q', glyph: 'Q', weight: 14, pays: tunedPays({ 3: 31.94, 4: 106.47, 5: 319.41 }) },
+  { id: 'K', glyph: 'K', weight: 11, pays: tunedPays({ 3: 49.69, 4: 159.71, 5: 496.86 }) },
+  { id: 'A', glyph: 'A', weight: 8.5, pays: tunedPays({ 3: 70.98, 4: 230.69, 5: 709.8 }) },
+  { id: 'ankh', glyph: '\u{132f9}', weight: 5.5, pays: tunedPays({ 3: 113.57, 4: 354.9, 5: 1064.7 }) },
+  { id: 'cobra', glyph: '\u{1f40d}', weight: 3, pays: tunedPays({ 3: 184.55, 4: 567.84, 5: 1774.5 }) },
+  { id: 'scarab', glyph: '\u{13153}', weight: 1.25, pays: tunedPays({ 3: 319.41, 4: 993.72, 5: 5441.1 }) },
+  { id: 'crown', glyph: '\u{1f451}', weight: .25, pays: tunedPays({ 3: 567.84, 4: 1774.5, 5: 7098 }) },
   { id: 'book', glyph: '\u{1f4d6}', weight: .5, pays: null },
 ]);
 
@@ -116,8 +132,28 @@ function chooseExpandedSymbol(random = Math.random) {
   return PAY_SYMBOLS[Math.floor(Math.max(0, Math.min(.999999, Number(random()) || 0)) * PAY_SYMBOLS.length)].id;
 }
 
+// RTP exacto de líneas base, sin bonus ni jackpot. Las 10 líneas se eligen
+// con igual probabilidad, por lo que su EV es la media de los importes 1..10.
+function exactBaseRtp() {
+  const bookProbability = SYMBOL_BY_ID.get(BOOK).weight / SYMBOLS_TOTAL_WEIGHT;
+  let cumulativeEv = 0;
+  for (let activeLines = 1; activeLines <= PAYLINES.length; activeLines++) {
+    let lineEv = 0;
+    for (const symbol of PAY_SYMBOLS) {
+      const match = symbol.weight / SYMBOLS_TOTAL_WEIGHT + bookProbability;
+      lineEv += symbol.pays[3] * match ** 3 * (1 - match)
+        + symbol.pays[4] * match ** 4 * (1 - match)
+        + symbol.pays[5] * match ** 5;
+    }
+    cumulativeEv += lineEv;
+  }
+  return cumulativeEv / PAYLINES.length;
+}
+
 // Estimador reproducible. No participa en un giro: sirve para auditar el RTP.
-// Simula el coste de todos los giros, incluidos los gratuitos, y sus re-disparos.
+// Simula el coste de todos los spins base y gratuitos, incluidos sus
+// re-disparos. No suma JACKPOT_RATE: el jackpot es un sistema independiente.
+// Devuelve únicamente el RTP propio de Book of Fran.
 function estimateRtp(rounds = 10000, options = {}) {
   const random = options.random || Math.random;
   const freeSpins = options.freeSpins || 0;
@@ -158,6 +194,8 @@ class BookOfFranRoom {
     this.lastActivity = Date.now();
     this._random = typeof options.random === 'function' ? options.random : Math.random;
     this._lastSpinAt = new Map();
+    // No enumerable: el singleton global no debe entrar en la copia de salas.
+    Object.defineProperty(this, 'jackpot', { value: options.jackpot || null, enumerable: false, writable: true });
   }
 
   touch() { this.version++; this.lastActivity = Date.now(); }
@@ -170,6 +208,7 @@ class BookOfFranRoom {
     this.players.push({ id, name: String(name || 'Jugador').slice(0, 12), chips, left: false,
       slotActiveLines: SLOT_CONFIG.MAX_LINES, slotBetPerLine: SLOT_CONFIG.MIN_BET_PER_LINE,
       spinCount: 0, freeSpins: 0, expandedSymbol: null, bonusWinTotal: 0, bonusSpinsPlayed: 0,
+      jackpotPickPending: false,
       lastResult: null, lastWin: 0, lastBookCount: 0, lastFreeSpinsAwarded: 0 });
     this.touch();
     return { ok: true };
@@ -180,6 +219,10 @@ class BookOfFranRoom {
     if (!player) return { ok: true, chips: null };
     player.left = true;
     this._lastSpinAt.delete(id);
+    if (player.accountKey && this.jackpot) {
+      this.jackpot.cancelPick(player.accountKey, this.code, id);
+      player.jackpotPickPending = false;
+    }
     this.touch();
     return { ok: true, chips: player.chips };
   }
@@ -216,6 +259,8 @@ class BookOfFranRoom {
       player.slotActiveLines = activeLines;
       player.slotBetPerLine = betPerLine;
     }
+    const jackpotContribution = !isFreeSpin && this.jackpot
+      ? this.jackpot.add(totalBet * SLOT_CONFIG.JACKPOT_RATE) : 0;
 
     const rawGrid = makeGrid(this._random);
     const expanded = isFreeSpin ? expandGrid(rawGrid, player.expandedSymbol) : { grid: rawGrid, expandedReels: [] };
@@ -244,6 +289,11 @@ class BookOfFranRoom {
       player.expandedSymbol = chooseExpandedSymbol(this._random);
       bonusStarted = true;
     }
+    let jackpotPick = false;
+    if (awarded && player.accountKey && this.jackpot) {
+      jackpotPick = this.jackpot.grantPick(player.accountKey, this.code, id);
+      player.jackpotPickPending = player.jackpotPickPending || jackpotPick;
+    }
     player.chips += result.win;
     if (player.spinCount == null) player.spinCount = 0;
     player.spinCount += 1;
@@ -255,6 +305,7 @@ class BookOfFranRoom {
       mode: isFreeSpin ? 'free' : 'normal', activeLines, betPerLine,
       totalBet: isFreeSpin ? 0 : totalBet, freeSpinsRemaining: player.freeSpins,
       bonusWinTotal: player.bonusWinTotal, bonusStarted, bonusEnded,
+      jackpotContribution, jackpotPick,
       bigWin: result.win >= totalBet * SLOT_CONFIG.BIG_WIN_MULTIPLIER,
     };
     player.lastWin = result.win;
@@ -271,13 +322,32 @@ class BookOfFranRoom {
     return { ok: true };
   }
 
+  claimJackpot(accountKey, playerId, box) {
+    const player = this.find(playerId);
+    if (!player || player.left || player.accountKey !== accountKey) {
+      return { ok: false, status: 403, error: 'El premio no pertenece a esta sesión.' };
+    }
+    const result = this.jackpot && this.jackpot.claimPick(accountKey, this.code, playerId, box);
+    if (!result) {
+      player.jackpotPickPending = false;
+      this.touch();
+      return { ok: false, status: 409, error: 'No tienes una elección de jackpot pendiente.' };
+    }
+    player.chips += result.value;
+    player.jackpotPickPending = false;
+    this.touch();
+    return { ok: true, ...result, playerChips: player.chips, jackpot: this.jackpot.view() };
+  }
+
   stateFor(playerId) {
     return { code: this.code, game: this.game, version: this.version, phase: this.phase, message: this.message,
       chat: chatFor(this), config: SLOT_CONFIG, symbols: SYMBOLS, paylines: PAYLINES,
+      jackpot: this.jackpot ? this.jackpot.view() : null,
       players: this.alive().map(p => ({ id: p.id, name: p.name, chips: p.chips, freeSpins: p.freeSpins,
         expandedSymbol: p.expandedSymbol, bonusWinTotal: p.bonusWinTotal, bonusSpinsPlayed: p.bonusSpinsPlayed,
+        jackpotPickPending: !!p.jackpotPickPending,
         lastResult: p.id === playerId ? p.lastResult : null })) };
   }
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { BookOfFranRoom, SLOT_CONFIG, SYMBOLS, PAYLINES, BOOK, makeGrid, expandGrid, evaluateGrid, countBooks, chooseExpandedSymbol, estimateRtp };
+if (typeof module !== 'undefined' && module.exports) module.exports = { BookOfFranRoom, SLOT_CONFIG, SYMBOLS, PAYLINES, BOOK, TARGET_RTP, RTP_PAYOUT_FACTOR, exactBaseRtp, makeGrid, expandGrid, evaluateGrid, countBooks, chooseExpandedSymbol, estimateRtp };

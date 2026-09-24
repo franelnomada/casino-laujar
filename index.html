@@ -245,47 +245,76 @@
           <span>💬 <strong id="bof-room-code"></strong></span>
           <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
         </div>
-        <div class="bof-layout">
-          <div class="bof-machine" id="bof-machine">
-            <div class="bof-bulbs" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="bof-machine" id="bof-machine">
+          <div class="bof-bulbs" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="bof-machine-head">
             <div class="bof-title">BOOK <em>OF</em> FRAN</div>
-            <div class="bof-jackpot"><span>✨ JACKPOT DE EGIPTO</span><strong id="bof-jackpot-value">3 libros · 10 giros</strong></div>
-            <div class="bof-bonus-stats" role="status">
-              <span>📖 <b id="bof-free-count">0</b> giros gratis</span>
-              <span>Total bonus: <b id="bof-bonus-total">0</b> fichas</span>
+            <div class="bof-jackpot" aria-label="Jackpot progresivo compartido">
+              <strong class="bof-jackpot-pool-label">🏆 Bote <b id="bof-jackpot-pool">0</b></strong>
+              <div class="bof-jackpot-pots">
+                <span class="bof-jackpot-pot bronze" title="Bronze · 10%">🥉 <strong id="bof-jackpot-bronze">0</strong></span>
+                <span class="bof-jackpot-pot silver" title="Silver · 20%">🥈 <strong id="bof-jackpot-silver">0</strong></span>
+                <span class="bof-jackpot-pot gold" title="Gold · 70%">🥇 <strong id="bof-jackpot-gold">0</strong></span>
+              </div>
+              <span id="bof-jackpot-value" class="bof-jackpot-trigger">3 libros · 10 giros + 1 caja</span>
             </div>
-            <div id="bof-reels" class="bof-reels" aria-live="polite" aria-busy="false"></div>
-            <div id="bof-lines" class="bof-lines" role="status" aria-live="polite"></div>
-            <div id="bof-big-win" class="bof-big-win" role="status" aria-live="assertive">¡GRAN PREMIO!</div>
           </div>
-          <div class="bof-panel">
-            <p id="bof-message" class="message" role="status"></p>
-            <div id="bof-banner" class="bof-win-banner" role="status" aria-live="polite"></div>
-            <p id="bof-mode" class="bof-mode"></p>
-            <p id="bof-chips" class="current-bet">Tus fichas: 0</p>
-            <div class="bof-bet-controls">
-              <label for="bof-lines-select">Líneas activas
-                <select id="bof-lines-select" onchange="Net.slotBetChanged()">
-                  <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
-                  <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option>
-                </select>
-              </label>
-              <label for="bof-bet-select">Apuesta por línea
-                <select id="bof-bet-select" onchange="Net.slotBetChanged()">
-                  <option value="5" selected>5 fichas</option><option value="10">10 fichas</option><option value="25">25 fichas</option><option value="50">50 fichas</option><option value="100">100 fichas</option>
-                </select>
-              </label>
+          <div class="bof-bonus-stats" role="status">
+            <span>📖 <b id="bof-free-count">0</b> gratis</span>
+            <span>Bonus: <b id="bof-bonus-total">0</b></span>
+            <span id="bof-chips">Tus fichas: 0</span>
+          </div>
+          <div id="bof-reels" class="bof-reels" aria-live="polite" aria-busy="false"></div>
+          <div id="bof-lines" class="bof-lines" role="status" aria-live="polite"></div>
+          <div class="bof-control-panel">
+            <div class="bof-status-strip">
+              <p id="bof-mode" class="bof-mode"></p>
+              <div id="bof-banner" class="bof-win-banner" role="status" aria-live="polite"></div>
+              <p id="bof-message" class="message" role="status"></p>
             </div>
-            <div class="bof-cost-row"><span>Coste del giro</span><strong id="bof-total-cost">50 fichas</strong></div>
-            <div class="bof-win-counter" role="status" aria-live="polite"><span>Ganado este giro</span><strong id="bof-win-count">+0</strong></div>
-            <div class="btn-row">
+            <div class="bof-command-row">
+              <div class="bof-bet-controls">
+                <label for="bof-lines-select"><span>Líneas</span>
+                  <select id="bof-lines-select" onchange="Net.slotBetChanged()">
+                    <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                    <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option>
+                  </select>
+                </label>
+                <label for="bof-bet-select"><span>Apuesta / línea</span>
+                  <select id="bof-bet-select" onchange="Net.slotBetChanged()">
+                    <option value="5" selected>5</option><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
+                  </select>
+                </label>
+              </div>
+              <div class="bof-cost-row"><span>Coste</span><strong id="bof-total-cost">50</strong></div>
+              <div class="bof-win-counter" role="status" aria-live="polite"><span>Premio</span><strong id="bof-win-count">+0</strong></div>
               <button id="bof-spin" class="btn primary" type="button" onclick="Net.slotSpin()"><span class="bof-spinner" aria-hidden="true"></span><span class="bof-spin-label">Girar 📖</span></button>
             </div>
             <p id="bof-bet-warning" class="bof-bet-warning" role="status"></p>
-            <div id="bof-paytable" class="bof-paytable" aria-label="Tabla de pagos por línea"></div>
+            <details class="bof-paytable-details">
+              <summary>Tabla de pagos</summary>
+              <div id="bof-paytable" class="bof-paytable" aria-label="Tabla de pagos por línea"></div>
+            </details>
+          </div>
+          <div id="bof-big-win" class="bof-big-win" role="status" aria-live="assertive">¡GRAN PREMIO!</div>
+        </div>
+        <div id="bof-players" class="seats-row" aria-hidden="true"></div>
+
+        <div id="bof-jackpot-modal" class="bof-jackpot-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bof-jackpot-title">
+          <div class="bof-chest-modal">
+            <div class="bof-chest-rays" aria-hidden="true"></div>
+            <p class="bof-chest-kicker">LOS 3 LIBROS HAN ABIERTO EL SACO DE FRAN</p>
+            <h2 id="bof-jackpot-title">Elige tu caja</h2>
+            <p id="bof-jackpot-prompt" class="bof-chest-prompt">Solo una contiene el jackpot. El resto te dirá qué había.</p>
+            <div class="bof-chest-options">
+              <button type="button" class="bof-chest bronze" data-box="1" onclick="Net.slotJackpotPick(1)"><span class="bof-chest-box">🔒</span><b>CAJA I</b></button>
+              <button type="button" class="bof-chest silver" data-box="2" onclick="Net.slotJackpotPick(2)"><span class="bof-chest-box">🔒</span><b>CAJA II</b></button>
+              <button type="button" class="bof-chest gold" data-box="3" onclick="Net.slotJackpotPick(3)"><span class="bof-chest-box">🔒</span><b>CAJA III</b></button>
+            </div>
+            <div id="bof-chest-result" class="bof-chest-result" role="status" aria-live="assertive"></div>
+            <button id="bof-chest-continue" class="btn primary hidden" type="button" onclick="Net.slotJackpotContinue()">Continuar con los giros gratis 📖</button>
           </div>
         </div>
-        <div id="bof-players" class="seats-row"></div>
       </div>
 
       <div id="net-poker" class="hidden">

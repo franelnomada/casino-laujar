@@ -77,9 +77,24 @@ async function main() {
       assert.equal(await js('document.getElementById(' + JSON.stringify('net-game') + ').value'),game,'La tarjeta debe abrir '+game);
       if (game === 'book-of-fran') {
         for(let i=0;i<100;i++){if(await js(`document.querySelectorAll('#bof-reels .bof-reel').length === 5`))break;await wait(100);}
-        const slotUi = await js(`({reels:document.querySelectorAll('#bof-reels .bof-reel').length,symbols:document.querySelectorAll('#bof-reels .bof-symbol').length,lines:document.getElementById('bof-lines-select').options.length})`);
-        assert.deepEqual(slotUi,{reels:5,symbols:15,lines:10},'Book de Fran muestra una rejilla 5x3 y selector de 10 líneas');
-        await js(`Net.slotLines=10;Net.slotChip=5;Net.slotBetChanged();Net.slotSpin()`);
+        const slotUi = await js(`({reels:document.querySelectorAll('#bof-reels .bof-reel').length,symbols:document.querySelectorAll('#bof-reels .bof-symbol').length,lines:document.getElementById('bof-lines-select').options.length,pots:document.querySelectorAll('.bof-jackpot-pot').length,pool:Net.state.jackpot.jackpotPool,values:Net.state.jackpot.values})`);
+        assert.equal(slotUi.reels,5,'Book de Fran muestra una rejilla 5x3');
+        assert.equal(slotUi.symbols,15,'Book de Fran muestra 15 símbolos');
+        assert.equal(slotUi.lines,10,'Book de Fran permite activar 10 líneas');
+        assert.equal(slotUi.pots,3,'El marcador muestra Bronze, Silver y Gold');
+        assert.deepEqual(slotUi.values,{BRONZE:Math.round(slotUi.pool*.10),SILVER:Math.round(slotUi.pool*.20),GOLD:Math.round(slotUi.pool*.70)},'Los tres montones muestran sus porcentajes del bote compartido');
+        for (const viewport of [{width:1920,height:1080},{width:1366,height:768},{width:390,height:844}]) {
+          await send('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:viewport.width<600});
+          await wait(100);
+          const fit = await js(`(()=>{const screen=document.getElementById('screen-room'),machine=document.getElementById('bof-machine'),chat=document.getElementById('net-chat'),spin=document.getElementById('bof-spin'),lines=document.getElementById('bof-lines-select');const rect=machine.getBoundingClientRect();return {innerHeight,docScroll:document.documentElement.scrollHeight,bodyScroll:document.body.scrollHeight,screenScroll:screen.scrollHeight,screenClient:screen.clientHeight,machineTop:Math.round(rect.top),machineBottom:Math.round(rect.bottom),chatDisplay:getComputedStyle(chat).display,controlsInside:machine.contains(spin)&&machine.contains(lines)};})()`);
+          assert.ok(fit.docScroll<=viewport.height+1 && fit.bodyScroll<=viewport.height+1,`Book of Fran no genera scroll vertical en ${viewport.width}x${viewport.height}: ${JSON.stringify(fit)}`);
+          assert.ok(fit.screenScroll<=fit.screenClient+1,`La sala no tiene overflow vertical en ${viewport.width}x${viewport.height}: ${JSON.stringify(fit)}`);
+          assert.ok(fit.machineTop>=0 && fit.machineBottom<=viewport.height+1,`La máquina cabe completa en ${viewport.width}x${viewport.height}: ${JSON.stringify(fit)}`);
+          assert.equal(fit.chatDisplay,'none','El chat no se muestra en Book of Fran');
+          assert.equal(fit.controlsInside,true,'Los mandos están integrados dentro de la máquina');
+        }
+        await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+        await js('Net.slotLines=10;Net.slotChip=5;Net.slotBetChanged();Net.slotSpin()');
         for(let i=0;i<150;i++){if(await js('!Net.slotAnimating'))break;await wait(100);}
         const slotAfter = await js(`({busy:Net.slotAnimating,disabled:document.getElementById('bof-spin').disabled,cost:document.getElementById('bof-total-cost').textContent,result:Net.state.players.find(p=>p.id===Net.playerId).lastResult})`);
         assert.equal(slotAfter.busy,false,'La animación del giro debe terminar');
@@ -90,6 +105,20 @@ async function main() {
         const insufficientUi = await js(`Net.state.players.find(p=>p.id===Net.playerId).chips=10;Net.slotBetChanged();({disabled:document.getElementById('bof-spin').disabled,warning:document.getElementById('bof-bet-warning').textContent})`);
         assert.equal(insufficientUi.disabled,true,'El botón se bloquea cuando líneas × apuesta supera el saldo');
         assert.match(insufficientUi.warning,/Saldo insuficiente/);
+        const chestUi = await js(`(async()=>{
+          window.__jackpotRealFetch=window.fetch;Auth.token='browser-jackpot-token';Auth.user={name:'Fran',chips:500};
+          window.fetch=async(url,options)=>{window.__jackpotRequest=JSON.parse(options.body);return {ok:true,json:async()=>({ok:true,box:3,tier:'GOLD',value:700,boxes:[{box:1,tier:'SILVER',value:200},{box:2,tier:'BRONZE',value:100},{box:3,tier:'GOLD',value:700}],playerChips:1200,jackpot:{jackpotPool:100,seed:100,values:{BRONZE:10,SILVER:20,GOLD:70}},user:{name:'Fran',chips:1200}})};};
+          Net.slotJackpotOpen();await Net.slotJackpotPick(3);
+          const result={request:window.__jackpotRequest,open:document.querySelectorAll('.bof-chest.is-open').length,winner:document.querySelectorAll('.bof-chest.is-winner').length,labels:[...document.querySelectorAll('.bof-chest b')].map(x=>x.textContent),continue:!document.getElementById('bof-chest-continue').classList.contains('hidden'),pool:document.getElementById('bof-jackpot-pool').textContent};
+          window.fetch=window.__jackpotRealFetch;Auth.token=null;Auth.user=null;return result;
+        })()`);
+        assert.deepEqual(chestUi.request,{token:'browser-jackpot-token',box:3},'El cliente solo envía token y caja al pick');
+        assert.equal(chestUi.open,3,'El minijuego revela las tres cajas');
+        assert.equal(chestUi.winner,1,'Solo la caja elegida se muestra como ganadora');
+        assert.match(chestUi.labels.join(' '),/SILVER · 200.*BRONZE · 100.*GOLD · 700/);
+        assert.equal(chestUi.continue,true,'El modal ofrece continuar con los giros gratis');
+        assert.equal(chestUi.pool,'100','El marcador se refresca al bote semilla');
+        await js('Net.slotJackpotContinue()');
       }
       await js('(async () => { await Net.leave(); })()');
     }

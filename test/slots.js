@@ -2,7 +2,7 @@
 const assert = require('assert');
 const {
   BookOfFranRoom, SLOT_CONFIG, SYMBOLS, PAYLINES, makeGrid, expandGrid,
-  evaluateGrid, countBooks, chooseExpandedSymbol, estimateRtp,
+  evaluateGrid, countBooks, chooseExpandedSymbol, estimateRtp, exactBaseRtp, TARGET_RTP,
 } = require('../js/slots-engine.js');
 
 let failures = 0;
@@ -35,14 +35,16 @@ check('Book of Fran: el RNG elige uniformemente cualquiera de los 10 símbolos e
 const three = evaluateGrid(withCells([[0, 1, 'A'], [1, 1, 'A'], [2, 1, 'A'], [3, 1, 'Q']]), 10, 2);
 const four = evaluateGrid(withCells([[0, 1, 'K'], [1, 1, 'K'], [2, 1, 'K'], [3, 1, 'K']]), 10, 2);
 const five = evaluateGrid(Array.from({ length: 5 }, () => ['A', 'cobra', 'Q']), 10, 5);
+const pays = id => SYMBOLS.find(symbol => symbol.id === id).pays;
 check('Book of Fran: tres, cuatro y cinco iguales pagan según su tabla',
-  three.lines[0].count === 3 && three.lines[0].win === 709 &&
-  four.lines[0].count === 4 && four.lines[0].win === 1597 &&
-  five.lines.some(line => line.line === 2 && line.count === 5 && line.win === 17745));
+  three.lines[0].count === 3 && three.lines[0].win === Math.floor(10 * pays('A')[3]) &&
+  four.lines[0].count === 4 && four.lines[0].win === Math.floor(10 * pays('K')[4]) &&
+  five.lines.some(line => line.line === 2 && line.count === 5 && line.win === Math.floor(10 * pays('cobra')[5])));
 
 const wild = evaluateGrid(withCells([[0, 2, 'Q'], [1, 2, 'book'], [2, 2, 'Q'], [3, 2, 'Q']]), 20, 3);
 check('Book of Fran: el libro actúa como comodín y paga la combinación de la línea inferior',
-  wild.lines.length === 1 && wild.lines[0].symbol === 'Q' && wild.lines[0].count === 4 && wild.lines[0].win === 2129 && wild.win === 2129);
+  wild.lines.length === 1 && wild.lines[0].symbol === 'Q' && wild.lines[0].count === 4 &&
+  wild.lines[0].win === Math.floor(20 * pays('Q')[4]) && wild.win === Math.floor(20 * pays('Q')[4]));
 
 const twoLines = evaluateGrid(withCells([
   [0, 0, '9'], [1, 0, '9'], [2, 0, '9'],
@@ -50,7 +52,8 @@ const twoLines = evaluateGrid(withCells([
 ]), 5, 2);
 check('Book of Fran: evalúa varias líneas y suma el total correctamente',
   twoLines.lines.length === 2 && twoLines.lines[0].line === 1 && twoLines.lines[1].line === 2 &&
-  twoLines.win === twoLines.lines[0].win + twoLines.lines[1].win && twoLines.win === Math.floor(5 * 10.65) + Math.floor(5 * 21.29));
+  twoLines.win === twoLines.lines[0].win + twoLines.lines[1].win &&
+  twoLines.win === Math.floor(5 * pays('9')[3]) + Math.floor(5 * pays('J')[3]));
 const firstLineGrid = withCells([
   [0, 0, '9'], [1, 0, '9'], [2, 0, '9'], [0, 1, 'J'], [1, 1, 'J'], [2, 1, 'J'],
 ]);
@@ -96,12 +99,21 @@ const retrigger = bonusRoom.spin('ana');
 player = bonusRoom.find('ana');
 check('Book of Fran: un re-trigger añade 10 giros y conserva el acumulado del bonus',
   retrigger.ok && player.freeSpins === 18 && player.expandedSymbol === '9' && player.lastResult.awarded === 10 &&
-  player.lastResult.bonusWinTotal === player.bonusWinTotal);
+  player.lastResult.bonusWinTotal === player.bonusWinTotal && player.jackpotPickPending === false);
 
-let seed = 0x12345678;
-const random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
-const rtp = estimateRtp(30000, { random, freeSpins: SLOT_CONFIG.FREE_SPINS_AWARDED });
-check('Book of Fran: la muestra de RTP con bonus queda en el rango auditado', rtp >= .86 && rtp <= .98);
+check('Book of Fran: el objetivo RTP propio es 96,5% y está publicado en la config',
+  TARGET_RTP === .965 && SLOT_CONFIG.BASE_RTP_TARGET === TARGET_RTP);
+const exactRtp = exactBaseRtp();
+check('Book of Fran: el RTP exacto de líneas base queda entre 96% y 97%', exactRtp >= .96 && exactRtp <= .97);
+function seededRandom(seed) {
+  return () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+}
+// 900k rondas de base + bonus en total. El jackpot no forma parte de este cálculo.
+const rtpSamples = [0x12345678, 0x9e3779b9, 0xdeadbeef]
+  .map(seed => estimateRtp(300000, { random: seededRandom(seed), freeSpins: SLOT_CONFIG.FREE_SPINS_AWARDED }));
+const rtp = rtpSamples.reduce((sum, value) => sum + value, 0) / rtpSamples.length;
+console.log(`ℹ️ Book of Fran RTP: exacto base ${(exactRtp * 100).toFixed(2)}% · muestra base+bonus ${(rtp * 100).toFixed(2)}%`);
+check('Book of Fran: el RTP propio medio con bonus cae entre 96% y 97%', rtp >= .96 && rtp <= .97);
 
 if (failures) {
   console.log(`\n❌ Tests de Book of Fran: ${failures} fallo(s)`);

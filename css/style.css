@@ -1173,8 +1173,16 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 .bof-bulbs i:nth-child(3n) { animation-delay: -.55s; } .bof-bulbs i:nth-child(3n + 1) { animation-delay: -1.1s; }
 .bof-title { position: relative; z-index: 1; text-align: center; letter-spacing: .18em; color: #ffe39a; font: 700 1.55rem Georgia, serif; margin: 0 0 18px; text-shadow: 0 0 8px #fff3aa, 0 2px 2px #6d3b05, 0 0 24px #d4af37; animation: bof-title-glow 2.8s ease-in-out infinite; }
 .bof-title em { color: #a6f2ef; font-size: .72em; text-shadow: 0 0 14px #5de9e5; }
-.bof-jackpot { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -5px 0 10px; padding: 6px 10px; border: 1px solid #d4af3766; border-radius: 8px; background: #1a1208cc; color: #dfbd65; font-size: .7rem; letter-spacing: .08em; }
-.bof-jackpot strong { color: #fff0a4; font-size: .78rem; text-shadow: 0 0 10px #d4af3799; }
+.bof-jackpot { position: relative; z-index: 1; display: grid; gap: 7px; margin: -5px 0 10px; padding: 8px 10px; border: 1px solid #d4af3766; border-radius: 10px; background: linear-gradient(135deg, #201507dd, #0b1115dd); box-shadow: inset 0 0 18px #d4af3712; }
+.bof-jackpot-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #ffe08a; font-size: .68rem; letter-spacing: .09em; }
+.bof-jackpot-heading strong { color: #fff0a4; font-size: .72rem; text-shadow: 0 0 10px #d4af3799; }
+.bof-jackpot-pots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bof-jackpot-pot { --pot: #cd7f32; display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 6px 8px; border: 1px solid #8a6a29; border-color: color-mix(in srgb, var(--pot) 60%, transparent); border-radius: 8px; background: #070b0ecc; box-shadow: inset 0 0 12px #0008; box-shadow: inset 0 0 12px color-mix(in srgb, var(--pot) 14%, transparent); }
+.bof-jackpot-pot span { color: #b8c3c4; font-size: .58rem; letter-spacing: .05em; }
+.bof-jackpot-pot strong { color: var(--pot); font-size: .95rem; text-shadow: 0 0 9px var(--pot); }
+.bof-jackpot-pot.bronze { --pot: #cd7f32; } .bof-jackpot-pot.silver { --pot: #d7e1e8; } .bof-jackpot-pot.gold { --pot: #ffd65a; }
+.bof-jackpot-pot.is-growing { animation: bof-pot-grow .5s cubic-bezier(.2,1.5,.35,1); }
+.bof-jackpot-trigger { color: #bba66d; font-size: .64rem; text-align: center; }
 .bof-bonus-stats { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: #b9c9c8; font-size: .75rem; }
 .bof-bonus-stats b { color: #8ff7e7; }
 .bof-reels { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 12px; background: linear-gradient(#080c10, #101a1b 48%, #070a0e); border: 3px solid #6d5216; border-radius: 15px; box-shadow: inset 0 0 28px #000, 0 0 0 2px #e5b93e55, 0 0 24px #000b; perspective: 700px; }
@@ -1219,6 +1227,31 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 .bof-machine.bonus-active { --machine-glow: #42e8d6aa; background: radial-gradient(ellipse at 50% 0%, #0a6b68 0%, transparent 55%), linear-gradient(145deg, #173c3b, #081a25 65%, #152c2a); }
 .bof-machine.bonus-enter { animation: bof-bonus-enter .85s cubic-bezier(.2,1.25,.35,1); }
 .bof-machine.bonus-exit { animation: bof-bonus-exit .9s ease-in-out; }
+.bof-jackpot-modal { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: #020508e8; backdrop-filter: blur(8px); animation: bof-modal-in .35s ease-out; }
+.bof-jackpot-modal.hidden { display: none; }
+.bof-chest-modal { position: relative; width: min(760px, 100%); overflow: hidden; padding: 30px 22px 24px; border: 3px solid #e7bd4d; border-radius: 24px; background: radial-gradient(circle at 50% 0%, #654510 0%, #1c1309 48%, #071116 100%); box-shadow: inset 0 0 0 2px #fff1a633, inset 0 0 55px #000a, 0 0 45px #d4af3766; text-align: center; }
+.bof-chest-rays { position: absolute; inset: -45%; opacity: .18; background: repeating-conic-gradient(from 0deg, #ffe27a 0 7deg, transparent 7deg 23deg); animation: bof-rays 18s linear infinite; pointer-events: none; }
+.bof-chest-modal > *:not(.bof-chest-rays) { position: relative; z-index: 1; }
+.bof-chest-kicker { margin: 0; color: #e8c46c; font-size: .7rem; font-weight: 800; letter-spacing: .15em; }
+.bof-chest-modal h2 { margin: 5px 0 4px; color: #fff1a6; font: 900 clamp(1.6rem, 6vw, 3rem) Georgia, serif; text-shadow: 0 0 18px #ffbd2e; }
+.bof-chest-prompt { margin: 0 0 20px; color: #d2d9d8; }
+.bof-chest-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.bof-chest { --chest: #cd7f32; position: relative; display: grid; justify-items: center; gap: 9px; padding: 18px 8px 13px; border: 2px solid #8a5a22; border-color: color-mix(in srgb, var(--chest) 70%, #2b1608); border-radius: 17px; background: linear-gradient(145deg, #3a2411, #120d0b); color: #fff1c7; box-shadow: inset 0 0 18px #000a, 0 8px 16px #0008; cursor: pointer; transition: transform .2s, filter .2s, box-shadow .2s; }
+.bof-chest:hover:not(:disabled) { transform: translateY(-5px) scale(1.03); filter: brightness(1.2); box-shadow: 0 0 22px var(--chest); }
+.bof-chest:disabled { cursor: wait; }
+.bof-chest.bronze { --chest: #cd7f32; } .bof-chest.silver { --chest: #d7e1e8; } .bof-chest.gold { --chest: #ffd65a; }
+.bof-chest-box { position: relative; display: grid; place-items: center; width: 76px; height: 62px; border: 3px solid var(--chest); border-radius: 9px 9px 14px 14px; background: linear-gradient(#8a531e, #3b1d0b 48%, #241107 49% 62%, #6a3812 63%); box-shadow: inset 0 0 0 3px #211006, 0 0 12px #000; font-size: 1.8rem; }
+.bof-chest-box::before { content: ''; position: absolute; top: 8px; bottom: 8px; left: 50%; width: 7px; transform: translateX(-50%); border-radius: 4px; background: #e2ad43; box-shadow: 0 0 8px #ffe27a; }
+.bof-chest b { font-size: .72rem; letter-spacing: .07em; }
+.bof-chest.is-open .bof-chest-box { animation: bof-chest-open .9s cubic-bezier(.2,1.55,.35,1) forwards; }
+.bof-chest.is-winner { box-shadow: 0 0 12px var(--chest), 0 0 40px var(--chest), inset 0 0 20px #fff3; animation: bof-chest-win 1.1s ease-in-out infinite alternate; }
+.bof-chest.is-winner::after { content: ''; position: absolute; inset: -15px; border-radius: 22px; background: radial-gradient(circle, #fff8 0 2px, transparent 3px) 0 0/18px 18px; animation: bof-chest-particles .8s steps(8) forwards; pointer-events: none; }
+.bof-chest.is-missed { opacity: .66; filter: saturate(.5); }
+.bof-chest-result { min-height: 88px; display: grid; place-content: center; gap: 4px; margin-top: 17px; color: #fff2ad; }
+.bof-chest-result > strong { color: var(--chest, #ffe27a); font: 900 clamp(1.3rem, 4vw, 2.2rem) Georgia, serif; text-shadow: 0 0 14px currentColor; }
+.bof-chest-prize { color: #8ff7e7; font-size: 1.3rem; font-weight: 900; }
+.bof-chest-result small { color: #bfc9ca; }
+#bof-chest-continue { margin: 0 auto; }
 #net-book-of-fran .seats-row { margin-top: 18px; } #net-book-of-fran .seat { min-width: 150px; border-color: #80632966; box-shadow: inset 0 0 18px #d4af370d; } #net-book-of-fran .seat.active { border-color: var(--gold-light); box-shadow: 0 0 16px #d4af3744, inset 0 0 22px #d4af3720; }
 @keyframes bof-bulb-chase { 0%,28% { opacity: .35; background: #705019; box-shadow: 0 0 2px #000; } 8%,18% { opacity: 1; background: #ffe78a; box-shadow: 0 0 7px #ffd54f, 0 0 15px #ff9d00aa; } 100% { opacity: .35; } }
 @keyframes bof-reel-blur { from { transform: translateY(-4%) scale(1.04); filter: blur(2.2px) brightness(1.5); } to { transform: translateY(4%) scale(.97); filter: blur(3px) brightness(.8); } }
@@ -1236,6 +1269,12 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 @keyframes bof-big-message { 0% { opacity: 0; transform: scale(.35) rotate(-5deg); } 35% { opacity: 1; transform: scale(1.18) rotate(2deg); } 70% { opacity: 1; transform: scale(1) rotate(0); } 100% { opacity: 0; transform: scale(1.3); } }
 @keyframes bof-bonus-enter { 0% { filter: brightness(1); transform: scale(1); } 45% { filter: brightness(1.8); transform: scale(1.025); } 100% { transform: scale(1); } }
 @keyframes bof-bonus-exit { 0% { filter: brightness(1.3) hue-rotate(0); } 100% { filter: brightness(1) hue-rotate(35deg); } }
+@keyframes bof-pot-grow { 0% { transform: scale(1); } 45% { transform: scale(1.08); filter: brightness(1.5); } 100% { transform: scale(1); } }
+@keyframes bof-modal-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bof-rays { to { transform: rotate(360deg); } }
+@keyframes bof-chest-open { 0% { transform: rotateX(0) scale(1); filter: brightness(1); } 45% { transform: rotateX(70deg) scale(1.15) translateY(-8px); filter: brightness(1.8); } 100% { transform: rotateX(0) scale(1.08); filter: brightness(1.35); } }
+@keyframes bof-chest-win { from { transform: scale(1); } to { transform: scale(1.045); filter: brightness(1.25); } }
+@keyframes bof-chest-particles { from { opacity: 1; transform: scale(.5) translateY(0); } to { opacity: 0; transform: scale(1.35) translateY(-45px); } }
 @media (max-width: 760px) {
   .bof-layout { grid-template-columns: 1fr; gap: 14px; }
   .bof-machine { padding: 18px 10px; border-width: 6px; }
@@ -1246,9 +1285,131 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
   .bof-panel { padding: 14px; }
   .bof-bonus-stats { font-size: .68rem; }
   .bof-pay-row { font-size: .68rem; }
+  .bof-jackpot-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .bof-jackpot-pots { gap: 3px; }
+  .bof-jackpot-pot { display: grid; justify-items: center; padding: 5px 2px; text-align: center; }
+  .bof-jackpot-pot span { font-size: .48rem; } .bof-jackpot-pot strong { font-size: .75rem; }
+  .bof-chest-modal { padding: 24px 12px 18px; border-radius: 18px; }
+  .bof-chest-options { gap: 7px; }
+  .bof-chest { padding: 12px 3px 9px; border-radius: 12px; }
+  .bof-chest-box { width: 54px; height: 48px; font-size: 1.35rem; }
+  .bof-chest b { font-size: .55rem; }
+  .bof-chest-result { min-height: 75px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bof-title, .bof-symbol, .bof-reel, .bof-reel.is-spinning .bof-symbol, #bof-spin, #bof-spin::after, .bof-bulbs i, .bof-win-banner.is-visible, .bof-machine, .bof-big-win { animation: none !important; }
+  .bof-title, .bof-symbol, .bof-reel, .bof-reel.is-spinning .bof-symbol, #bof-spin, #bof-spin::after, .bof-bulbs i, .bof-win-banner.is-visible, .bof-machine, .bof-big-win, .bof-jackpot-modal, .bof-chest-rays, .bof-jackpot-pot, .bof-chest.is-open .bof-chest-box, .bof-chest.is-winner, .bof-chest.is-winner::after { animation: none !important; }
   .bof-bulbs i { opacity: .8; background: #ffe78a; box-shadow: 0 0 7px #ffd54f; }
   .bof-reel.is-spinning .bof-symbol { filter: none; }
+}
+/* ---- Layout compacto de Book of Fran: una sola pantalla ---- */
+body.in-slot-room { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+body.in-slot-room #topbar { position: static; flex: 0 0 52px; height: 52px; min-height: 52px; padding: 5px 12px; }
+body.in-slot-room .brand { font-size: 1.05rem; }
+body.in-slot-room .chips-display { padding: 5px 10px; font-size: .82rem; }
+body.in-slot-room main { flex: 1 1 auto; width: 100%; min-height: 0; max-width: 1180px; padding: 6px 12px; overflow: hidden; }
+body.in-slot-room #screen-room { height: 100%; min-height: 0; padding: 0; overflow: hidden; }
+body.in-slot-room #screen-room > .btn-back,
+body.in-slot-room #screen-room > h1,
+body.in-slot-room #screen-room > .subtitle,
+body.in-slot-room #screen-room > .share-row,
+body.in-slot-room #net-message,
+body.in-slot-room #net-blackjack-controls,
+body.in-slot-room .room-chat { display: none !important; }
+body.in-slot-room .slot-room { width: 100%; max-width: 1120px; height: 100%; min-height: 0; display: grid; grid-template-rows: 30px minmax(0, 1fr); gap: 4px; overflow: hidden; }
+body.in-slot-room .slot-room::before { inset: -10px; }
+body.in-slot-room .slot-meta { min-width: 0; height: 30px; margin: 0; padding: 2px 7px; gap: 7px; border: 1px solid #80632955; border-radius: 9px; background: #080c10b8; flex-wrap: nowrap; }
+body.in-slot-room .slot-meta b { font-size: .88rem; }
+body.in-slot-room .slot-meta span { font-size: .7rem; }
+body.in-slot-room .bof-machine { width: 100%; height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 4px; padding: 9px 12px 8px; border-width: 6px; border-radius: 18px; overflow: hidden; }
+body.in-slot-room .bof-machine::before { inset: 5px; border-radius: 11px; }
+body.in-slot-room .bof-machine::after,
+body.in-slot-room #bof-players { display: none; }
+body.in-slot-room .bof-bulbs { inset: 1px; }
+body.in-slot-room .bof-bulbs i { width: 5px; height: 5px; }
+body.in-slot-room .bof-machine-head { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; }
+body.in-slot-room .bof-title { margin: 0; font-size: 1.02rem; letter-spacing: .12em; white-space: nowrap; }
+body.in-slot-room .bof-jackpot { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 0; padding: 3px 6px; border-radius: 7px; box-shadow: none; overflow: hidden; }
+body.in-slot-room .bof-jackpot-heading { display: none; }
+body.in-slot-room .bof-jackpot-pool-label { flex: 0 0 auto; color: #fff0a4; font-size: .72rem; white-space: nowrap; text-shadow: 0 0 8px #d4af3777; }
+body.in-slot-room .bof-jackpot-pots { display: flex; min-width: 0; gap: 4px; }
+body.in-slot-room .bof-jackpot-pot { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 64px; padding: 3px 6px; border-radius: 6px; font-size: .66rem; white-space: nowrap; }
+body.in-slot-room .bof-jackpot-pot strong { font-size: .78rem; }
+body.in-slot-room .bof-jackpot-trigger { display: none; }
+body.in-slot-room .bof-bonus-stats { min-width: 0; justify-content: center; gap: 10px; margin: 0; padding: 2px 6px; border-radius: 6px; background: #06101499; font-size: .64rem; line-height: 1.1; }
+body.in-slot-room .bof-reels { min-height: 0; height: 100%; gap: 6px; padding: 8px; border-width: 2px; border-radius: 11px; }
+body.in-slot-room .bof-reel { min-height: 0; height: 100%; padding: 5px 3px; gap: 4px; border-radius: 7px; }
+body.in-slot-room .bof-symbol { min-height: 0; height: 100%; min-width: 0; font-size: clamp(1.1rem, 2.5vw, 1.9rem); }
+body.in-slot-room .bof-lines { min-height: 20px; height: 20px; padding: 0; overflow: hidden; font-size: .66rem; }
+body.in-slot-room .bof-win { padding: 2px 6px; }
+body.in-slot-room .bof-control-panel { position: relative; display: grid; gap: 3px; padding: 5px 7px; border: 1px solid #8a6a2b88; border-radius: 9px; background: linear-gradient(135deg, #21170dee, #071015f5); box-shadow: inset 0 0 13px #d4af3710; }
+body.in-slot-room .bof-status-strip { min-width: 0; min-height: 18px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(120px, .8fr); align-items: center; gap: 6px; }
+body.in-slot-room .bof-status-strip > * { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.in-slot-room .bof-mode { min-height: 0; font-size: .65rem; text-align: left; }
+body.in-slot-room .bof-win-banner { min-height: 0; font-size: .68rem; text-align: center; }
+body.in-slot-room .bof-status-strip .message { font-size: .62rem; text-align: right; opacity: .75; }
+body.in-slot-room .bof-command-row { display: grid; grid-template-columns: minmax(250px, 1.4fr) minmax(80px, .45fr) minmax(80px, .45fr) minmax(135px, .7fr); align-items: end; gap: 6px; }
+body.in-slot-room .bof-bet-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; }
+body.in-slot-room .bof-bet-controls label { display: grid; grid-template-columns: auto minmax(64px, 1fr); align-items: center; gap: 5px; font-size: .62rem; white-space: nowrap; }
+body.in-slot-room .bof-bet-controls select { width: 100%; min-height: 34px; padding: 4px 7px; border-radius: 7px; font-size: .75rem; }
+body.in-slot-room .bof-cost-row,
+body.in-slot-room .bof-win-counter { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 7px; font-size: .62rem; }
+body.in-slot-room .bof-cost-row strong,
+body.in-slot-room .bof-win-counter strong { font-size: .82rem; }
+body.in-slot-room #bof-spin { width: 100%; min-width: 0; min-height: 34px; padding: 6px 12px; border-radius: 7px; }
+body.in-slot-room .bof-bet-warning { min-height: 0; margin: 0; padding: 0 4px; font-size: .58rem; text-align: left; }
+body.in-slot-room .bof-bet-warning:empty { display: none; }
+body.in-slot-room .bof-paytable-details { position: relative; font-size: .62rem; }
+body.in-slot-room .bof-paytable-details summary { width: max-content; margin-left: auto; padding: 1px 5px; border-radius: 4px; color: #cdb979; cursor: pointer; list-style: none; }
+body.in-slot-room .bof-paytable-details[open] { position: absolute; z-index: 30; right: 0; bottom: 19px; width: min(620px, 96%); padding: 6px; border: 1px solid #8a6a2b; border-radius: 8px; background: #071015f5; box-shadow: 0 8px 24px #000b; }
+body.in-slot-room .bof-paytable { max-height: min(330px, 48vh); margin: 0; padding: 6px; overflow: auto; font-size: .6rem; }
+body.in-slot-room .bof-pay-row { padding: 2px 4px; }
+@media (max-width: 600px) {
+  body.in-slot-room #topbar { flex-basis: 48px; height: 48px; min-height: 48px; padding: 4px 7px; gap: 5px; }
+  body.in-slot-room .brand { font-size: .92rem; }
+  body.in-slot-room .brand span { display: none; }
+  body.in-slot-room .topbar-session { min-width: 0; }
+  body.in-slot-room .name-input { height: 34px; min-height: 34px; padding: 4px 7px; }
+  body.in-slot-room .chips-display { padding: 4px 7px; font-size: .72rem; }
+  body.in-slot-room main { padding: 4px 5px; }
+  body.in-slot-room .slot-room { grid-template-rows: 28px minmax(0, 1fr); gap: 3px; }
+  body.in-slot-room .slot-meta { height: 28px; padding: 1px 5px; gap: 4px; }
+  body.in-slot-room .slot-meta b { font-size: .74rem; }
+  body.in-slot-room .slot-meta span { display: none; }
+  body.in-slot-room .bof-machine { padding: 6px 6px 5px; border-width: 4px; border-radius: 13px; gap: 3px; }
+  body.in-slot-room .bof-machine-head { grid-template-columns: 1fr; gap: 3px; }
+  body.in-slot-room .bof-title { display: none; }
+  body.in-slot-room .bof-jackpot { justify-content: center; gap: 4px; padding: 2px 4px; }
+  body.in-slot-room .bof-jackpot-pool-label { font-size: .63rem; }
+  body.in-slot-room .bof-jackpot-pots { gap: 3px; }
+  body.in-slot-room .bof-jackpot-pot { min-width: 0; flex: 1 1 0; padding: 2px 3px; font-size: .62rem; }
+  body.in-slot-room .bof-jackpot-pot strong { font-size: .68rem; }
+  body.in-slot-room .bof-bonus-stats { gap: 7px; padding: 1px 3px; font-size: .57rem; }
+  body.in-slot-room .bof-reels { gap: 3px; padding: 5px 3px; }
+  body.in-slot-room .bof-reel { padding: 3px 1px; gap: 3px; }
+  body.in-slot-room .bof-symbol { font-size: clamp(.82rem, 5vw, 1.25rem); border-radius: 5px; }
+  body.in-slot-room .bof-lines { height: 18px; min-height: 18px; font-size: .57rem; }
+  body.in-slot-room .bof-control-panel { padding: 4px; gap: 2px; }
+  body.in-slot-room .bof-status-strip { min-height: 15px; grid-template-columns: minmax(90px, .8fr) minmax(0, 1.2fr); gap: 3px; }
+  body.in-slot-room .bof-status-strip .message { display: none; }
+  body.in-slot-room .bof-mode,
+  body.in-slot-room .bof-win-banner { font-size: .56rem; }
+  body.in-slot-room .bof-command-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+  body.in-slot-room .bof-bet-controls { grid-column: 1 / -1; gap: 3px; }
+  body.in-slot-room .bof-bet-controls label { grid-template-columns: minmax(58px, auto) minmax(0, 1fr); font-size: .56rem; }
+  body.in-slot-room .bof-bet-controls select { min-height: 36px; padding: 3px 5px; font-size: .7rem; }
+  body.in-slot-room .bof-cost-row,
+  body.in-slot-room .bof-win-counter { min-height: 36px; padding: 3px 6px; font-size: .58rem; }
+  body.in-slot-room #bof-spin { grid-column: 1 / -1; min-height: 38px; padding: 6px 8px; }
+  body.in-slot-room .bof-bet-warning { font-size: .54rem; }
+  body.in-slot-room .bof-paytable-details { font-size: .56rem; }
+  body.in-slot-room .bof-chest-modal { max-height: calc(100dvh - 20px); overflow: auto; }
+}
+@media (max-height: 720px) and (min-width: 601px) {
+  body.in-slot-room #topbar { flex-basis: 46px; height: 46px; min-height: 46px; }
+  body.in-slot-room main { padding-top: 3px; padding-bottom: 3px; }
+  body.in-slot-room .bof-machine { padding-top: 6px; padding-bottom: 5px; }
+  body.in-slot-room .bof-title { font-size: .88rem; }
+  body.in-slot-room .bof-bonus-stats { display: none; }
+  body.in-slot-room .bof-status-strip { display: none; }
+  body.in-slot-room .bof-lines { height: 18px; min-height: 18px; }
 }

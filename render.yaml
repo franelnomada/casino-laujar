@@ -12,7 +12,9 @@ services:
     # Variables opcionales (añadir en el dashboard de Render):
     #   FIREBASE_DB_URL     → URL de Firebase Realtime Database
     #   FIREBASE_DB_SECRET  → Database secret (o FIREBASE_SERVICE_ACCOUNT con el JSON)
-    #   DATA_DIR            → carpeta persistente para users/rooms (si Render lo provee)
+    #   DATA_DIR            → carpeta persistente para users/rooms/jackpot (si Render lo provee)
+    #   JACKPOT_SEED        → valor inicial del jackpot (100 por defecto)
+    #   JACKPOT_FILE        → ruta local completa del jackpot (si no se usa DATA_DIR)
 
   # ── Alternativa: cron para limpieza de salas inactivas (opcional) ──
   # - type: cron

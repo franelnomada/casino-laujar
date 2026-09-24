@@ -35,10 +35,12 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
   - y `FIREBASE_DB_SECRET` (Database secret, lo simple) o `FIREBASE_SERVICE_ACCOUNT` (el JSON completo de una cuenta de servicio con rol de base de datos, lo seguro).
   - Opcional: `FIREBASE_DB_PATH` cambia la ruta del documento de cuentas (por defecto `casino-laujar/users`).
   - Opcional: `FIREBASE_ROOMS_PATH` cambia la ruta del documento de salas (por defecto `casino-laujar/rooms`).
+  - Opcional: `FIREBASE_JACKPOT_PATH` cambia la ruta del jackpot compartido (por defecto `casino-laujar/jackpot`).
 
   Con esto, cada cambio de cuentas/sesiones se guarda en el JSON local **y** se replica a Firebase (con 1 s de retardo); al arrancar, el servidor fusiona lo remoto con lo local sin pisar nunca lo más nuevo (`updatedAt`), así que las cuentas sobreviven a los despliegues. Si Firebase falla o no está configurado, todo sigue funcionando con el fichero local.
+  **El jackpot de Book of Fran también se persiste** con el mismo mecanismo. `JACKPOT_SEED` configura su valor inicial (100 por defecto) y `JACKPOT_FILE` la ruta local completa; con `DATA_DIR` se mueve junto a cuentas y salas.
   **Las salas también se replican** con la misma configuración (documento `casino-laujar/rooms`, fusión por `lastActivity`; cada sala viaja como JSON serializado para que la base conserve arrays vacíos y valores `null`): tras un redespliegue, las salas se recuperan y los jugadores pueden reconectar con el enlace de invitación y la sesión de siempre. El estado real se consulta en `GET /api/ping` (`storage.*` para cuentas, `roomsStorage.*` para salas).
-- **API:** `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/chips` (token en `Authorization: Bearer …`), `GET /api/auth/leaderboard?limit=10` (público, solo nombre y fichas, tope 25), `GET /api/transactions` (público, últimas transacciones de fichas de más reciente a más antigua, tope 200).
+- **API:** `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/chips` (token en `Authorization: Bearer …`), `GET /api/auth/leaderboard?limit=10` (público, solo nombre y fichas, tope 25), `GET /api/transactions` (público, últimas transacciones de fichas de más reciente a más antigua, tope 200), `POST /api/slots/jackpot/pick` (token de cuenta y `box` 1–3; solo funciona con un pick pendiente real).
 - **Ranking:** en el lobby, la sección **🏆 Los más ricos del casino** lista las cuentas con más fichas (con tu fila resaltada si has entrado). Botón **🔄 Actualizar** para recargarla; se recarga sola al entrar, crear cuenta o guardar fichas.
 
 ## Desplegar gratis en Render.com (paso a paso)

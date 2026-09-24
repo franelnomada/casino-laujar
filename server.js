@@ -10,6 +10,7 @@ const { BlackjackRoom, genCode, randomId } = require('./js/bj-engine.js');
 const { PokerRoom } = require('./js/poker-engine.js');
 const { RouletteRoom } = require('./js/roulette-engine.js');
 const { BookOfFranRoom } = require('./js/slots-engine.js');
+const { SlotJackpot } = require('./js/slots-jackpot.js');
 const { UserStore } = require('./js/users.js');
 const { TransactionLog } = require('./js/transactions.js');
 const { WeeklyChipBonus } = require('./js/weekly-bonus.js');
@@ -47,6 +48,13 @@ const TX_PATH = process.env.TX_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-transactions.json');
 const txLog = new TransactionLog(TX_PATH);
 
+// ---- Jackpot progresivo compartido de Book of Fran ----
+// Un único objeto para todas las salas. Persiste en JSON local y, si está
+// configurado Firebase, en FIREBASE_JACKPOT_PATH (por defecto casino-laujar/jackpot).
+const JACKPOT_PATH = process.env.JACKPOT_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-jackpot.json');
+const slotJackpot = new SlotJackpot({ filePath: JACKPOT_PATH });
+
 // ---- Bonus semanal: lunes, miércoles y viernes a las 10:00 (Madrid) ----
 const weeklyBonus = new WeeklyChipBonus({ userStore, txLog });
 
@@ -74,7 +82,7 @@ const roomsReplica = new RoomReplica({
       let room;
       if (data.game === 'poker') room = new PokerRoom(code);
       else if (data.game === 'roulette') room = new RouletteRoom(code);
-      else if (data.game === 'book-of-fran') room = new BookOfFranRoom(code);
+      else if (data.game === 'book-of-fran') room = new BookOfFranRoom(code, { jackpot: slotJackpot });
       else room = new BlackjackRoom(code);
       Object.assign(room, data);
       room.chat = Array.isArray(room.chat) ? room.chat : [];
@@ -346,6 +354,41 @@ async function handleApi(req, res, pathname, query) {
   // Panel de administración (protegido con isAdmin)
   if (pathname.startsWith('/api/admin/')) return handleAdmin(req, res, pathname, query);
 
+  // Jackpot compartido de Book of Fran: requiere cuenta y un pick pendiente
+  // ligado a esa misma cuenta, sala y jugador.
+  if (req.method === 'POST' && pathname === '/api/slots/jackpot/pick') {
+    const body = await readBody(req);
+    const token = tokenFrom(req, body, query);
+    const user = userStore.userForToken(token);
+    if (!user) return json(res, 401, { error: 'Inicia sesión para recoger el jackpot.' });
+    await slotJackpot.ready();
+    let pending = slotJackpot.pendingFor(user.key);
+    if (!pending) {
+      for (const candidateRoom of rooms.values()) {
+        if (candidateRoom.game !== 'book-of-fran') continue;
+        const candidate = candidateRoom.players.find(player => !player.left && player.accountKey === user.key && player.jackpotPickPending);
+        if (candidate) {
+          slotJackpot.grantPick(user.key, candidateRoom.code, candidate.id);
+          pending = slotJackpot.pendingFor(user.key);
+          break;
+        }
+      }
+    }
+    if (!pending) return json(res, 409, { error: 'No tienes una elección de jackpot pendiente.' });
+    const room = rooms.get(pending.roomCode);
+    const result = room && typeof room.claimJackpot === 'function'
+      ? room.claimJackpot(user.key, pending.playerId, body.box) : null;
+    if (!result || !result.ok) return json(res, (result && result.status) || 409, { error: (result && result.error) || 'No se pudo validar el jackpot.' });
+    const account = userStore.setChips(token, result.playerChips);
+    if (!account.ok) return json(res, account.status, { error: account.error });
+    txLog.add({
+      type: 'win', username: user.name, game: 'book-of-fran', amount: result.value,
+      balanceAfter: account.user.chips,
+      message: `🏆 ${user.name} se ha llevado el JACKPOT ${result.tier} de ${result.value} fichas en Book of Fran`,
+    });
+    return json(res, 200, { ok: true, ...result, user: account.user });
+  }
+
   // Crear sala
   if (req.method === 'POST' && pathname === '/api/rooms') {
     const body = await readBody(req);
@@ -355,7 +398,7 @@ async function handleApi(req, res, pathname, query) {
     const chips = userStore.clampChips(body.chips);
     const room = body.game === 'poker' ? new PokerRoom(code, body)
       : body.game === 'roulette' ? new RouletteRoom(code)
-      : body.game === 'book-of-fran' ? new BookOfFranRoom(code)
+      : body.game === 'book-of-fran' ? new BookOfFranRoom(code, { jackpot: slotJackpot })
       : new BlackjackRoom(code);
     rooms.set(code, room);
     const playerId = randomId();
@@ -448,7 +491,10 @@ async function handleApi(req, res, pathname, query) {
       }
     }
     else if (room.game === 'book-of-fran') {
-      if (body.type === 'spin') result = room.spin(playerId, { activeLines: body.activeLines, betPerLine: body.betPerLine });
+      if (body.type === 'spin') {
+        await slotJackpot.ready();
+        result = room.spin(playerId, { activeLines: body.activeLines, betPerLine: body.betPerLine });
+      }
     }
     else switch (body.type) {
       case 'start': result = room.start(); break;
@@ -514,7 +560,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/')) {
     try {
       if (pathname === '/api/ping') {
-        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), weeklyBonus: weeklyBonus.info(), uptime: process.uptime() });
+        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), jackpotStorage: slotJackpot.storageInfo(), jackpot: slotJackpot.view(), weeklyBonus: weeklyBonus.info(), uptime: process.uptime() });
       }
       return await handleApi(req, res, pathname, new URLSearchParams(rawQuery || ''));
     } catch (err) {
@@ -546,4 +592,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus };
+module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus, slotJackpot };

@@ -3,7 +3,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { CHAT_MAX_LENGTH, CHAT_COOLDOWN_MS } = require('../js/room-chat.js');
-const { SLOT_CONFIG, evaluateGrid } = require('../js/slots-engine.js');
+const { SLOT_CONFIG, evaluateGrid, SYMBOLS } = require('../js/slots-engine.js');
+const { SlotJackpot } = require('../js/slots-jackpot.js');
 
 // --- Stubs mínimos de DOM ---
 const fakeEl = () => ({
@@ -174,6 +175,7 @@ global.fetch = async (url, opts) => {
   process.env.ROOMS_FILE = require('path').join(os.tmpdir(), 'smoke-adm-rooms-' + stamp + '.json');
   process.env.TX_FILE = require('path').join(os.tmpdir(), 'smoke-adm-tx-' + stamp + '.json');
   process.env.BETTING_FILE = require('path').join(os.tmpdir(), 'smoke-betting-' + stamp + '.json');
+  process.env.JACKPOT_FILE = require('path').join(os.tmpdir(), 'smoke-jackpot-' + stamp + '.json');
   const srv = require('../server.js');
   global.fetch = realFetch; // de aquí en adelante, HTTP real contra el servidor
   const port = await new Promise(res => srv.server.listen(0, () => res(srv.server.address().port)));
@@ -217,9 +219,77 @@ global.fetch = async (url, opts) => {
     ['9', 'J', 'Q'], ['9', 'J', 'A'], ['9', 'J', 'K'], ['10', 'Q', '9'], ['A', '10', 'K'],
   ];
   const twoPaylines = evaluateGrid(payGrid, 5, 2);
+  const smokePays = id => SYMBOLS.find(symbol => symbol.id === id).pays;
   check('Book of Fran API: las líneas ganadoras suman el pago de cada línea',
     twoPaylines.lines.length === 2 && twoPaylines.lines.every(line => line.count === 3) &&
-    twoPaylines.win === Math.floor(5 * 10.65) + Math.floor(5 * 21.29));
+    twoPaylines.win === Math.floor(5 * smokePays('9')[3]) + Math.floor(5 * smokePays('J')[3]));
+
+  // ---------- Jackpot progresivo compartido ----------
+  // Reinicia el singleton para aislar este flujo y fija el shuffle del servidor.
+  srv.slotJackpot.jackpotPool = 100;
+  srv.slotJackpot.updatedAt = Date.now();
+  srv.slotJackpot.saveLocal();
+  srv.slotJackpot.random = () => 0;
+  const jackpotUser = await post('/api/auth/register', { name: 'JackpotUser', password: 'jackpot123', chips: 1000 });
+  const jackpotRoom = await post('/api/rooms', {
+    name: 'JackpotUser', game: 'book-of-fran', chips: 1000, token: jackpotUser.data.token,
+  });
+  const jackpotRoomRef = srv.rooms.get(jackpotRoom.data.code);
+  const noPendingPick = await post('/api/slots/jackpot/pick', { token: jackpotUser.data.token, box: 1 });
+  check('Jackpot API: elegir caja sin trigger pendiente devuelve 409', noPendingPick.status === 409);
+
+  const ordinaryRolls = [
+    0.10, 0.10, 0.10, // reel 0: 9
+    0.30, 0.30, 0.30, // reel 1: 10
+    0.50, 0.50, 0.50, // reel 2: J
+    0.65, 0.65, 0.65, // reel 3: Q
+    0.75, 0.75, 0.75, // reel 4: K
+  ];
+  let jackpotCursor = 0;
+  jackpotRoomRef._random = () => ordinaryRolls[jackpotCursor++] ?? 0;
+  const jackpotContribution = await post('/api/rooms/' + jackpotRoom.data.code + '/action', {
+    playerId: jackpotRoom.data.playerId, type: 'spin', activeLines: 3, betPerLine: 25,
+  });
+  check('Book of Fran API: cada apuesta añade apuesta × 2% redondeado al bote',
+    jackpotContribution.status === 200 && jackpotContribution.data.players[0].lastResult.jackpotContribution === 2 &&
+    jackpotContribution.data.jackpot.jackpotPool === 102);
+
+  jackpotCursor = 0;
+  jackpotRoomRef._random = () => .999; // 15 libros y elección de 9 expandido
+  jackpotRoomRef._lastSpinAt.clear();
+  const jackpotTrigger = await post('/api/rooms/' + jackpotRoom.data.code + '/action', {
+    playerId: jackpotRoom.data.playerId, type: 'spin', activeLines: 3, betPerLine: 20,
+  });
+  check('Book of Fran API: tres libros conceden free spins y un jackpotPick pendiente',
+    jackpotTrigger.status === 200 && jackpotTrigger.data.players[0].lastResult.jackpotPick === true &&
+    jackpotTrigger.data.players[0].lastResult.awarded === SLOT_CONFIG.FREE_SPINS_AWARDED &&
+    jackpotTrigger.data.jackpot.jackpotPool === 103);
+
+  const jackpotPick = await post('/api/slots/jackpot/pick', { token: jackpotUser.data.token, box: 1 });
+  const expectedJackpot = Math.round(103 * .20); // RNG 0 deja SILVER en la caja 1
+  const expectedChips = 1000 - 75 - 60 + expectedJackpot;
+  check('Book of Fran API: el pick paga la caja, resetea el bote y sincroniza el saldo',
+    jackpotPick.status === 200 && jackpotPick.data.box === 1 && jackpotPick.data.tier === 'SILVER' &&
+    jackpotPick.data.value === expectedJackpot && jackpotPick.data.jackpot.jackpotPool === 100 &&
+    jackpotPick.data.boxes.length === 3 && jackpotPick.data.user.chips === expectedChips);
+
+  const repeatPick = await post('/api/slots/jackpot/pick', { token: jackpotUser.data.token, box: 2 });
+  check('Book of Fran API: el mismo pick no puede cobrarse dos veces', repeatPick.status === 409 && srv.slotJackpot.jackpotPool === 100);
+
+  jackpotCursor = 0;
+  jackpotRoomRef._random = () => ordinaryRolls[jackpotCursor++] ?? 0;
+  jackpotRoomRef._lastSpinAt.clear();
+  const afterPickFree = await post('/api/rooms/' + jackpotRoom.data.code + '/action', { playerId: jackpotRoom.data.playerId, type: 'spin' });
+  check('Book of Fran API: los free spins siguen funcionando después del pick',
+    afterPickFree.status === 200 && afterPickFree.data.players[0].lastResult.mode === 'free' &&
+    afterPickFree.data.players[0].lastResult.totalBet === 0 && afterPickFree.data.players[0].freeSpins === 9);
+
+  const txAfterJackpot = await (await fetch(base + '/api/transactions?limit=20')).json();
+  check('Jackpot API: la consola registra el premio GOLD/SILVER/BRONZE',
+    txAfterJackpot.transactions.some(entry => entry.type === 'win' && /JACKPOT SILVER/.test(entry.message || '')));
+  const reloadedJackpot = new SlotJackpot({ filePath: process.env.JACKPOT_FILE, seed: 100, remote: null });
+  check('Jackpot API: el bote persiste en disco tras reiniciar el servicio',
+    fs.existsSync(process.env.JACKPOT_FILE) && reloadedJackpot.jackpotPool === 100);
 
   const get = async (p) => {
     const r = await fetch(base + p);
