@@ -62,19 +62,35 @@ async function main() {
         resumeInTopbar: !!document.querySelector('#topbar #net-resume')
       };
     })()`);
-    assert.deepEqual(gamesUi.names,['Blackjack','Ruleta Europea','Póker online']);
-    assert.deepEqual(gamesUi.calls,["Net.quickStart('blackjack')","Net.quickStart('roulette')","Net.quickStart('poker')"]);
-    assert.equal(gamesUi.visible,true,'Las tres tarjetas deben verse antes de las demás opciones');
+    assert.deepEqual(gamesUi.names,['Blackjack','Ruleta Europea','Póker online','Book of Fran']);
+    assert.deepEqual(gamesUi.calls,["Net.quickStart('blackjack')","Net.quickStart('roulette')","Net.quickStart('poker')","Net.quickStart('book-of-fran')"]);
+    assert.equal(gamesUi.visible,true,'Las cuatro tarjetas deben verse antes de las demás opciones');
     assert.equal(gamesUi.order,true,'Tarjetas, código y salas deben conservar ese orden');
     assert.equal(gamesUi.noOldHeading,true);
     assert.equal(gamesUi.noGameSelect,true);
     assert.equal(gamesUi.noOpenButton,true);
     assert.equal(gamesUi.nameInTopbar,true);
     assert.equal(gamesUi.resumeInTopbar,true);
-    for (const [index, game] of ['blackjack','roulette','poker'].entries()) {
+    for (const [index, game] of ['blackjack','roulette','poker','book-of-fran'].entries()) {
       await js(`App.openLobbySection('games');document.querySelectorAll('.game-card')[${index}].click()`);
       for(let i=0;i<100;i++){if(await js(`!document.getElementById('screen-room').classList.contains('hidden') && Net.code`))break;await wait(100);}
       assert.equal(await js('document.getElementById(' + JSON.stringify('net-game') + ').value'),game,'La tarjeta debe abrir '+game);
+      if (game === 'book-of-fran') {
+        for(let i=0;i<100;i++){if(await js(`document.querySelectorAll('#bof-reels .bof-reel').length === 5`))break;await wait(100);}
+        const slotUi = await js(`({reels:document.querySelectorAll('#bof-reels .bof-reel').length,symbols:document.querySelectorAll('#bof-reels .bof-symbol').length,lines:document.getElementById('bof-lines-select').options.length})`);
+        assert.deepEqual(slotUi,{reels:5,symbols:15,lines:10},'Book de Fran muestra una rejilla 5x3 y selector de 10 líneas');
+        await js(`Net.slotLines=10;Net.slotChip=5;Net.slotBetChanged();Net.slotSpin()`);
+        for(let i=0;i<150;i++){if(await js('!Net.slotAnimating'))break;await wait(100);}
+        const slotAfter = await js(`({busy:Net.slotAnimating,disabled:document.getElementById('bof-spin').disabled,cost:document.getElementById('bof-total-cost').textContent,result:Net.state.players.find(p=>p.id===Net.playerId).lastResult})`);
+        assert.equal(slotAfter.busy,false,'La animación del giro debe terminar');
+        assert.equal(slotAfter.disabled,false,'El botón debe reactivarse con saldo suficiente');
+        assert.equal(slotAfter.cost,'50 fichas');
+        assert.equal(slotAfter.result.activeLines,10);
+        assert.equal(slotAfter.result.betPerLine,5);
+        const insufficientUi = await js(`Net.state.players.find(p=>p.id===Net.playerId).chips=10;Net.slotBetChanged();({disabled:document.getElementById('bof-spin').disabled,warning:document.getElementById('bof-bet-warning').textContent})`);
+        assert.equal(insufficientUi.disabled,true,'El botón se bloquea cuando líneas × apuesta supera el saldo');
+        assert.match(insufficientUi.warning,/Saldo insuficiente/);
+      }
       await js('(async () => { await Net.leave(); })()');
     }
     // Unirse por código y botón de Salas abiertas.

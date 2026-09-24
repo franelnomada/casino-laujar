@@ -8,8 +8,13 @@ const Net = {
   version: 0,
   state: null,
   polling: false,
+  pollGeneration: 0,
   rlChip: 5,
   slotChip: 5,
+  slotLines: 10,
+  slotAnimating: false,
+  slotSpinPending: false,
+  slotLastSpinId: 0,
   chatIds: new Set(),
   chatVisible: false,
   chatPrimed: false,
@@ -200,8 +205,11 @@ const Net = {
   },
 
   enterRoom() {
+    this.pollGeneration += 1;
+    this.polling = false; // el fetch anterior sigue vivo, pero su generación ya no puede renderizar
     this.state = null;
     this._prevCounts = {}; this._prevDealer = 0;
+    this.slotAnimating = false; this.slotSpinPending = false; this.slotLastSpinId = 0;
     this.clearChat();
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
@@ -246,6 +254,7 @@ const Net = {
   },
 
   disconnect() {
+    this.pollGeneration += 1;
     if (typeof Poker !== 'undefined') Poker.reset();
     document.body.classList.toggle('in-poker-room', false);
     document.body.classList.toggle('in-blackjack-room', false);
@@ -458,35 +467,43 @@ const Net = {
 
   // ---------- Sincronización ----------
   async pollLoop() {
-    if (this.polling) return;
+    const generation = this.pollGeneration;
+    const code = this.code;
+    const playerId = this.playerId;
+    if (!code || this.polling) return;
     this.polling = true;
     let notFound = 0;
-    while (this.code) {
-      try {
-        const r = await fetch('/api/rooms/' + this.code +
-          '/state?player=' + encodeURIComponent(this.playerId) + '&v=' + this.version);
-        if (r.status === 404) {
-          // Puede ser un reinicio puntual del servidor: reintentar antes de rendirse
-          notFound++;
-          if (notFound >= 3) {
-            this.roomLost();
-            break;
+    try {
+      while (this.code === code && this.pollGeneration === generation) {
+        try {
+          const r = await fetch('/api/rooms/' + code +
+            '/state?player=' + encodeURIComponent(playerId) + '&v=' + this.version);
+          if (this.code !== code || this.pollGeneration !== generation) break;
+          if (r.status === 404) {
+            // Puede ser un reinicio puntual del servidor: reintentar antes de rendirse
+            notFound++;
+            if (notFound >= 3) {
+              this.roomLost();
+              break;
+            }
+            await new Promise(res => setTimeout(res, 1500));
+            continue;
           }
-          await new Promise(res => setTimeout(res, 1500));
-          continue;
+          notFound = 0;
+          const data = await r.json();
+          if (this.code !== code || this.pollGeneration !== generation) break;
+          if (data && data.kicked) { this.kickedOut(data.message); break; }
+          this.version = data.version;
+          this.state = data;
+          this.render();
+        } catch (e) {
+          if (this.code !== code || this.pollGeneration !== generation) break;
+          await new Promise(res => setTimeout(res, 1000)); // red caída: reintenta
         }
-        notFound = 0;
-        const data = await r.json();
-        if (!this.code) break; // salimos (leave) mientras esperábamos: no procesar
-        if (data && data.kicked) { this.kickedOut(data.message); break; }
-        this.version = data.version;
-        this.state = data;
-        this.render();
-      } catch (e) {
-        await new Promise(res => setTimeout(res, 1000)); // red caída: reintenta
       }
+    } finally {
+      if (this.pollGeneration === generation) this.polling = false;
     }
-    this.polling = false;
   },
 
   roomLost() {
@@ -524,21 +541,23 @@ const Net = {
     this.pollLoop();
   },
 
-  async action(type, amount, betId) {
-    if (!this.code) return;
+  async action(type, amount, betId, extra) {
+    if (!this.code) return null;
     try {
       const r = await fetch('/api/rooms/' + this.code + '/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId: this.playerId, type, amount, betId }),
+        body: JSON.stringify({ playerId: this.playerId, type, amount, betId, ...(extra || {}) }),
       });
       const data = await r.json();
-      if (!r.ok) { this.showError(data.error || 'Acción rechazada.'); return; }
+      if (!r.ok) { this.showError(data.error || 'Acción rechazada.'); return null; }
       this.version = data.version;
       this.state = data;
       this.render();
+      return data;
     } catch (e) {
       this.showError('Sin conexión con el servidor.');
+      return null;
     }
   },
 
@@ -668,12 +687,194 @@ const Net = {
 
   slotSetChip(value) {
     this.slotChip = Number(value);
-    document.querySelectorAll('#net-book-of-fran .chip').forEach(c => c.classList.toggle('chip-selected', Number(c.textContent) === this.slotChip));
+    const select = document.getElementById('bof-bet-select');
+    if (select && [...select.options].some(option => Number(option.value) === this.slotChip)) select.value = String(this.slotChip);
+    this.slotUpdateControls(this.state);
+  },
+
+  slotBetChanged() {
+    const lines = document.getElementById('bof-lines-select');
+    const bet = document.getElementById('bof-bet-select');
+    this.slotLines = Math.max(1, Math.min(10, Number(lines && lines.value) || 1));
+    this.slotChip = Math.max(5, Math.min(100, Number(bet && bet.value) || 5));
+    this.slotUpdateControls(this.state);
+  },
+
+  slotCost(state = this.state) {
+    const me = state && state.players.find(player => player.id === this.playerId);
+    if (me && me.freeSpins > 0) return 0;
+    return this.slotLines * this.slotChip;
+  },
+
+  slotUpdateControls(state = this.state) {
+    const me = state && state.players.find(player => player.id === this.playerId);
+    const free = !!(me && me.freeSpins > 0);
+    const cost = this.slotCost(state);
+    const balance = me ? me.chips : 0;
+    const lines = document.getElementById('bof-lines-select');
+    const bet = document.getElementById('bof-bet-select');
+    const button = document.getElementById('bof-spin');
+    const label = button && button.querySelector('.bof-spin-label');
+    const warning = document.getElementById('bof-bet-warning');
+    if (lines) { lines.value = String(this.slotLines); lines.disabled = this.slotAnimating || free; }
+    if (bet) { bet.value = String(this.slotChip); bet.disabled = this.slotAnimating || free; }
+    const total = document.getElementById('bof-total-cost');
+    if (total) total.textContent = free ? 'GIRO GRATIS' : cost + ' fichas';
+    if (button) {
+      button.disabled = this.slotAnimating || (!free && cost > balance);
+      button.classList.toggle('is-spinning', this.slotAnimating);
+      button.setAttribute('aria-busy', String(this.slotAnimating));
+    }
+    if (label) label.textContent = this.slotAnimating ? 'Los libros giran…' : free ? 'Giro gratis 📖' : 'Girar 📖';
+    if (warning) warning.textContent = this.slotAnimating ? '' : !free && cost > balance
+      ? `Saldo insuficiente: necesitas ${cost - balance} fichas más.`
+      : free ? 'La apuesta queda bloqueada durante la ronda bonus.' : '';
+  },
+
+  slotReelHTML(s, result, reel, winningPositions) {
+    const expanded = result && (result.expandedReels || []).includes(reel);
+    return Array.from({ length: 3 }, (_, row) => {
+      const id = result && result.grid[reel] && result.grid[reel][row];
+      const symbol = (s.symbols || []).find(item => item.id === id);
+      const winning = winningPositions && winningPositions.some(position => position.reel === reel && position.row === row);
+      return `<div class="bof-symbol${expanded ? ' expanded' : ''}${winning ? ' winning' : ''}" data-reel="${reel}" data-row="${row}">${symbol ? symbol.glyph : '·'}</div>`;
+    }).join('');
+  },
+
+  slotEnsureReels(s, result) {
+    const reels = document.getElementById('bof-reels');
+    if (!reels) return null;
+    reels.innerHTML = Array.from({ length: 5 }, (_, reel) =>
+      `<div class="bof-reel" data-reel="${reel}">${this.slotReelHTML(s, result, reel, null)}</div>`).join('');
+    return reels;
   },
 
   async slotSpin() {
-    if (!this.state || this.state.game !== 'book-of-fran') return;
-    await this.action('spin', this.slotChip);
+    if (this.slotAnimating || !this.state || this.state.game !== 'book-of-fran') return;
+    const me = this.state.players.find(player => player.id === this.playerId);
+    if (!me) return;
+    const free = me.freeSpins > 0;
+    const cost = this.slotCost(this.state);
+    if (!free && cost > me.chips) { this.slotUpdateControls(this.state); return; }
+    this.slotAnimating = true;
+    this.slotSpinPending = true;
+    this.slotUpdateControls(this.state);
+    const machine = document.getElementById('bof-machine');
+    let reels = document.getElementById('bof-reels');
+    if (reels && !reels.querySelector('.bof-reel')) reels = this.slotEnsureReels(this.state, me.lastResult);
+    if (reels) {
+      reels.setAttribute('aria-busy', 'true');
+      reels.querySelectorAll('.bof-reel').forEach(reel => reel.classList.add('is-spinning'));
+      reels.querySelectorAll('.bof-symbol').forEach(symbol => symbol.classList.remove('winning'));
+    }
+    if (machine) machine.classList.add('is-spinning');
+    const response = await this.action('spin', null, null, { activeLines: this.slotLines, betPerLine: this.slotChip });
+    this.slotSpinPending = false;
+    if (!response) {
+      this.slotAnimating = false;
+      if (machine) machine.classList.remove('is-spinning');
+      if (reels) { reels.setAttribute('aria-busy', 'false'); reels.querySelectorAll('.bof-reel').forEach(reel => reel.classList.remove('is-spinning')); }
+      this.slotUpdateControls(this.state);
+      return;
+    }
+    const result = response.players.find(player => player.id === this.playerId).lastResult;
+    if (!result) { this.slotAnimating = false; this.slotUpdateControls(response); return; }
+    const reelNodes = reels ? [...reels.querySelectorAll('.bof-reel')] : [];
+    for (let reel = 0; reel < 5; reel++) {
+      await this.slotWait(reel === 0 ? 220 : 125);
+      if (reelNodes[reel]) {
+        reelNodes[reel].classList.remove('is-spinning');
+        reelNodes[reel].classList.add('is-stopping');
+        reelNodes[reel].innerHTML = this.slotReelHTML(response, result, reel, null);
+        setTimeout(() => reelNodes[reel] && reelNodes[reel].classList.remove('is-stopping'), 430);
+      }
+    }
+    await this.slotWait(180);
+    if (machine) machine.classList.remove('is-spinning');
+    if (reels) reels.setAttribute('aria-busy', 'false');
+    await this.slotRevealWins(response, result);
+    this.slotLastSpinId = result.spinId || this.slotLastSpinId + 1;
+    this.slotAnimating = false;
+    this.slotUpdateControls(this.state);
+  },
+
+  slotWait(milliseconds) {
+    const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return new Promise(resolve => setTimeout(resolve, reduced ? Math.min(milliseconds, 30) : milliseconds));
+  },
+
+  slotCountTo(total, duration) {
+    const counter = document.getElementById('bof-win-count');
+    if (!counter) return Promise.resolve();
+    const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || total <= 0) { counter.textContent = '+' + total; return Promise.resolve(); }
+    const start = performance.now();
+    return new Promise(resolve => {
+      const tick = now => {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        counter.textContent = '+' + Math.floor(total * eased);
+        if (progress < 1) requestAnimationFrame(tick); else { counter.textContent = '+' + total; resolve(); }
+      };
+      requestAnimationFrame(tick);
+    });
+  },
+
+  slotRenderPaytable(s) {
+    const table = document.getElementById('bof-paytable');
+    if (!table) return;
+    const rows = s.symbols.map(symbol => symbol.pays
+      ? `<div class="bof-pay-row"><b>${symbol.glyph}</b><span>×3 <strong>${symbol.pays[3]}×</strong></span><span>×4 <strong>${symbol.pays[4]}×</strong></span><span>×5 <strong>${symbol.pays[5]}×</strong></span></div>`
+      : `<div class="bof-pay-row book"><b>${symbol.glyph}</b><span>Comodín · 3 libros activan 10 giros gratis</span></div>`).join('');
+    table.innerHTML = `<strong>Pagos por línea · 3 / 4 / 5 iguales</strong>${rows}`;
+  },
+
+  async slotRevealWins(s, result) {
+    const reels = document.getElementById('bof-reels');
+    const linesBox = document.getElementById('bof-lines');
+    const machine = document.getElementById('bof-machine');
+    const banner = document.getElementById('bof-banner');
+    const winningLines = result.lines || [];
+    const expandedGlyph = (s.symbols.find(symbol => symbol.id === result.expandedSymbol) || {}).glyph || '✨';
+    if (banner) {
+      banner.classList.remove('is-visible');
+      banner.textContent = result.awarded
+        ? `📖 ¡BOOK ACTIVADO! +${result.awarded} GIROS · ${expandedGlyph} EXPANDIDO`
+        : result.bigWin ? `👑 ¡GRAN PREMIO! +${result.win} FICHAS` : result.win > 0 ? `✨ +${result.win} FICHAS` : '';
+      if (banner.textContent) { void banner.offsetWidth; banner.classList.add('is-visible'); }
+    }
+    if (machine) {
+      machine.classList.toggle('bonus-active', result.bonusStarted || result.mode === 'free');
+      if (result.bonusStarted) { machine.classList.add('bonus-enter'); setTimeout(() => machine.classList.remove('bonus-enter'), 850); }
+      if (result.bonusEnded) {
+        machine.classList.add('bonus-exit');
+        setTimeout(() => machine.classList.remove('bonus-exit', 'bonus-active'), 900);
+      }
+      if (result.bigWin) {
+        machine.classList.add('big-win');
+        setTimeout(() => machine.classList.remove('big-win'), 1700);
+      }
+    }
+    if (!reels || !winningLines.length) {
+      if (linesBox) linesBox.textContent = result.bookCount >= 3 ? '📖 ¡Los libros abren el bonus!' : 'Tres iguales desde el primer carrete en una línea activa.';
+      if (document.getElementById('bof-win-count')) document.getElementById('bof-win-count').textContent = '+' + (result.win || 0);
+      return;
+    }
+    if (linesBox) linesBox.innerHTML = '';
+    for (let index = 0; index < winningLines.length; index++) {
+      const line = winningLines[index];
+      if (reels) reels.querySelectorAll('.bof-symbol.winning').forEach(symbol => symbol.classList.remove('winning'));
+      line.positions.forEach(position => {
+        const symbol = reels && reels.querySelector(`[data-reel="${position.reel}"][data-row="${position.row}"]`);
+        if (symbol) symbol.classList.add('winning');
+      });
+      if (linesBox) {
+        const glyph = (s.symbols.find(item => item.id === line.symbol) || { glyph: line.symbol }).glyph;
+        linesBox.innerHTML = `<span class="bof-win is-current">Línea ${line.line}${line.name} · ${glyph} × ${line.count} · <strong>+${line.win}</strong> fichas</span>`;
+      }
+      await this.slotWait(index === winningLines.length - 1 ? 520 : 620);
+    }
+    await this.slotCountTo(result.win || 0, 680);
   },
 
   renderBookOfFran(s) {
@@ -683,32 +884,46 @@ const Net = {
     const message = document.getElementById('bof-message');
     const mode = document.getElementById('bof-mode');
     const chips = document.getElementById('bof-chips');
-    if (!reels || !lines) return;
+    const jackpot = document.getElementById('bof-jackpot-value');
+    const freeCount = document.getElementById('bof-free-count');
+    const bonusTotal = document.getElementById('bof-bonus-total');
+    const machine = document.getElementById('bof-machine');
     if (roomCode) roomCode.textContent = s.code || '';
-    const me = s.players.find(p => p.id === this.playerId);
+    const me = s.players.find(player => player.id === this.playerId);
     const result = me && me.lastResult;
-    const grid = result && result.grid;
-    reels.innerHTML = Array.from({ length: 3 }, (_, reel) =>
-      '<div class="bof-reel">' + Array.from({ length: 3 }, (_, row) => {
-        const id = grid && grid[reel] && grid[reel][row];
-        const symbol = (s.symbols || []).find(x => x.id === id);
-        return '<div class="bof-symbol' + (result && result.expandedReels.includes(reel) ? ' expanded' : '') + '">' +
-          (symbol ? symbol.glyph : '·') + '</div>';
-      }).join('') + '</div>'
-    ).join('');
-    lines.innerHTML = result && result.lines && result.lines.length
-      ? result.lines.map(line => '🟡 ' + (s.symbols.find(x => x.id === line.symbol) || { glyph: line.symbol }).glyph + ' × ' + line.win + ' fichas').join(' · ')
-      : '<span class="hint">Tres símbolos iguales en una fila pagan.</span>';
-    if (message) message.textContent = s.message || '';
-    if (mode) {
-      const free = me && me.freeSpins > 0;
-      const expanded = me && me.expandedSymbol ? (s.symbols.find(x => x.id === me.expandedSymbol) || { glyph: me.expandedSymbol }).glyph : '';
-      mode.textContent = free ? 'GIROS GRATIS: ' + me.freeSpins + (expanded ? ' · expands ' + expanded : '') : 'Modo normal · 3 libros activan la ronda';
-    }
+    const free = !!(me && me.freeSpins > 0);
     if (chips) chips.textContent = 'Tus fichas: ' + (me ? me.chips : 0);
+    if (mode) {
+      const expanded = me && me.expandedSymbol ? (s.symbols.find(symbol => symbol.id === me.expandedSymbol) || {}).glyph : '';
+      mode.textContent = free ? `GIROS GRATIS: ${me.freeSpins}${expanded ? ` · ${expanded} se expande` : ''}` : 'Modo normal · activa hasta 10 líneas';
+      mode.classList.toggle('is-free', free);
+    }
+    if (freeCount) freeCount.textContent = me ? me.freeSpins : 0;
+    if (bonusTotal) bonusTotal.textContent = me ? me.bonusWinTotal || 0 : 0;
+    if (jackpot) jackpot.textContent = result && result.awarded
+      ? `${result.awarded} giros · ${(s.symbols.find(symbol => symbol.id === result.expandedSymbol) || {}).glyph || '✨'} expandido`
+      : '3 libros · 10 giros';
+    if (message) message.textContent = s.message || '';
+    if (machine && !this.slotAnimating) machine.classList.toggle('bonus-active', free);
+    this.slotUpdateControls(s);
+    this.slotRenderPaytable(s);
     const players = document.getElementById('bof-players');
-    if (players) players.innerHTML = s.players.map(p => '<div class="seat' + (p.id === this.playerId ? ' active' : '') + '"><div class="p-name">' + p.name + (p.id === this.playerId ? ' ⭐' : '') + '</div><div class="p-chips">💰 ' + p.chips + '</div><div class="p-result">' + (p.freeSpins ? '📖 ' + p.freeSpins : '') + '</div></div>').join('');
-    this.slotSetChip(this.slotChip);
+    if (players) players.innerHTML = s.players.map(player => `<div class="seat${player.id === this.playerId ? ' active' : ''}"><div class="p-name">${player.name}${player.id === this.playerId ? ' ⭐' : ''}</div><div class="p-chips">💰 ${player.chips}</div><div class="p-result">${player.freeSpins ? '📖 ' + player.freeSpins : ''}</div></div>`).join('');
+
+    if (!reels || !lines || this.slotSpinPending || this.slotAnimating) return;
+    const spinId = result && result.spinId || 0;
+    if (spinId === this.slotLastSpinId && reels.querySelector('.bof-reel')) return;
+    this.slotEnsureReels(s, result);
+    const positions = result ? result.lines.flatMap(line => line.positions) : [];
+    if (reels && result) reels.querySelectorAll('.bof-reel').forEach((reelNode, reel) => {
+      reelNode.innerHTML = this.slotReelHTML(s, result, reel, positions);
+    });
+    if (lines) lines.innerHTML = result && result.lines && result.lines.length
+      ? result.lines.map(line => `<span class="bof-win">Línea ${line.line} · +${line.win}</span>`).join(' · ')
+      : '<span class="hint">Tres símbolos iguales desde el carrete 1 en una línea activa.</span>';
+    const counter = document.getElementById('bof-win-count');
+    if (counter) counter.textContent = '+' + (result ? result.win || 0 : 0);
+    this.slotLastSpinId = spinId;
   },
 
   renderRoulette(s) {

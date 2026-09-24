@@ -448,7 +448,7 @@ async function handleApi(req, res, pathname, query) {
       }
     }
     else if (room.game === 'book-of-fran') {
-      if (body.type === 'spin') result = room.spin(playerId, body.amount);
+      if (body.type === 'spin') result = room.spin(playerId, { activeLines: body.activeLines, betPerLine: body.betPerLine });
     }
     else switch (body.type) {
       case 'start': result = room.start(); break;

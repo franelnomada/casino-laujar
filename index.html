@@ -129,7 +129,7 @@
           <button class="game-card" type="button" onclick="Net.quickStart('book-of-fran')">
             <span class="game-card-icon" aria-hidden="true">📖</span>
             <h2>Book of Fran</h2>
-            <p>La aventura egipcia: 3 libros dorados activan 10 giros gratis con símbolo expandido.</p>
+            <p>5×3 · 10 líneas · 3 libros dorados activan 10 giros gratis con símbolo expandido.</p>
           </button>
 
         </div>
@@ -246,31 +246,43 @@
           <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
         </div>
         <div class="bof-layout">
-          <div class="bof-machine">
+          <div class="bof-machine" id="bof-machine">
+            <div class="bof-bulbs" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="bof-title">BOOK <em>OF</em> FRAN</div>
-            <div id="bof-reels" class="bof-reels" aria-live="polite"></div>
-            <div id="bof-lines" class="bof-lines"></div>
+            <div class="bof-jackpot"><span>✨ JACKPOT DE EGIPTO</span><strong id="bof-jackpot-value">3 libros · 10 giros</strong></div>
+            <div class="bof-bonus-stats" role="status">
+              <span>📖 <b id="bof-free-count">0</b> giros gratis</span>
+              <span>Total bonus: <b id="bof-bonus-total">0</b> fichas</span>
+            </div>
+            <div id="bof-reels" class="bof-reels" aria-live="polite" aria-busy="false"></div>
+            <div id="bof-lines" class="bof-lines" role="status" aria-live="polite"></div>
+            <div id="bof-big-win" class="bof-big-win" role="status" aria-live="assertive">¡GRAN PREMIO!</div>
           </div>
           <div class="bof-panel">
             <p id="bof-message" class="message" role="status"></p>
+            <div id="bof-banner" class="bof-win-banner" role="status" aria-live="polite"></div>
             <p id="bof-mode" class="bof-mode"></p>
             <p id="bof-chips" class="current-bet">Tus fichas: 0</p>
-            <div class="chip-row">
-              <span class="bet-label">Apuesta:</span>
-              <button class="chip chip-5" onclick="Net.slotSetChip(5)">5</button>
-              <button class="chip chip-25" onclick="Net.slotSetChip(25)">25</button>
-              <button class="chip chip-100" onclick="Net.slotSetChip(100)">100</button>
-              <button class="chip chip-500" onclick="Net.slotSetChip(500)">500</button>
+            <div class="bof-bet-controls">
+              <label for="bof-lines-select">Líneas activas
+                <select id="bof-lines-select" onchange="Net.slotBetChanged()">
+                  <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                  <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option>
+                </select>
+              </label>
+              <label for="bof-bet-select">Apuesta por línea
+                <select id="bof-bet-select" onchange="Net.slotBetChanged()">
+                  <option value="5" selected>5 fichas</option><option value="10">10 fichas</option><option value="25">25 fichas</option><option value="50">50 fichas</option><option value="100">100 fichas</option>
+                </select>
+              </label>
             </div>
+            <div class="bof-cost-row"><span>Coste del giro</span><strong id="bof-total-cost">50 fichas</strong></div>
+            <div class="bof-win-counter" role="status" aria-live="polite"><span>Ganado este giro</span><strong id="bof-win-count">+0</strong></div>
             <div class="btn-row">
-              <button id="bof-spin" class="btn primary" type="button" onclick="Net.slotSpin()">Girar 📖</button>
+              <button id="bof-spin" class="btn primary" type="button" onclick="Net.slotSpin()"><span class="bof-spinner" aria-hidden="true"></span><span class="bof-spin-label">Girar 📖</span></button>
             </div>
-            <div class="bof-paytable">
-              <strong>Tabla de aventura</strong>
-              <span>9️⃣ 🔟 J Q K A · pagas bajas</span>
-              <span>𓋹 🐍 𓅓 · paga media</span>
-              <span>👑 · alto · 📖 comodín + 3 activan giros</span>
-            </div>
+            <p id="bof-bet-warning" class="bof-bet-warning" role="status"></p>
+            <div id="bof-paytable" class="bof-paytable" aria-label="Tabla de pagos por línea"></div>
           </div>
         </div>
         <div id="bof-players" class="seats-row"></div>

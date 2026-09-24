@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { CHAT_MAX_LENGTH, CHAT_COOLDOWN_MS } = require('../js/room-chat.js');
-const { SLOT_CONFIG } = require('../js/slots-engine.js');
+const { SLOT_CONFIG, evaluateGrid } = require('../js/slots-engine.js');
 
 // --- Stubs mínimos de DOM ---
 const fakeEl = () => ({
@@ -184,12 +184,42 @@ global.fetch = async (url, opts) => {
   };
   const slotApi = await post('/api/rooms', { name: 'Slot API', game: 'book-of-fran', chips: 1000 });
   const slotRoom = srv.rooms.get(slotApi.data.code);
-  slotRoom._random = () => 0.999;
-  const slotSpin = await post('/api/rooms/' + slotApi.data.code + '/action', { playerId: slotApi.data.playerId, type: 'spin', amount: 100 });
-  const slotTooFast = await post('/api/rooms/' + slotApi.data.code + '/action', { playerId: slotApi.data.playerId, type: 'spin', amount: 100 });
-  check('Book of Fran API: crea sala, devuelve estado y limita la frecuencia',
+  slotRoom._random = () => 0.999; // 15 libros: trigger sin premiobase
+  const slotSpin = await post('/api/rooms/' + slotApi.data.code + '/action', {
+    playerId: slotApi.data.playerId, type: 'spin', activeLines: 3, betPerLine: 20,
+  });
+  const slotTooFast = await post('/api/rooms/' + slotApi.data.code + '/action', {
+    playerId: slotApi.data.playerId, type: 'spin', activeLines: 3, betPerLine: 20,
+  });
+  check('Book of Fran API: cobra 3 × 20, activa 10 giros y limita la frecuencia',
     slotApi.status === 200 && slotSpin.status === 200 && slotSpin.data.game === 'book-of-fran' &&
-    slotSpin.data.players[0].freeSpins === SLOT_CONFIG.FREE_SPINS_AWARDED && slotTooFast.status === 400);
+    slotSpin.data.players[0].chips === 940 && slotSpin.data.players[0].freeSpins === SLOT_CONFIG.FREE_SPINS_AWARDED &&
+    slotSpin.data.players[0].lastResult.totalBet === 60 && slotTooFast.status === 400);
+
+  const slotRolls = Array(15).fill(0.994); // corona: el trigger anterior la eligió para expandir
+  let slotCursor = 0;
+  slotRoom._random = () => slotRolls[slotCursor++] ?? 0;
+  slotRoom._lastSpinAt.clear();
+  const slotFree = await post('/api/rooms/' + slotApi.data.code + '/action', { playerId: slotApi.data.playerId, type: 'spin' });
+  check('Book of Fran API: el giro gratis no cobra y expande el símbolo en 5x3',
+    slotFree.status === 200 && slotFree.data.players[0].lastResult.mode === 'free' &&
+    slotFree.data.players[0].lastResult.totalBet === 0 && slotFree.data.players[0].lastResult.expandedReels.length === 5 &&
+    slotFree.data.players[0].lastResult.grid.every(reel => reel.length === 3));
+
+  const brokeApi = await post('/api/rooms', { name: 'Slot broke', game: 'book-of-fran', chips: 30 });
+  const brokeSpin = await post('/api/rooms/' + brokeApi.data.code + '/action', {
+    playerId: brokeApi.data.playerId, type: 'spin', activeLines: 10, betPerLine: 5,
+  });
+  check('Book of Fran API: rechaza un coste de 50 con saldo de 30 sin mutarlo',
+    brokeSpin.status === 400 && srv.rooms.get(brokeApi.data.code).find(brokeApi.data.playerId).chips === 30);
+
+  const payGrid = [
+    ['9', 'J', 'Q'], ['9', 'J', 'A'], ['9', 'J', 'K'], ['10', 'Q', '9'], ['A', '10', 'K'],
+  ];
+  const twoPaylines = evaluateGrid(payGrid, 5, 2);
+  check('Book of Fran API: las líneas ganadoras suman el pago de cada línea',
+    twoPaylines.lines.length === 2 && twoPaylines.lines.every(line => line.count === 3) &&
+    twoPaylines.win === Math.floor(5 * 10.65) + Math.floor(5 * 21.29));
 
   const get = async (p) => {
     const r = await fetch(base + p);
