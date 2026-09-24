@@ -80,16 +80,23 @@
             <span class="portal-card-title">ACTIVIDAD</span>
             <span class="portal-card-description">Sigue en directo los movimientos de fichas del casino.</span>
           </button>
-          <button class="portal-card" type="button" onclick="App.openLobbySection('ranking')">
-            <span class="portal-card-icon" aria-hidden="true">🏆</span>
-            <span class="portal-card-title">RANKING</span>
-            <span class="portal-card-description">Descubre quién lidera la clasificación del casino.</span>
-          </button>
           <button id="lobby-card-admin" class="portal-card hidden" type="button" onclick="Admin.open()">
             <span class="portal-card-icon" aria-hidden="true">🛠</span>
             <span class="portal-card-title">ADMIN</span>
             <span class="portal-card-description">Gestiona cuentas, eventos deportivos y mesas activas.</span>
           </button>
+        </div>
+
+        <div class="net-box rank-box">
+          <div class="rank-heading" aria-hidden="true">
+            <span>♛</span>
+            <h2>Los más ricos del casino</h2>
+            <span>♛</span>
+          </div>
+          <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
+          <ol id="rank-list" class="rank-list"></ol>
+          <button class="rank-more" type="button" aria-controls="rank-list" aria-expanded="false" onclick="const box=this.closest('.rank-box');const expanded=box.classList.toggle('rank-show-all');this.setAttribute('aria-expanded',String(expanded));this.textContent=expanded?'Ver solo top 5':'Ver ranking completo'">Ver ranking completo</button>
+          <button class="btn rank-refresh" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
         </div>
       </div>
 
@@ -136,22 +143,6 @@
         </div>
         <div id="open-rooms-list" class="open-rooms"></div>
       </div>
-      </div>
-
-      <div id="lobby-section-ranking" class="lobby-section ranking-section hidden">
-        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
-        <h1>🏆 Ranking</h1>
-        <p class="subtitle">Los jugadores con más fichas del casino.</p>
-        <div class="net-box rank-box">
-          <div class="rank-heading" aria-hidden="true">
-            <span>♛</span>
-            <h2>Los más ricos del casino</h2>
-            <span>♛</span>
-          </div>
-          <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
-          <ol id="rank-list" class="rank-list"></ol>
-          <button class="btn rank-refresh" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
-        </div>
       </div>
 
       <div id="lobby-section-betting" class="lobby-section hidden">

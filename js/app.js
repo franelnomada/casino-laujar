@@ -76,7 +76,7 @@ const App = {
   },
 
   openLobbySection(section) {
-    if (!['games', 'ranking', 'betting', 'activity'].includes(section)) return this.goLobby();
+    if (!['games', 'betting', 'activity'].includes(section)) return this.goLobby();
     this.lobbySection = section;
     document.getElementById('lobby-home').classList.add('hidden');
     document.querySelectorAll('#screen-lobby > .lobby-section').forEach(panel => {

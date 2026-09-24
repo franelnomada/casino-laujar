@@ -115,21 +115,33 @@ async function main() {
       assert.equal(await js(`document.getElementById('auth-topbar').getBoundingClientRect().right <= innerWidth`),true,'Botón de cuenta dentro de pantalla a '+width);
     }
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-    // Ranking del lobby: nombres y fichas, fila propia resaltada, botón de recarga y sin desbordes
+    // Ranking del lobby: visible en home, top 5 ampliable, datos reales y refresco sin desbordes
     await js(`App.show('lobby')`);
+    assert.equal(await js(`document.querySelectorAll('.portal-grid [onclick*="ranking"]').length`),0,'El ranking no debe ser una tarjeta del portal');
+    assert.equal(await js(`document.getElementById('lobby-section-ranking')`),null,'La antigua sección de ranking debe desaparecer');
+    assert.equal(await js(`document.getElementById('rank-list').closest('#lobby-home') !== null`),true,'El ranking debe estar dentro de la home');
+    assert.equal(await js(`!!(document.querySelector('.portal-grid').compareDocumentPosition(document.querySelector('.rank-box')) & Node.DOCUMENT_POSITION_FOLLOWING)`),true,'El ranking debe ir debajo del grid');
     for(let i=0;i<100;i++){ if(await js(`document.querySelectorAll('#rank-list .rank-row').length > 0`)) break; await wait(100); }
     assert.ok(await js(`document.querySelectorAll('#rank-list .rank-row').length > 0`),'El ranking debe listar las cuentas');
     assert.ok(await js(`[...document.querySelectorAll('#rank-list .rank-name')].some(n=>n.textContent==='${user}')`),'La cuenta creada aparece en el ranking');
+    // Simula diez filas ordenadas para comprobar el corte visual sin alterar la lógica de datos.
+    await js(`Auth.board=Array.from({length:10},(_,i)=>({name:'Top '+(10-i),chips:(10-i)*100}));Auth.renderBoard();document.querySelector('.rank-box').classList.remove('rank-show-all')`);
+    assert.equal(await js(`[...document.querySelectorAll('#rank-list .rank-row')].filter(n=>getComputedStyle(n).display!=='none').length`),5,'El ranking compacto muestra el top 5');
+    assert.deepEqual(await js(`[...document.querySelectorAll('#rank-list .rank-row')].slice(0,5).map(n=>n.querySelector('.rank-name').textContent)`),['Top 10','Top 9','Top 8','Top 7','Top 6'],'El top 5 conserva el orden del ranking');
+    await js(`document.querySelector('.rank-more').click()`);
+    assert.equal(await js(`[...document.querySelectorAll('#rank-list .rank-row')].filter(n=>getComputedStyle(n).display!=='none').length`),10,'El enlace muestra el ranking completo');
+    assert.equal(await js(`document.querySelector('.rank-box').classList.contains('rank-show-all') && document.querySelector('.rank-more').getAttribute('aria-expanded')==='true'`),true,'El ranking completo queda accesible');
+    await js(`document.querySelector('.rank-more').click();Auth.loadLeaderboard(true)`);
+    for(let i=0;i<100;i++){ if(await js(`[...document.querySelectorAll('#rank-list .rank-name')].some(n=>n.textContent==='${user}')`)) break; await wait(100); }
+    assert.ok(await js(`[...document.querySelectorAll('#rank-list .rank-name')].some(n=>n.textContent==='${user}')`),'Actualizar recupera el ranking real');
     assert.equal(await js(`document.querySelectorAll('#rank-list .rank-row.me').length`),0,'Sin sesión no se resalta a nadie');
     await js(`Auth.applyUser({name:'${user}',chips:${chipCount}});Auth.highlightBoard()`);
+    assert.ok(await js(`[...document.querySelectorAll('#rank-list .rank-name')].some(n=>n.textContent==='${user}')`),'La cuenta aparece tras entrar y derecha propia');
     assert.equal(await js(`document.querySelectorAll('#rank-list .rank-row.me').length`),1,'La fila propia se resalta con la cuenta');
     assert.match(await js(`document.querySelector('#rank-list .rank-row.me .rank-you').textContent`),/tú/);
     await js(`Auth.forget();Auth.highlightBoard()`);
     assert.equal(await js(`document.querySelectorAll('#rank-list .rank-row.me').length`),0,'Al salir se quita el resaltado');
-    await js(`Auth.loadLeaderboard(true)`);
-    for(let i=0;i<100;i++){ if(await js(`document.querySelectorAll('#rank-list .rank-row').length > 0`)) break; await wait(100); }
-    assert.ok(await js(`document.querySelectorAll('#rank-list .rank-row').length > 0`),'El botón Actualizar recarga el ranking');
-    for (const width of [320,390,768]) {
+    for (const width of [320,390,768,1280]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<760});
       await js(`App.show('lobby')`);
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Ranking sin desbordamiento a '+width);
