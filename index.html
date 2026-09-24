@@ -56,47 +56,45 @@
       </div>
     </section>
 
-    <!-- LOBBY -->
+    <!-- LOBBY / PORTAL -->
     <section id="screen-lobby" class="screen hidden">
-      <h1>Bienvenido al Casino</h1>
-      <p class="subtitle">Elige tu mesa, jugador. Las fichas son virtuales… la vergüenza es real.</p>
-      <div class="lobby-grid">
-        <div class="game-card" onclick="Net.quickStart('blackjack')">
-          <div class="game-card-icon">🃏</div>
-          <h2>Blackjack</h2>
-          <p>Llega a 21 sin pasarte. El dealer juega a 17. Blackjack paga 3:2.</p>
-        </div>
-        <div class="game-card" onclick="Net.quickStart('roulette')">
-          <div class="game-card-icon">🎡</div>
-          <h2>Ruleta Europea</h2>
-          <p>Plenos, colores, pares, docenas… 36 números y un solo cero.</p>
-        </div>
-        <div class="game-card" onclick="Net.quickStart('poker')">
-          <div class="game-card-icon">♠️</div>
-          <h2>Póker online</h2>
-          <p>Texas Hold’em sin límite · 2–6 jugadores · Ciegas progresivas.</p>
+      <div id="lobby-home" class="lobby-home">
+        <h1>Casino Night</h1>
+        <p class="subtitle">Elige una sección para empezar a jugar.</p>
+        <div class="portal-grid" aria-label="Secciones del casino">
+          <button class="portal-card" type="button" onclick="App.openLobbySection('games')">
+            <span class="portal-card-icon" aria-hidden="true">🎰</span>
+            <span class="portal-card-title">JUEGOS</span>
+            <span class="portal-card-description">Crea una mesa, únete por código o entra en una sala abierta.</span>
+          </button>
+          <button class="portal-card" type="button" onclick="App.openLobbySection('betting')">
+            <span class="portal-card-icon" aria-hidden="true">⚽</span>
+            <span class="portal-card-title">APUESTAS DEPORTIVAS</span>
+            <span class="portal-card-description">Descubre los eventos disponibles y consulta tus apuestas.</span>
+          </button>
+          <button class="portal-card" type="button" onclick="App.openLobbySection('activity')">
+            <span class="portal-card-icon" aria-hidden="true">📟</span>
+            <span class="portal-card-title">ACTIVIDAD</span>
+            <span class="portal-card-description">Sigue en directo los movimientos de fichas del casino.</span>
+          </button>
+          <button id="lobby-card-admin" class="portal-card hidden" type="button" onclick="Admin.open()">
+            <span class="portal-card-icon" aria-hidden="true">🛠</span>
+            <span class="portal-card-title">ADMIN</span>
+            <span class="portal-card-description">Gestiona cuentas, eventos deportivos y mesas activas.</span>
+          </button>
         </div>
       </div>
+
+      <div id="lobby-section-games" class="lobby-section hidden">
+        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
+        <h1>🎰 Juegos</h1>
+        <p class="subtitle">Crea tu mesa o únete a la aventura que ya está en marcha.</p>
 
       <h2 class="lobby-sub">🏆 Los más ricos del casino</h2>
       <div class="net-box rank-box">
         <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
         <ol id="rank-list" class="rank-list"></ol>
         <button class="btn" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
-      </div>
-
-      <h2 class="lobby-sub">⚽ Apuestas deportivas</h2>
-      <div class="net-box betting-box">
-        <div class="net-row">
-          <p id="betting-status" class="hint" role="status" style="flex:1;margin:0">Buscando eventos…</p>
-          <button class="btn" type="button" onclick="Betting.refresh(true)">🔄 Actualizar</button>
-        </div>
-        <div id="betting-events" class="betting-events"></div>
-        <details class="betting-mine">
-          <summary>🎫 Mis apuestas <span id="betting-mine-count" class="hint"></span></summary>
-          <p id="betting-mine-status" class="hint">Entra en tu cuenta para ver tus apuestas.</p>
-          <div id="betting-mine-list" class="betting-bet-list"></div>
-        </details>
       </div>
 
       <h2 class="lobby-sub">📱 Multijugador online</h2>
@@ -137,13 +135,36 @@
         </div>
         <div id="open-rooms-list" class="open-rooms"></div>
       </div>
+      </div>
 
-      <h2 class="lobby-sub">💸 Consola de transacciones</h2>
-      <div class="net-box tx-console-box">
-        <div class="net-row">
-          <p id="tx-console-status" class="hint" role="status" style="flex:1;margin:0">Conectando con la consola…</p>
+      <div id="lobby-section-betting" class="lobby-section hidden">
+        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
+        <h1>⚽ Apuestas deportivas</h1>
+        <p class="subtitle">Explora los mercados, elige tus cuotas y revisa tus apuestas.</p>
+        <div class="net-box betting-box">
+          <div class="net-row">
+            <p id="betting-status" class="hint" role="status" style="flex:1;margin:0">Buscando eventos…</p>
+            <button class="btn" type="button" onclick="Betting.refresh(true)">🔄 Actualizar</button>
+          </div>
+          <div id="betting-events" class="betting-events"></div>
+          <details class="betting-mine">
+            <summary>🎫 Mis apuestas <span id="betting-mine-count" class="hint"></span></summary>
+            <p id="betting-mine-status" class="hint">Entra en tu cuenta para ver tus apuestas.</p>
+            <div id="betting-mine-list" class="betting-bet-list"></div>
+          </details>
         </div>
-        <div id="tx-console-lines" class="tx-console"></div>
+      </div>
+
+      <div id="lobby-section-activity" class="lobby-section hidden">
+        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
+        <h1>📟 Actividad</h1>
+        <p class="subtitle">Los movimientos de fichas del casino, en directo.</p>
+        <div class="net-box tx-console-box">
+          <div class="net-row">
+            <p id="tx-console-status" class="hint" role="status" style="flex:1;margin:0">Conectando con la consola…</p>
+          </div>
+          <div id="tx-console-lines" class="tx-console"></div>
+        </div>
       </div>
     </section>
 
@@ -300,7 +321,7 @@
 
     <!-- PANEL DE ADMINISTRACIÓN -->
     <section id="screen-admin" class="screen hidden">
-      <button class="btn-back" onclick="Admin.close()">← Volver</button>
+      <button class="btn-back lobby-section-back" type="button" onclick="Admin.close()">← Volver a inicio</button>
       <h1>🛠 Panel de administración</h1>
       <p class="subtitle">Cuentas, baneos y control de mesas activas.</p>
 

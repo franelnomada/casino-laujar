@@ -21,7 +21,8 @@ const TxConsole = {
     // Refresco automático solo mientras se ve el lobby (como loadOpenRooms)
     this.timer = setInterval(() => {
       const lobby = document.getElementById('screen-lobby');
-      if (lobby && !lobby.classList.contains('hidden')) this.poll();
+      const admin = document.getElementById('screen-admin');
+      if ((lobby && !lobby.classList.contains('hidden')) || (admin && !admin.classList.contains('hidden'))) this.poll();
     }, this.INTERVAL);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) this.poll(); });
   },

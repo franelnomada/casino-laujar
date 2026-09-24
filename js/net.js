@@ -38,7 +38,8 @@ const Net = {
     this.loadOpenRooms();
     setInterval(() => {
       const lobby = document.getElementById('screen-lobby');
-      if (lobby && !lobby.classList.contains('hidden')) this.loadOpenRooms();
+      const admin = document.getElementById('screen-admin');
+      if ((lobby && !lobby.classList.contains('hidden')) || (admin && !admin.classList.contains('hidden'))) this.loadOpenRooms();
     }, 8000);
   },
 
@@ -53,6 +54,7 @@ const Net = {
 
   openCreate(game = 'blackjack') {
     App.show('lobby');
+    App.openLobbySection('games');
     document.getElementById('net-create-options').classList.remove('hidden');
     document.getElementById('net-game').value = game;
     this.gameChanged();
@@ -566,18 +568,18 @@ const Net = {
     if (totalD < this._prevDealer) this._prevDealer = 0;
     const beforeD = this._prevDealer;
     const inHand = Math.max(1, s.players.filter(p => p.cardsCount > 0).length);
-    const dealBase = inHand * 2 * 0.4; // el dealer reparte al final, tras los jugadores
+    const dealBase = inHand * 2 * 0.6; // el dealer reparte al final, tras los jugadores
     let dealerHTML = '';
     let vi = 0;
     for (const c of cardsD) {
       let h = Blackjack.cardHTML(c);
-      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.35);
+      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.6);
       vi++;
       dealerHTML += h;
     }
     if (s.dealer.hidden) {
       let h = '<div class="playing-card face-down"><span class="suit">♠</span></div>';
-      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.35);
+      if (vi >= beforeD) h = this.withFly(h, dealBase + vi * 0.6);
       dealerHTML += h;
     }
     this._prevDealer = totalD;
@@ -604,8 +606,8 @@ const Net = {
             let h = Blackjack.cardHTML(c);
             if (idx >= before) {
               const delay = idx >= 2
-                ? 0.15 + (idx - 2) * 0.3                        // cartas robadas en tu turno
-                : (seatDist * 0.4) + (idx * inHand * 0.4);      // reparto inicial ordenado
+                ? 0.2 + (idx - 2) * 0.45                       // cartas robadas en tu turno
+                : (seatDist * 0.6) + (idx * inHand * 0.6);      // reparto inicial ordenado
               h = this.withFly(h, delay);
             }
             return h;

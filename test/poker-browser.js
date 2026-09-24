@@ -187,7 +187,7 @@ async function main() {
     const blackjackState=blackjackRoom.stateFor('a');
     await js(`App.show('room');Net.playerId='a';Net.state=${JSON.stringify(blackjackState)};Net.render()`);
     const bjAnimation=await js(`getComputedStyle(document.querySelector('#net-seats .fly-in')).animationDuration`);
-    assert.equal(bjAnimation,'1s','Las cartas de Blackjack animan durante 1 segundo');
+    assert.equal(bjAnimation,'0.8s','Las cartas de Blackjack animan durante 0,8 segundos');
     for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700]]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});
       const bjLayout=await js(`(()=>{const t=document.getElementById('net-blackjack-table').getBoundingClientRect();const c=document.getElementById('net-blackjack-controls').getBoundingClientRect();return {mode:document.body.classList.contains('in-blackjack-room'),meta:getComputedStyle(document.getElementById('net-blackjack-meta')).display,table:t.height,controls:c.bottom,viewport:innerHeight};})()`);

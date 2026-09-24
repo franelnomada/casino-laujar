@@ -273,6 +273,8 @@ const Auth = {
     if (userAcc) userAcc.classList.toggle('hidden', !user);
     const adminBtn = document.getElementById('account-admin');
     if (adminBtn) adminBtn.classList.toggle('hidden', !(user && user.isAdmin));
+    const lobbyAdmin = document.getElementById('lobby-card-admin');
+    if (lobbyAdmin) lobbyAdmin.classList.toggle('hidden', !(user && user.isAdmin));
     this.applyMode();
   },
 

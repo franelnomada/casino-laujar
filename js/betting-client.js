@@ -12,7 +12,8 @@ const Betting = {
     this.refresh();
     this.timer = setInterval(() => {
       const lobby = document.getElementById('screen-lobby');
-      if (lobby && !lobby.classList.contains('hidden')) this.refresh();
+      const admin = document.getElementById('screen-admin');
+      if ((lobby && !lobby.classList.contains('hidden')) || (admin && !admin.classList.contains('hidden'))) this.refresh();
     }, 5000);
   },
 

@@ -32,7 +32,7 @@ const Admin = {
   close() {
     clearInterval(this.timer);
     this.timer = null;
-    App.show('lobby');
+    App.goLobby();
   },
 
   // El panel puede abrirse y luego navegarse fuera: si la pantalla está

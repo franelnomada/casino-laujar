@@ -57,11 +57,35 @@ const App = {
     const el = document.getElementById('screen-' + screen);
     if (el) el.classList.remove('hidden');
     document.body.classList.toggle('at-welcome', screen === 'welcome');
-    if (typeof Betting !== 'undefined' && screen === 'lobby') Betting.refresh();
+    if (screen === 'lobby') {
+      this.showLobbyHome();
+      if (typeof Betting !== 'undefined') Betting.refresh();
+    }
     if (screen !== 'room') {
       document.body.classList.toggle('in-poker-room', false);
       document.body.classList.toggle('in-blackjack-room', false);
     }
+  },
+
+  showLobbyHome() {
+    this.lobbySection = 'home';
+    document.querySelectorAll('#screen-lobby > .lobby-home, #screen-lobby > .lobby-section').forEach(section => {
+      section.classList.toggle('hidden', section.id !== 'lobby-home');
+    });
+    if (typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+  },
+
+  openLobbySection(section) {
+    if (!['games', 'betting', 'activity'].includes(section)) return this.goLobby();
+    this.lobbySection = section;
+    document.getElementById('lobby-home').classList.add('hidden');
+    document.querySelectorAll('#screen-lobby > .lobby-section').forEach(panel => {
+      panel.classList.toggle('hidden', panel.id !== 'lobby-section-' + section);
+    });
+    if (typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+    if (section === 'games' && typeof Net !== 'undefined') Net.loadOpenRooms();
+    if (section === 'betting' && typeof Betting !== 'undefined') Betting.refresh();
+    if (section === 'activity' && typeof TxConsole !== 'undefined') TxConsole.poll();
   },
 
   goLobby() {
