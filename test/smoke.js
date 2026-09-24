@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { CHAT_MAX_LENGTH, CHAT_COOLDOWN_MS } = require('../js/room-chat.js');
+const { SLOT_CONFIG } = require('../js/slots-engine.js');
 
 // --- Stubs mínimos de DOM ---
 const fakeEl = () => ({
@@ -181,6 +182,15 @@ global.fetch = async (url, opts) => {
     const r = await fetch(base + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) });
     return { status: r.status, data: await r.json() };
   };
+  const slotApi = await post('/api/rooms', { name: 'Slot API', game: 'book-of-fran', chips: 1000 });
+  const slotRoom = srv.rooms.get(slotApi.data.code);
+  slotRoom._random = () => 0.999;
+  const slotSpin = await post('/api/rooms/' + slotApi.data.code + '/action', { playerId: slotApi.data.playerId, type: 'spin', amount: 100 });
+  const slotTooFast = await post('/api/rooms/' + slotApi.data.code + '/action', { playerId: slotApi.data.playerId, type: 'spin', amount: 100 });
+  check('Book of Fran API: crea sala, devuelve estado y limita la frecuencia',
+    slotApi.status === 200 && slotSpin.status === 200 && slotSpin.data.game === 'book-of-fran' &&
+    slotSpin.data.players[0].freeSpins === SLOT_CONFIG.FREE_SPINS_AWARDED && slotTooFast.status === 400);
+
   const get = async (p) => {
     const r = await fetch(base + p);
     return { status: r.status, data: await r.json() };

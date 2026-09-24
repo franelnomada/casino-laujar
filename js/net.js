@@ -9,6 +9,7 @@ const Net = {
   state: null,
   polling: false,
   rlChip: 5,
+  slotChip: 5,
   chatIds: new Set(),
   chatVisible: false,
   chatPrimed: false,
@@ -105,8 +106,8 @@ const Net = {
         return;
       }
       status.textContent = rooms.length + (rooms.length === 1 ? ' sala abierta:' : ' salas abiertas:');
-      const ICON = { blackjack: '🃏', roulette: '🎡', poker: '♠️' };
-      const NAME = { blackjack: 'Blackjack', roulette: 'Ruleta', poker: 'Póker' };
+      const ICON = { blackjack: '🃏', roulette: '🎡', poker: '♠️', 'book-of-fran': '📖' };
+      const NAME = { blackjack: 'Blackjack', roulette: 'Ruleta', poker: 'Póker', 'book-of-fran': 'Book of Fran' };
       listEl.innerHTML = rooms.map(x => {
         const inside = x.code === this.code;
         return '<div class="open-room-row">' +
@@ -209,6 +210,7 @@ const Net = {
     document.getElementById('net-blackjack-table').classList.add('hidden');
     document.getElementById('net-blackjack-controls').classList.add('hidden');
     document.getElementById('net-roulette').classList.add('hidden');
+    document.getElementById('net-book-of-fran').classList.add('hidden');
     App.show('room');
     document.getElementById('net-room-code').textContent = this.code;
     this.pollLoop();
@@ -493,6 +495,7 @@ const Net = {
     document.body.classList.toggle('in-blackjack-room', false);
     document.getElementById('net-poker').classList.add('hidden');
     document.getElementById('net-roulette').classList.add('hidden');
+    document.getElementById('net-book-of-fran').classList.add('hidden');
     document.getElementById('net-blackjack-table').classList.add('hidden');
     document.getElementById('net-blackjack-controls').classList.remove('hidden');
     this.state = null;
@@ -544,11 +547,12 @@ const Net = {
     const s = this.state;
     if (!s) return;
     this.renderChat(s.chat || []);
-    const notBJ = s.game === 'poker' || s.game === 'roulette';
+    const notBJ = s.game === 'poker' || s.game === 'roulette' || s.game === 'book-of-fran';
     document.getElementById('net-blackjack-table').classList.toggle('hidden', notBJ);
     document.getElementById('net-blackjack-controls').classList.toggle('hidden', notBJ);
     document.getElementById('net-poker').classList.toggle('hidden', s.game !== 'poker');
     document.getElementById('net-roulette').classList.toggle('hidden', s.game !== 'roulette');
+    document.getElementById('net-book-of-fran').classList.toggle('hidden', s.game !== 'book-of-fran');
     document.body.classList.toggle('in-poker-room', s.game === 'poker');
     document.body.classList.toggle('in-blackjack-room', s.game === 'blackjack');
     if (s.game === 'blackjack') {
@@ -560,6 +564,7 @@ const Net = {
       Poker.render(s); return;
     }
     if (s.game === 'roulette') { this.renderRoulette(s); return; }
+    if (s.game === 'book-of-fran') { this.renderBookOfFran(s); return; }
 
     // Dealer (animación SOLO cuando aparece una carta nueva, no en cada refresco)
     const cardsD = s.dealer.cards || [];
@@ -659,6 +664,51 @@ const Net = {
     dbl.disabled = !(s.phase === 'playing' && myTurn && you && you.cardsCount === 2 && you.chips >= you.bet && !you.played);
 
     document.getElementById('net-message').textContent = s.message || '';
+  },
+
+  slotSetChip(value) {
+    this.slotChip = Number(value);
+    document.querySelectorAll('#net-book-of-fran .chip').forEach(c => c.classList.toggle('chip-selected', Number(c.textContent) === this.slotChip));
+  },
+
+  async slotSpin() {
+    if (!this.state || this.state.game !== 'book-of-fran') return;
+    await this.action('spin', this.slotChip);
+  },
+
+  renderBookOfFran(s) {
+    const roomCode = document.getElementById('bof-room-code');
+    const reels = document.getElementById('bof-reels');
+    const lines = document.getElementById('bof-lines');
+    const message = document.getElementById('bof-message');
+    const mode = document.getElementById('bof-mode');
+    const chips = document.getElementById('bof-chips');
+    if (!reels || !lines) return;
+    if (roomCode) roomCode.textContent = s.code || '';
+    const me = s.players.find(p => p.id === this.playerId);
+    const result = me && me.lastResult;
+    const grid = result && result.grid;
+    reels.innerHTML = Array.from({ length: 3 }, (_, reel) =>
+      '<div class="bof-reel">' + Array.from({ length: 3 }, (_, row) => {
+        const id = grid && grid[reel] && grid[reel][row];
+        const symbol = (s.symbols || []).find(x => x.id === id);
+        return '<div class="bof-symbol' + (result && result.expandedReels.includes(reel) ? ' expanded' : '') + '">' +
+          (symbol ? symbol.glyph : '·') + '</div>';
+      }).join('') + '</div>'
+    ).join('');
+    lines.innerHTML = result && result.lines && result.lines.length
+      ? result.lines.map(line => '🟡 ' + (s.symbols.find(x => x.id === line.symbol) || { glyph: line.symbol }).glyph + ' × ' + line.win + ' fichas').join(' · ')
+      : '<span class="hint">Tres símbolos iguales en una fila pagan.</span>';
+    if (message) message.textContent = s.message || '';
+    if (mode) {
+      const free = me && me.freeSpins > 0;
+      const expanded = me && me.expandedSymbol ? (s.symbols.find(x => x.id === me.expandedSymbol) || { glyph: me.expandedSymbol }).glyph : '';
+      mode.textContent = free ? 'GIROS GRATIS: ' + me.freeSpins + (expanded ? ' · expands ' + expanded : '') : 'Modo normal · 3 libros activan la ronda';
+    }
+    if (chips) chips.textContent = 'Tus fichas: ' + (me ? me.chips : 0);
+    const players = document.getElementById('bof-players');
+    if (players) players.innerHTML = s.players.map(p => '<div class="seat' + (p.id === this.playerId ? ' active' : '') + '"><div class="p-name">' + p.name + (p.id === this.playerId ? ' ⭐' : '') + '</div><div class="p-chips">💰 ' + p.chips + '</div><div class="p-result">' + (p.freeSpins ? '📖 ' + p.freeSpins : '') + '</div></div>').join('');
+    this.slotSetChip(this.slotChip);
   },
 
   renderRoulette(s) {

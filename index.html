@@ -126,6 +126,12 @@
             <h2>Póker online</h2>
             <p>Texas Hold’em sin límite · 2–6 jugadores · Ciegas progresivas.</p>
           </button>
+          <button class="game-card" type="button" onclick="Net.quickStart('book-of-fran')">
+            <span class="game-card-icon" aria-hidden="true">📖</span>
+            <h2>Book of Fran</h2>
+            <p>La aventura egipcia: 3 libros dorados activan 10 giros gratis con símbolo expandido.</p>
+          </button>
+
         </div>
 
         <!-- Controles ocultos conservados para Net.quickStart/openCreate/createRoom. -->
@@ -232,6 +238,44 @@
         <div id="net-rl-players" class="seats-row"></div>
         <p id="net-rl-message" class="message" role="status"></p>
       </div>
+      <div id="net-book-of-fran" class="hidden slot-room">
+        <div class="slot-meta">
+          <button class="pk-compact-btn" type="button" onclick="Net.leave()" title="Salir de la mesa" aria-label="Salir de la mesa">←</button>
+          <b>📖 Book of Fran</b>
+          <span>💬 <strong id="bof-room-code"></strong></span>
+          <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
+        </div>
+        <div class="bof-layout">
+          <div class="bof-machine">
+            <div class="bof-title">BOOK <em>OF</em> FRAN</div>
+            <div id="bof-reels" class="bof-reels" aria-live="polite"></div>
+            <div id="bof-lines" class="bof-lines"></div>
+          </div>
+          <div class="bof-panel">
+            <p id="bof-message" class="message" role="status"></p>
+            <p id="bof-mode" class="bof-mode"></p>
+            <p id="bof-chips" class="current-bet">Tus fichas: 0</p>
+            <div class="chip-row">
+              <span class="bet-label">Apuesta:</span>
+              <button class="chip chip-5" onclick="Net.slotSetChip(5)">5</button>
+              <button class="chip chip-25" onclick="Net.slotSetChip(25)">25</button>
+              <button class="chip chip-100" onclick="Net.slotSetChip(100)">100</button>
+              <button class="chip chip-500" onclick="Net.slotSetChip(500)">500</button>
+            </div>
+            <div class="btn-row">
+              <button id="bof-spin" class="btn primary" type="button" onclick="Net.slotSpin()">Girar 📖</button>
+            </div>
+            <div class="bof-paytable">
+              <strong>Tabla de aventura</strong>
+              <span>9️⃣ 🔟 J Q K A · pagas bajas</span>
+              <span>𓋹 🐍 𓅓 · paga media</span>
+              <span>👑 · alto · 📖 comodín + 3 activan giros</span>
+            </div>
+          </div>
+        </div>
+        <div id="bof-players" class="seats-row"></div>
+      </div>
+
       <div id="net-poker" class="hidden">
         <div class="poker-meta">
           <button class="pk-compact-btn" type="button" onclick="Net.leave()" title="Salir de la mesa" aria-label="Salir de la mesa">←</button>

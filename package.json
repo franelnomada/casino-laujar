@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/smoke.js && node test/engine.js && node test/split.js && node test/poker-heads-up.js && node test/poker.js && node test/auth.js && node test/weekly-bonus.js && node test/rooms-remote.js && node test/e2e.js"
+    "test": "node test/smoke.js && node test/slots.js && node test/engine.js && node test/split.js && node test/poker-heads-up.js && node test/poker.js && node test/auth.js && node test/weekly-bonus.js && node test/rooms-remote.js && node test/e2e.js"
   },
   "engines": {
     "node": ">=18"

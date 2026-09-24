@@ -9,6 +9,7 @@ const os = require('os');
 const { BlackjackRoom, genCode, randomId } = require('./js/bj-engine.js');
 const { PokerRoom } = require('./js/poker-engine.js');
 const { RouletteRoom } = require('./js/roulette-engine.js');
+const { BookOfFranRoom } = require('./js/slots-engine.js');
 const { UserStore } = require('./js/users.js');
 const { TransactionLog } = require('./js/transactions.js');
 const { WeeklyChipBonus } = require('./js/weekly-bonus.js');
@@ -73,6 +74,7 @@ const roomsReplica = new RoomReplica({
       let room;
       if (data.game === 'poker') room = new PokerRoom(code);
       else if (data.game === 'roulette') room = new RouletteRoom(code);
+      else if (data.game === 'book-of-fran') room = new BookOfFranRoom(code);
       else room = new BlackjackRoom(code);
       Object.assign(room, data);
       room.chat = Array.isArray(room.chat) ? room.chat : [];
@@ -85,7 +87,7 @@ const roomsReplica = new RoomReplica({
 roomsReplica.init();
 
 // Guardar la sala cada vez que cambie su estado
-for (const Room of [BlackjackRoom, PokerRoom, RouletteRoom]) {
+for (const Room of [BlackjackRoom, PokerRoom, RouletteRoom, BookOfFranRoom]) {
   const touch = Room.prototype.touch;
   Room.prototype.touch = function () { touch.call(this); roomsReplica.touch(); };
 }
@@ -349,10 +351,11 @@ async function handleApi(req, res, pathname, query) {
     const body = await readBody(req);
     let code = genCode();
     while (rooms.has(code)) code = genCode(); // por si colisiona
-    if (body.game && !['blackjack', 'poker', 'roulette'].includes(body.game)) return json(res, 400, { error: 'Juego no disponible.' });
+    if (body.game && !['blackjack', 'poker', 'roulette', 'book-of-fran'].includes(body.game)) return json(res, 400, { error: 'Juego no disponible.' });
     const chips = userStore.clampChips(body.chips);
     const room = body.game === 'poker' ? new PokerRoom(code, body)
       : body.game === 'roulette' ? new RouletteRoom(code)
+      : body.game === 'book-of-fran' ? new BookOfFranRoom(code)
       : new BlackjackRoom(code);
     rooms.set(code, room);
     const playerId = randomId();
@@ -444,6 +447,9 @@ async function handleApi(req, res, pathname, query) {
         case 'spin': result = room.spin(); break;
       }
     }
+    else if (room.game === 'book-of-fran') {
+      if (body.type === 'spin') result = room.spin(playerId, body.amount);
+    }
     else switch (body.type) {
       case 'start': result = room.start(); break;
       case 'bet': result = room.bet(playerId, body.amount); break;
@@ -480,12 +486,17 @@ async function handleApi(req, res, pathname, query) {
         const after = settled ? settled.chips : (seated.accountKey ? null : result.chips);
         const username = settled ? settled.name : (seated.accountKey ? null : seated.name);
         if (username && after !== entryBalance) {
+          const slotSummary = room.game === 'book-of-fran' && seated.lastBookSummary;
+          const message = slotSummary && after > entryBalance
+            ? `${username} ha ganado ${Math.abs(after - entryBalance)} fichas en Book of Fran (${'📖'.repeat(slotSummary.books)} - ${slotSummary.spins} giros gratis)`
+            : undefined;
           txLog.add({
             type: after > entryBalance ? 'win' : 'loss',
             username,
             game: room.game || 'blackjack',
             amount: Math.abs(after - entryBalance),
             balanceAfter: after,
+            message,
           });
         }
       }
@@ -535,4 +546,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus };
+module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus };

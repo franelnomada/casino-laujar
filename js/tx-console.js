@@ -71,7 +71,7 @@ const TxConsole = {
   gameName(game) {
     if (game === 'poker') return 'póker';
     if (game === 'roulette') return 'ruleta';
-    if (game === 'blackjack') return 'blackjack';
+    if (game === 'book-of-fran') return 'Book of Fran';
     if (game === 'sports') return 'apuestas deportivas';
     return game || 'la mesa';
   },

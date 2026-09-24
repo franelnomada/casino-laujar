@@ -1150,4 +1150,26 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
   .betting-form-grid, .admin-betting-market-head, .admin-betting-outcome { grid-template-columns: 1fr; }
   .betting-outcome { grid-template-columns: minmax(0,1fr) 72px; }
   .betting-outcome .btn { grid-column: 1 / -1; }
+
+/* ---- Book of Fran: tragaperras egipcia ---- */
+.slot-room { max-width: 1050px; margin: 0 auto; }
+.slot-meta { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 8px 0 14px; }
+.slot-meta b { color: var(--gold-light); font-size: 1.2rem; }
+.bof-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .8fr); gap: 18px; align-items: start; }
+.bof-machine { padding: 20px; border: 8px solid #8a6a1c; border-radius: 18px; background: linear-gradient(145deg, #2b1b0d, #0c1820 65%, #1d2c27); box-shadow: inset 0 0 0 2px var(--gold), 0 12px 28px #0008; }
+.bof-title { text-align: center; letter-spacing: .18em; color: var(--gold-light); font: 700 1.35rem Georgia, serif; margin-bottom: 16px; }
+.bof-title em { color: #eee2bd; font-size: .75em; }
+.bof-reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; background: #070d12; border: 2px solid #5d4614; border-radius: 12px; }
+.bof-reel { display: grid; grid-template-rows: repeat(3, 1fr); gap: 7px; min-height: 240px; padding: 7px; background: linear-gradient(#202b2a, #0c1518); border-radius: 9px; }
+.bof-symbol { display: grid; place-items: center; min-height: 68px; border-radius: 8px; background: linear-gradient(145deg, #263a3a, #121c21); font-size: clamp(1.5rem, 5vw, 2.4rem); box-shadow: inset 0 0 0 1px #ffffff18; }
+.bof-symbol.expanded { background: linear-gradient(145deg, #80631a, #2f240d); box-shadow: 0 0 16px #d4af3777, inset 0 0 0 1px var(--gold-light); }
+.bof-lines { min-height: 28px; text-align: center; color: var(--gold-light); margin-top: 12px; }
+.bof-panel { background: #111c25; border: 1px solid #4a4c38; border-radius: 14px; padding: 16px; }
+.bof-mode { min-height: 1.5em; color: #e4c967; text-align: center; font-weight: bold; }
+.bof-paytable { display: grid; gap: 6px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #ffffff22; color: #d7dde1; font-size: .9rem; }
+.bof-paytable strong { color: var(--gold); }
+#net-book-of-fran .seats-row { margin-top: 18px; }
+#net-book-of-fran .seat { min-width: 150px; }
+@media (max-width: 700px) { .bof-layout { grid-template-columns: 1fr; } .bof-reel { min-height: 180px; } .bof-symbol { min-height: 50px; } }
+
 }
