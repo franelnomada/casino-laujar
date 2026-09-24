@@ -11,6 +11,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <title>Casino Night 🎰</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -77,6 +80,11 @@
             <span class="portal-card-title">ACTIVIDAD</span>
             <span class="portal-card-description">Sigue en directo los movimientos de fichas del casino.</span>
           </button>
+          <button class="portal-card" type="button" onclick="App.openLobbySection('ranking')">
+            <span class="portal-card-icon" aria-hidden="true">🏆</span>
+            <span class="portal-card-title">RANKING</span>
+            <span class="portal-card-description">Descubre quién lidera la clasificación del casino.</span>
+          </button>
           <button id="lobby-card-admin" class="portal-card hidden" type="button" onclick="Admin.open()">
             <span class="portal-card-icon" aria-hidden="true">🛠</span>
             <span class="portal-card-title">ADMIN</span>
@@ -90,14 +98,7 @@
         <h1>🎰 Juegos</h1>
         <p class="subtitle">Crea tu mesa o únete a la aventura que ya está en marcha.</p>
 
-      <h2 class="lobby-sub">🏆 Los más ricos del casino</h2>
-      <div class="net-box rank-box">
-        <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
-        <ol id="rank-list" class="rank-list"></ol>
-        <button class="btn" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
-      </div>
-
-      <h2 class="lobby-sub">📱 Multijugador online</h2>
+        <h2 class="lobby-sub">📱 Multijugador online</h2>
       <div class="net-box">
         <div class="net-row">
           <input id="net-name" class="name-input" maxlength="12" placeholder="Tu nombre">
@@ -135,6 +136,22 @@
         </div>
         <div id="open-rooms-list" class="open-rooms"></div>
       </div>
+      </div>
+
+      <div id="lobby-section-ranking" class="lobby-section ranking-section hidden">
+        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
+        <h1>🏆 Ranking</h1>
+        <p class="subtitle">Los jugadores con más fichas del casino.</p>
+        <div class="net-box rank-box">
+          <div class="rank-heading" aria-hidden="true">
+            <span>♛</span>
+            <h2>Los más ricos del casino</h2>
+            <span>♛</span>
+          </div>
+          <p id="rank-status" class="hint" role="status">Cargando clasificación…</p>
+          <ol id="rank-list" class="rank-list"></ol>
+          <button class="btn rank-refresh" type="button" onclick="Auth.loadLeaderboard(true)">🔄 Actualizar</button>
+        </div>
       </div>
 
       <div id="lobby-section-betting" class="lobby-section hidden">
