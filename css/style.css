@@ -237,20 +237,35 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px; }
 
 /* ---- Ruleta ---- */
 .roulette-top { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
-#roulette-wheel-wrap {
-  width: 260px; height: 260px; border-radius: 50%;
-  background: conic-gradient(#c0392b 0deg 10deg, #111 10deg 20deg, #2e86c1 20deg 360deg);
-  border: 10px solid var(--gold);
-  display: flex; align-items: center; justify-content: center;
-  position: relative; transition: transform 4s cubic-bezier(.2,.8,.2,1);
+.roulette-wheel-stage {
+  width: min(340px, 82vw); aspect-ratio: 1 / 1; margin: 0 auto;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  cursor: grab; filter: drop-shadow(0 12px 22px rgba(0,0,0,.55));
 }
+.roulette-wheel-stage.is-dragging { cursor: grabbing; }
+.roulette-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.roulette-svg .rlw-num {
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: .2px;
+  paint-order: stroke; stroke: rgba(0,0,0,.45); stroke-width: .7px;
+  pointer-events: none; user-select: none;
+}
+.roulette-svg .rlw-label {
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 30px; font-weight: 700;
+  paint-order: stroke; stroke: rgba(0,0,0,.5); stroke-width: 1.4px;
+  pointer-events: none; user-select: none;
+}
+.roulette-svg .rlw-ball { filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
 .roulette-result {
-  width: 130px; height: 130px; border-radius: 50%;
+  width: 76px; height: 76px; border-radius: 50%; margin: 10px auto 0;
   background: rgba(0,0,0,0.75); color: var(--gold-light);
   display: flex; align-items: center; justify-content: center;
-  font-size: 2.2rem; font-weight: bold; text-align: center;
+  font-size: 1.5rem; font-weight: bold; text-align: center;
+  border: 2px solid var(--gold);
 }
 .rl-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.rl-hint { font-size: 0.8rem; opacity: 0.6; margin: 8px 0 0; text-align: center; }
 .roulette-side { display: flex; flex-direction: column; }
 
 #roulette-table {
@@ -334,8 +349,8 @@ body { overscroll-behavior-y: contain; }
 
   /* Ruleta */
   .roulette-top { justify-content: center; }
-  #roulette-wheel-wrap { width: 200px; height: 200px; border-width: 8px; }
-  .roulette-result { width: 96px; height: 96px; font-size: 1.5rem; }
+  .roulette-wheel-stage { width: min(280px, 78vw); }
+  .roulette-result { width: 62px; height: 62px; font-size: 1.3rem; }
   .rl-grid, .rl-outside { min-width: 600px; }
   .rl-numbers { grid-template-rows: repeat(3, 40px); }
   .rl-cell { font-size: .85rem; min-height: 38px; }

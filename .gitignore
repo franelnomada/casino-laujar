@@ -4,3 +4,9 @@ node_modules/
 casino-laujar-users.json
 casino-laujar-betting.json
 .DS_Store
+
+# artefactos de captura headless de la ruleta
+test/shots/
+test/_shotlog.txt
+test/_trace.txt
+test/_ctx.txt

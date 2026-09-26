@@ -1132,6 +1132,19 @@ const Net = {
     res.textContent = n != null ? n : '?';
     res.style.color = n == null ? '' : (n === 0 ? '#2ecc71' : (RED.has(n) ? '#e74c3c' : '#ecf0f1'));
 
+    this.mountRouletteWheel();
+    // Un numero nuevo siempre se dibuja; el servidor es la unica fuente.
+    // Si el jugador acaba de pedir un giro, la rueda ANIMA hasta el numero.
+    // Si no (llego un estado al entrar en la mesa), se alinea sin animacion.
+    if (n != null && n !== this.rlShownNumber) {
+      const first = this.rlShownNumber === undefined;
+      const spinning = this.rlSpinPending;
+      this.rlShownNumber = n;
+      this.rlSpinPending = false;
+      if (first && !spinning) RouletteWheel.setNumber(n);
+      else RouletteWheel.spinTo(n);
+    }
+
     const table = document.getElementById('net-roulette-table');
     if (!table) return;
 
@@ -1165,11 +1178,6 @@ const Net = {
     html += '</div>';
     table.innerHTML = html;
 
-    if (n != null) {
-      const winCell = table.querySelector('[data-bet="n' + n + '"]');
-      if (winCell) winCell.classList.add('win-highlight');
-    }
-
     const myTotal = Object.values(bets).reduce((a, b) => a + b, 0);
     document.getElementById('net-rl-total').textContent = myTotal;
     const you = s.players.find(p => p.id === this.playerId);
@@ -1192,6 +1200,25 @@ const Net = {
     if (!s || s.game !== 'roulette') return;
     this.action('bet', this.rlChip, betId);
   },
+
+  // Monta la ruleta una sola vez y conecta el gesto de arrastre.
+  mountRouletteWheel() {
+    if (typeof RouletteWheel === 'undefined') return;
+    const host = document.getElementById('net-rl-wheel');
+    if (!host || RouletteWheel.mounted) return;
+    RouletteWheel.mount(host, { onFlick: () => this.onRouletteFlick() });
+  },
+
+  // Flick sobre la rueda: si hay apuestas, el giro es real y lo decide el
+  // servidor; si no, el giro ya es solo visual.
+  onRouletteFlick() {
+    const s = this.state;
+    if (!s || s.game !== 'roulette') return;
+    const mine = this.playerBets(s);
+    if (Object.keys(mine).length > 0) { this.rlSpinPending = true; this.action('spin'); }
+  },
+
+  rlSpin() { this.rlSpinPending = true; this.action('spin'); },
 
   rlSetChip(v) {
     this.rlChip = v;

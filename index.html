@@ -216,6 +216,7 @@
       <div id="net-roulette" class="hidden net-roulette">
         <div class="roulette-online-wrap">
           <div class="roulette-result-block">
+            <div id="net-rl-wheel" class="roulette-wheel-stage"></div>
             <div id="net-roulette-result" class="roulette-result">?</div>
             <p class="roulette-number-label">Último número</p>
           </div>
@@ -231,9 +232,10 @@
           </div>
           <div class="current-bet">En juego: <span id="net-rl-total">0</span> · Tus fichas: <span id="net-rl-chips">0</span></div>
           <div class="rl-actions">
-            <button class="btn primary" onclick="Net.action('spin')">¡Girar! 🎡</button>
+            <button class="btn primary" onclick="Net.rlSpin()">¡Girar! 🎡</button>
             <button class="btn" onclick="Net.action('clearBet')">Limpiar</button>
           </div>
+          <p class="rl-hint">Arrastra la rueda y suéltala para darle un giro.</p>
         </div>
         <div id="net-rl-players" class="seats-row"></div>
         <p id="net-rl-message" class="message" role="status"></p>
@@ -497,6 +499,7 @@
   <script src="js/split-hands.js"></script>
   <script src="js/blackjack.js"></script>
   <script src="js/poker.js"></script>
+  <script src="js/roulette-wheel.js"></script>
   <script src="js/net.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/betting-client.js"></script>
