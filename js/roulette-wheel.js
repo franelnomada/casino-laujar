@@ -304,7 +304,7 @@
   // Resalta en la mesa de apuestas el sector que ha salido.
   function highlight(n) {
     if (n == null) return;
-    const cells = document.querySelectorAll('#net-roulette-table .rl-cell');
+    const cells = document.querySelectorAll('#net-roulette-table .rlt-cell, #net-roulette-table .rl-cell');
     for (const cell of cells) {
       const isWinner = cell.getAttribute('data-bet') === 'n' + n;
       cell.classList.toggle('win-highlight', isWinner);

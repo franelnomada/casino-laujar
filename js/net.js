@@ -1149,32 +1149,52 @@ const Net = {
     if (!table) return;
 
     const bets = this.playerBets(s);
+    // Ficha: circulo dorado con el importe, apilado como en una mesa real.
     const chipTag = (id) => bets[id] ? '<span class="rl-chip">' + bets[id] + '</span>' : '';
     const click = (id) => ' onclick="Net.rlBet(\'' + id + '\')"';
 
-    let html = '<div class="rl-grid">';
-    html += '<div class="rl-cell zero-cell" data-bet="n0"' + click('n0') + '>' + chipTag('n0') + '0</div>';
+    // ---- Mesa clasica: 0 | rejilla 3x12 | docenas, con columnas y banda
+    //      de apuestas externas arriba y abajo, como en una mesa de casino.
+    let html = '<div class="rlt">';
+
+    // Banda superior: apuestas a columna (2:1), alineadas con su columna.
+    html += '<div class="rlt-band rlt-band-top"><div class="rlt-pad"></div>';
+    html += '<div class="rlt-cell rl-colbet" data-bet="col3"' + click('col3') + '>' + chipTag('col3') + 'COL 3</div>';
+    html += '<div class="rlt-cell rl-colbet" data-bet="col2"' + click('col2') + '>' + chipTag('col2') + 'COL 2</div>';
+    html += '<div class="rlt-cell rl-colbet" data-bet="col1"' + click('col1') + '>' + chipTag('col1') + 'COL 1</div>';
+    html += '</div>';
+
+    // Cuerpo: el cero a la izquierda, los 36 numeros y las docenas a la derecha.
+    html += '<div class="rlt-body">';
+    html += '<div class="rlt-cell rl-zero" data-bet="n0"' + click('n0') + '>' + chipTag('n0') + '0</div>';
+    html += '<div class="rlt-nums">';
     for (let row = 2; row >= 0; row--) {
       for (let col = 1; col <= 12; col++) {
         const num = col * 3 - row;
         const color = RED.has(num) ? 'red-cell' : 'black-cell';
         const id = 'n' + num;
-        html += '<div class="rl-cell ' + color + '" data-bet="' + id + '"' + click(id) + '>' + chipTag(id) + num + '</div>';
+        html += '<div class="rlt-cell ' + color + '" data-bet="' + id + '"' + click(id) + '>' + chipTag(id) + num + '</div>';
       }
     }
     html += '</div>';
+    html += '<div class="rlt-dozens">';
+    html += '<div class="rlt-cell" data-bet="dozen1"' + click('dozen1') + '>' + chipTag('dozen1') + '1ª 12</div>';
+    html += '<div class="rlt-cell" data-bet="dozen2"' + click('dozen2') + '>' + chipTag('dozen2') + '2ª 12</div>';
+    html += '<div class="rlt-cell" data-bet="dozen3"' + click('dozen3') + '>' + chipTag('dozen3') + '3ª 12</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Banda inferior: 1-18, par/impar, color y 19-36.
     const outside = [
-      ['dozen1', '1&#170; 12'], ['dozen2', '2&#170; 12'], ['dozen3', '3&#170; 12'],
       ['low', '1-18'], ['even', 'PAR'], ['red', 'ROJO'],
       ['black', 'NEGRO'], ['odd', 'IMPAR'], ['high', '19-36'],
-      ['col1', 'COL 1'], ['col2', 'COL 2'], ['col3', 'COL 3']
     ];
-    html += '<div class="rl-outside">';
+    html += '<div class="rlt-band rlt-band-bot">';
     for (const [id, label] of outside) {
-      const redStyle = id === 'red' ? ' style="background:var(--red)"' : '';
-      const blackStyle = id === 'black' ? ' style="background:#1c1c1c"' : '';
-      html += '<div class="rl-cell"' + redStyle + blackStyle + click(id) + '>' + chipTag(id) + label + '</div>';
+      const cls = id === 'red' ? ' rl-red' : (id === 'black' ? ' rl-black' : '');
+      html += '<div class="rlt-cell' + cls + '" data-bet="' + id + '"' + click(id) + '>' + chipTag(id) + label + '</div>';
     }
+    html += '</div>';
     html += '</div>';
     table.innerHTML = html;
 

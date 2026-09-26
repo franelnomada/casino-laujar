@@ -17,7 +17,7 @@ async function main() {
     // Headless estrangula rAF/timers en segundo plano: sin esto no hay animacion.
     '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
     '--disable-renderer-backgrounding', '--disable-features=CalculateNativeWinOcclusion',
-    '--window-size=900,1000',
+    '--window-size=1000,1400',
     '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { stdio: 'ignore' });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const url = 'http://127.0.0.1:' + server.address().port;
@@ -58,7 +58,7 @@ async function main() {
 
     await send('Runtime.enable');
     await send('Page.enable');
-    await send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 2, mobile: false });
+    await send('Emulation.setDeviceMetricsOverride', { width: 1000, height: 1400, deviceScaleFactor: 2, mobile: false });
     await send('Page.navigate', { url });
     for (let i = 0; i < 120; i++) { if (await js('typeof RouletteWheel !== "undefined" && typeof Net !== "undefined"')) break; await wait(100); }
     console.log('ruleta cargada:', await js('typeof RouletteWheel'));
@@ -71,6 +71,18 @@ async function main() {
     }
     await wait(600);
     console.log('estado:', await js('JSON.stringify({game:Net.state&&Net.state.game, mounted:RouletteWheel.mounted, sectores:document.querySelectorAll("#net-rl-wheel .rlw-num").length})'));
+    // Apuestas repartidas: un numero, una docena, una columna y una externa.
+    // Sirven para ver las fichas de oro encima de la mesa.
+    await js(`Net.rlBet('n17'); Net.rlBet('n17'); Net.rlBet('dozen2'); Net.rlBet('col1'); Net.rlBet('red'); Net.rlBet('low')`);
+    await wait(900);
+    console.log('mesa:', await js(`JSON.stringify({
+      celdas: document.querySelectorAll('#net-roulette-table .rlt-cell').length,
+      numeros: document.querySelectorAll('#net-roulette-table .rlt-nums .rlt-cell').length,
+      fichas: document.querySelectorAll('#net-roulette-table .rl-chip').length,
+      docenas: document.querySelectorAll('#net-roulette-table [data-bet^="dozen"]').length,
+      columnas: document.querySelectorAll('#net-roulette-table [data-bet^="col"]').length,
+      externas: document.querySelectorAll('#net-roulette-table .rlt-band-bot .rlt-cell').length
+    })`));
     await shot('1-reposo.png');
 
     // Apuesta y giro por boton: capturamos la frenada y el resultado
