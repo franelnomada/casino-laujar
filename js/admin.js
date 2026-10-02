@@ -47,10 +47,15 @@ const Admin = {
     this.loadUsers();
     this.loadRooms();
     if (typeof BettingAdmin !== 'undefined') this.loadBettingEvents();
+    if (typeof TournamentsAdmin !== 'undefined') this.loadTournaments();
   },
 
   loadBettingEvents() {
     if (typeof BettingAdmin !== 'undefined') BettingAdmin.loadEvents();
+  },
+
+  loadTournaments() {
+    if (typeof TournamentsAdmin !== 'undefined') TournamentsAdmin.load();
   },
 
   async loadUsers() {

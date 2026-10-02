@@ -75,6 +75,11 @@
             <span class="portal-card-title">JUEGOS</span>
             <span class="portal-card-description">Crea una mesa, únete por código o entra en una sala abierta.</span>
           </button>
+          <button class="portal-card" type="button" onclick="App.openLobbySection('tournaments')">
+            <span class="portal-card-icon" aria-hidden="true">🏆</span>
+            <span class="portal-card-title">TORNEOS</span>
+            <span class="portal-card-description">Apúntate a los torneos de póker y juega contra el resto de la mesa.</span>
+          </button>
           <button class="portal-card" type="button" onclick="App.openLobbySection('betting')">
             <span class="portal-card-icon" aria-hidden="true">⚽</span>
             <span class="portal-card-title">APUESTAS DEPORTIVAS</span>
@@ -158,6 +163,19 @@
         </div>
         <div id="open-rooms-list" class="open-rooms"></div>
       </div>
+      </div>
+
+      <div id="lobby-section-tournaments" class="lobby-section hidden">
+        <button class="btn-back lobby-section-back" type="button" onclick="App.goLobby()">← Volver a inicio</button>
+        <h1>🏆 Torneos de póker</h1>
+        <p class="subtitle">Pide tu plaza y el admin la acepta: cuando se alcance el mínimo de jugadores, la mesa arranca sola.</p>
+        <div class="net-box tournament-box">
+          <div class="net-row">
+            <p id="tournament-status" class="hint" role="status" style="flex:1;margin:0">Buscando torneos…</p>
+            <button class="btn" type="button" onclick="Tournaments.refresh(true)">🔄 Actualizar</button>
+          </div>
+          <div id="tournament-list" class="tournament-list"></div>
+        </div>
       </div>
 
       <div id="lobby-section-betting" class="lobby-section hidden">
@@ -423,11 +441,150 @@
       </div>
     </section>
 
+    <!-- MESA DE TORNEO -->
+    <section id="screen-tournament" class="screen hidden">
+      <div class="trn-topbar">
+        <button class="btn" type="button" onclick="Tournaments.closeTable()">← Salir</button>
+        <b id="trn-name">Torneo</b>
+        <span id="trn-blinds" class="trn-blinds"></span>
+        <span id="trn-status" class="trn-status" role="status" aria-live="polite"></span>
+      </div>
+      <div class="trn-stage">
+        <div id="trn-table" class="trn-table">
+          <div class="trn-center">
+            <div id="trn-info" class="trn-info"></div>
+            <div id="trn-pot" class="trn-pot"></div>
+            <div id="trn-board" class="cards trn-board"></div>
+            <div id="trn-phase" class="trn-phase"></div>
+            <div id="trn-hand-label" class="trn-hand-label"></div>
+          </div>
+          <div id="trn-seats" class="trn-seats"></div>
+        </div>
+        <div class="trn-side">
+          <div class="trn-me">
+            <div id="trn-me-cards" class="cards trn-me-cards"></div>
+            <div class="trn-me-box">
+              <b id="trn-me-name">Tú</b>
+              <span id="trn-me-chips" class="trn-me-chips"></span>
+            </div>
+          </div>
+          <div id="trn-actions" class="trn-actions">
+            <div class="trn-quick">
+              <button class="btn trn-quick-btn" type="button" onclick="Tournaments.bet('min')">Mín.</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Tournaments.bet('half')">50 %</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Tournaments.bet('pot')">Bote</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Tournaments.bet('max')">Máx.</button>
+            </div>
+            <div class="trn-amount-row">
+              <input id="trn-amount" class="name-input" type="number" inputmode="numeric" min="1" step="1" aria-label="Importe de la subida" title="Importe total de tu apuesta">
+              <button class="btn" type="button" onclick="Tournaments.stepAmount(-1)" aria-label="Bajar el importe">−</button>
+              <input id="trn-slider" class="trn-slider" type="range" min="1" max="100" value="50" step="1" aria-label="Ajuste rápido del importe">
+              <button class="btn" type="button" onclick="Tournaments.stepAmount(1)" aria-label="Subir el importe">+</button>
+            </div>
+            <div class="trn-main-actions">
+              <button id="trn-fold" class="btn trn-fold" type="button" onclick="Tournaments.act('fold')">Retirarse</button>
+              <button id="trn-call" class="btn trn-call" type="button" onclick="Tournaments.call()">Pasar</button>
+              <button id="trn-raise" class="btn trn-raise" type="button" onclick="Tournaments.act('raise')">Apostar</button>
+            </div>
+          </div>
+          <div id="trn-final" class="trn-final hidden"></div>
+        </div>
+      </div>
+      <p id="trn-message" class="message" role="status"></p>
+    </section>
+
     <!-- PANEL DE ADMINISTRACIÓN -->
     <section id="screen-admin" class="screen hidden">
       <button class="btn-back lobby-section-back" type="button" onclick="Admin.close()">← Volver a inicio</button>
       <h1>🛠 Panel de administración</h1>
       <p class="subtitle">Cuentas, baneos y control de mesas activas.</p>
+
+      <div class="admin-block">
+        <h2>🏆 Torneos de póker</h2>
+        <p class="hint">Configura el torneo (fichas, ciegas, niveles, descansos y premios), acepta a quien lo solicite y arráncalo cuando quieras.</p>
+        <form id="admin-tournament-form" class="admin-tournament-form">
+          <input type="hidden" id="trn-admin-id" value="">
+          <div class="trn-admin-grid">
+            <label>Nombre
+              <input id="trn-admin-name" class="name-input" maxlength="60" required placeholder="Relámpago nocturno">
+            </label>
+            <label>Cuota de inscripción
+              <input id="trn-admin-buyin" class="name-input" type="number" min="0" step="1" value="500" required>
+            </label>
+            <label>Fichas iniciales
+              <input id="trn-admin-chips" class="name-input" type="number" min="100" step="100" value="10000" required>
+            </label>
+            <label>Ciega pequeña
+              <input id="trn-admin-sb" class="name-input" type="number" min="1" step="1" value="100" required>
+            </label>
+            <label>Ante
+              <input id="trn-admin-ante" class="name-input" type="number" min="0" step="1" value="0">
+            </label>
+            <label>Jugadores máx.
+              <input id="trn-admin-max" class="name-input" type="number" min="2" max="9" step="1" value="9" required>
+            </label>
+            <label>Jugadores mín. (arranque automático)
+              <input id="trn-admin-min" class="name-input" type="number" min="2" max="9" step="1" value="2">
+            </label>
+            <label>Minutos por nivel
+              <input id="trn-admin-level" class="name-input" type="number" min="1" max="240" step="1" value="10">
+            </label>
+            <label>Nº de niveles
+              <input id="trn-admin-levels" class="name-input" type="number" min="1" max="100" step="1" value="20">
+            </label>
+            <label>Descanso cada N niveles
+              <input id="trn-admin-breakevery" class="name-input" type="number" min="0" max="50" step="1" value="0">
+            </label>
+            <label>Minutos de descanso
+              <input id="trn-admin-breakmin" class="name-input" type="number" min="1" max="60" step="1" value="3">
+            </label>
+            <label>Registro tardío hasta el nivel
+              <input id="trn-admin-late" class="name-input" type="number" min="0" max="100" step="1" value="0">
+            </label>
+            <label>Nº de mesas
+              <input id="trn-admin-tables" class="name-input" type="number" min="1" max="20" step="1" value="1">
+              <span class="hint">Si hay más jugadores que asientos, el torneo abre más mesas de <span id="trn-admin-seats-hint">9</span> jugadores cada una.</span>
+            </label>
+            <label>Equilibrar mesas cada N niveles
+              <input id="trn-admin-move" class="name-input" type="number" min="0" max="100" step="1" value="0">
+              <span class="hint">0 = solo cuando una mesa se queda con un jugador suelto. Por ejemplo, 2 = en los niveles 2, 4, 6…</span>
+            </label>
+            <label>Visibilidad
+              <select id="trn-admin-visibility" class="name-input">
+                <option value="publico">Público</option>
+                <option value="privado">Privado (solo：admin e invitados)</option>
+              </select>
+            </label>
+          </div>
+          <label>Cuándo arranca
+            <select id="trn-admin-startmode" class="name-input">
+              <option value="jugadores">Al alcanzar el mínimo de jugadores</option>
+              <option value="programado">En una fecha y hora concretas</option>
+              <option value="manual">Solo cuando el admin lo arranque</option>
+            </select>
+          </label>
+          <label id="trn-admin-startat-wrap">Fecha y hora de inicio
+            <input id="trn-admin-startat" class="name-input" type="datetime-local">
+            <span class="hint">Ese día y a esa hora el torneo arranca solo, haya los jugadores que haya. Si eliges solo el día, se empieza a las 20:00.</span>
+          </label>
+          <details class="trn-admin-prizes">
+            <summary>Premios del bote</summary>
+            <p class="hint">Porcentaje sobre el bote o fichas fijas. Lo que sobre se reparte entre los premios en %.</p>
+            <div id="trn-admin-prize-list" class="trn-admin-prize-list"></div>
+            <button class="btn" type="button" onclick="TournamentsAdmin.addPrize()">+ Premio</button>
+          </details>
+          <label>Descripción
+            <input id="trn-admin-desc" class="name-input" maxlength="400" placeholder="Ciegas rápidas, sin descansos">
+          </label>
+          <div class="btn-row">
+            <button class="btn primary" type="submit">Guardar torneo</button>
+            <button class="btn" type="button" onclick="TournamentsAdmin.resetForm()">Limpiar</button>
+          </div>
+          <p id="admin-tournament-form-status" class="hint" role="status"></p>
+        </form>
+        <div id="admin-tournament-list" class="admin-tournament-list"></div>
+        <p id="admin-tournament-status" class="hint" role="status"></p>
+      </div>
 
       <div class="admin-block">
         <h2>👥 Cuentas</h2>
@@ -501,9 +658,10 @@
   <script src="js/poker.js"></script>
   <script src="js/roulette-wheel.js"></script>
   <script src="js/net.js"></script>
+  <script src="js/tournaments.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/betting-client.js"></script>
   <script src="js/tx-console.js"></script>
-  <script>App.init(); Net.init(); Auth.init(); Betting.init(); TxConsole.init();</script>
+  <script>App.init(); Net.init(); Auth.init(); Betting.init(); TxConsole.init(); Tournaments.init();</script>
 </body>
 </html>

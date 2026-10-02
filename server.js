@@ -18,6 +18,7 @@ const { BettingStore } = require('./js/betting.js');
 const { FirebaseRest } = require('./js/firebase-rest.js');
 const { RoomReplica } = require('./js/rooms-remote.js');
 const { addChatMessage } = require('./js/room-chat.js');
+const { TournamentStore } = require('./js/tournament-store.js');
 
 
 const ROOT = __dirname;
@@ -63,6 +64,14 @@ const BETTING_PATH = process.env.BETTING_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-betting.json');
 const bettingStore = new BettingStore({ filePath: BETTING_PATH, userStore, txLog });
 
+// ---- Torneos de póker: configuración, solicitudes y mesas en marcha ----
+// TORNEOS_FILE (o DATA_DIR) mueve el fichero local. La réplica en Firebase
+// usa las mismas variables que las cuentas y vive en
+// FIREBASE_TOURNAMENTS_PATH (por defecto casino-laujar/tournaments).
+const TOURNAMENTS_PATH = process.env.TOURNAMENTS_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-tournaments.json');
+const tournamentStore = new TournamentStore({ filePath: TOURNAMENTS_PATH, userStore, txLog });
+
 // ---- Persistencia de salas: disco local + réplica opcional en Firebase ----
 // La copia local (JSON) sobrevive a reinicios del proceso en la misma
 // instancia. La réplica remota (RoomReplica) sobrevive además a los
@@ -103,6 +112,9 @@ setInterval(() => {
   for (const room of rooms.values()) if (room.game === 'poker') room.tick();
 }, 1000).unref();
 setInterval(() => bettingStore.lockExpired(), 1000).unref();
+// Reloj de los torneos: reparte manos, sube niveles de ciegas y,
+// cuando solo queda un jugador, reparte los premios del bote.
+setInterval(() => tournamentStore.tick(), 1000).unref();
 
 function json(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -203,6 +215,36 @@ async function handleAdmin(req, res, pathname, query) {
 
   if (req.method === 'GET' && pathname === '/api/admin/betting/events') {
     return json(res, 200, { events: bettingStore.listEvents(true) });
+  }
+
+  // ---------- Torneos (panel de administración) ----------
+  if (req.method === 'GET' && pathname === '/api/admin/tournaments') {
+    return json(res, 200, { tournaments: tournamentStore.adminList(), storage: tournamentStore.storageInfo() });
+  }
+  if (req.method === 'POST' && pathname === '/api/admin/tournaments') {
+    const result = tournamentStore.create(body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, tournament: result.tournament });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/tournaments\/([a-z0-9]+)\/update$/))) {
+    const result = tournamentStore.update(m[1], body.tournament || body);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, tournament: result.tournament });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/tournaments\/([a-z0-9]+)\/delete$/))) {
+    const result = tournamentStore.remove(m[1]);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/tournaments\/requests\/([a-z0-9]+)\/(accept|reject)$/))) {
+    const result = tournamentStore.decide(token, m[1], m[2] === 'accept');
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, request: result.request, playerId: result.playerId || null });
+  }
+  if (req.method === 'POST' && (m = pathname.match(/^\/api\/admin\/tournaments\/([a-z0-9]+)\/(start|finish)$/))) {
+    const result = m[2] === 'start' ? tournamentStore.start(m[1]) : tournamentStore.forceFinish(m[1]);
+    if (!result.ok) return json(res, result.status || 400, { error: result.error });
+    return json(res, 200, { ok: true, tournament: result.tournament, paid: result.paid || 0 });
   }
   if (req.method === 'POST' && pathname === '/api/admin/betting/events') {
     const result = bettingStore.createEvent(body);
@@ -346,6 +388,70 @@ async function handleApi(req, res, pathname, query) {
     const result = bettingStore.mine(tokenFrom(req, {}, query));
     if (!result.ok) return json(res, result.status || 401, { error: result.error });
     return json(res, 200, { ok: true, bets: result.bets });
+  }
+
+  // ---------- Torneos públicos ----------
+  // Lista de torneos con el estado de la sesión: si el jugador ya está
+  // sentado, incluye su playerId para poder abrir la mesa.
+  if (req.method === 'GET' && pathname === '/api/tournaments') {
+    return json(res, 200, { ok: true, tournaments: tournamentStore.publicList(tokenFrom(req, {}, query)) });
+  }
+
+  if (pathname.startsWith('/api/tournaments/')) {
+    const rest = pathname.slice('/api/tournaments/'.length);
+    let m;
+
+    // Pedir plaza: el jugador envía su solicitud y el admin la acepta.
+    if (req.method === 'POST' && (m = rest.match(/^([a-z0-9]+)\/request$/))) {
+      const body = await readBody(req);
+      const result = tournamentStore.request(tokenFrom(req, body, query), m[1]);
+      if (!result.ok) return json(res, result.status || 400, { error: result.error });
+      return json(res, 200, { ok: true, request: result.request, duplicate: !!result.duplicate });
+    }
+    if (req.method === 'POST' && (m = rest.match(/^([a-z0-9]+)\/cancel$/))) {
+      const body = await readBody(req);
+      const result = tournamentStore.cancelRequest(tokenFrom(req, body, query), m[1]);
+      if (!result.ok) return json(res, result.status || 400, { error: result.error });
+      return json(res, 200, { ok: true, request: result.request });
+    }
+
+    // Estado de la mesa (long-polling, como las salas normales).
+    if (req.method === 'GET' && (m = rest.match(/^([a-z0-9]+)\/state$/))) {
+      const room = tournamentStore.roomFor(m[1]);
+      if (!room) return json(res, 404, { error: 'Este torneo todavía no tiene mesa.' });
+      const playerId = query.get('player') || '';
+      const since = parseInt(query.get('v') || '0', 10);
+      const send = () => {
+        // Quien pide estado con un playerId desconocido ya no está en la mesa.
+        // Con varias mesas, el contenedor guarda los jugadores de todas.
+        const sentado = typeof room.tableFor === 'function'
+          ? !!room.tableFor(playerId)
+          : !!room.find(playerId);
+        if (playerId && !sentado) {
+          return json(res, 200, { game: 'tournament', notSeated: true, version: room.version });
+        }
+        const now = Date.now();
+        const state = room.stateFor(playerId, now);
+        const subscriber = typeof res.write === 'function' ? res : null;
+        if (subscriber && !subscriber.writableEnded) json(res, 200, state);
+      };
+      if (room.version !== since) return send();
+      const timer = setTimeout(send, 20000);
+      if (timer.unref) timer.unref();
+      res.on('close', () => clearTimeout(timer));
+      return undefined;
+    }
+
+    // Acción de póker (pasar, igualar, subir, retirarse).
+    if (req.method === 'POST' && (m = rest.match(/^([a-z0-9]+)\/action$/))) {
+      const body = await readBody(req);
+      const room = tournamentStore.roomFor(m[1]);
+      if (!room) return json(res, 404, { error: 'Este torneo todavía no tiene mesa.' });
+      const result = room.action(String(body.playerId || ''), String(body.type || ''), body.amount);
+      if (!result.ok) return json(res, 400, { error: result.error });
+      tournamentStore.save();
+      return json(res, 200, { ok: true, version: room.version, state: room.stateFor(String(body.playerId || '')) });
+    }
   }
 
   // Cuentas de jugador
@@ -560,7 +666,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/')) {
     try {
       if (pathname === '/api/ping') {
-        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), jackpotStorage: slotJackpot.storageInfo(), jackpot: slotJackpot.view(), weeklyBonus: weeklyBonus.info(), uptime: process.uptime() });
+        return json(res, 200, { ok: true, rooms: rooms.size, accounts: userStore.count(), storage: userStore.storageInfo(), roomsStorage: roomsReplica.info(), bettingStorage: bettingStore.storageInfo(), tournamentStorage: tournamentStore.storageInfo(), jackpotStorage: slotJackpot.storageInfo(), jackpot: slotJackpot.view(), weeklyBonus: weeklyBonus.info(), uptime: process.uptime() });
       }
       return await handleApi(req, res, pathname, new URLSearchParams(rawQuery || ''));
     } catch (err) {
@@ -592,4 +698,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus, slotJackpot };
+module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus, slotJackpot, tournamentStore };

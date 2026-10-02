@@ -330,6 +330,18 @@ async function main() {
       assert.equal(bjLayout.mode&&bjLayout.meta!=='none'&&bjLayout.table>180&&bjLayout.controls<=bjLayout.viewport,true,'Blackjack compacto en '+width+'x'+height+' '+JSON.stringify(bjLayout));
       assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Blackjack sin scroll a '+width+'x'+height);
     }
+    // Salir en el iPhone: la barra superior no puede invadir la zona de la
+    // barra de estado/notificaciones y el "←" necesita zona táctil de 44x44.
+    const bjExit=await js(`(()=>{const b=document.querySelector('#net-blackjack-meta .pk-compact-btn');const t=document.getElementById('topbar');
+      const r=b.getBoundingClientRect(),bar=t.getBoundingClientRect();const hit=getComputedStyle(b,'::after');
+      return {top:Math.round(r.top),barTop:Math.round(bar.top),barPadTop:parseFloat(getComputedStyle(t).paddingTop),
+        hitW:parseFloat(hit.width),hitH:parseFloat(hit.height),label:b.getAttribute('aria-label')};})()`);
+    assert.equal(bjExit.label,'Salir de la mesa','El botón de la barra de blackjack es el de salir');
+    assert.ok(bjExit.hitW>=44&&bjExit.hitH>=44,`El botón de salir necesita zona táctil de 44x44: ${JSON.stringify(bjExit)}`);
+    assert.ok(bjExit.top>=bjExit.barTop+Math.min(bjExit.barPadTop,1),`El botón de salir queda bajo la barra de estado: ${JSON.stringify(bjExit)}`);
+    const css=fs.readFileSync(path.join(__dirname,'..','css','style.css'),'utf8');
+    assert.match(css,/in-blackjack-room #topbar[^}]*safe-area-inset-top/,'El topbar de Blackjack respeta la zona segura superior');
+    assert.match(css,/\.pk-compact-btn::after[^}]*44px[^}]*44px/,'El botón de salir amplía su zona táctil a 44x44');
     await js(`Net.state=${JSON.stringify({...blackjackState,phase:'finished',message:'Dealer: 20 — Ana gana 50 fichas'})};Net.render()`);
     assert.match(await js(`document.getElementById('net-blackjack-result').textContent`),/Ana gana 50 fichas/,'Blackjack muestra el importe ganado al terminar');
     const cards = text => text.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));

@@ -3,6 +3,7 @@ node_modules/
 *.log
 casino-laujar-users.json
 casino-laujar-betting.json
+casino-laujar-tournaments.json
 .DS_Store
 
 # artefactos de captura headless de la ruleta

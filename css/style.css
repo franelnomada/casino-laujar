@@ -21,7 +21,9 @@ body {
 /* ---- Topbar ---- */
 #topbar {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 24px;
+  /* La barra de estado del iPhone se lleva su hueco arriba: sin esto, la barra
+     de la app (y el botón de salir) queda debajo de las notificaciones. */
+  padding: max(12px, env(safe-area-inset-top, 0px)) 24px 12px;
   background: rgba(0,0,0,0.35);
   border-bottom: 2px solid var(--gold);
   position: sticky; top: 0; z-index: 10;
@@ -360,7 +362,7 @@ body { overscroll-behavior-y: contain; }
 @media (max-width: 760px) {
   /* General */
   #topbar {
-    padding: 10px 14px;
+    padding: max(10px, env(safe-area-inset-top, 0px)) 14px 10px;
     padding-left: max(14px, env(safe-area-inset-left));
     padding-right: max(14px, env(safe-area-inset-right));
   }
@@ -710,15 +712,235 @@ body.at-welcome #topbar { display: none; }
   .poker-table { gap: 14px 6px; padding: 10px 4px 18px; }
   .poker-meta { font-size: .85rem; gap: 6px 12px; }
 }
+/* ==== Torneos: mesa estilo PokerStars (referencia del admin) ==== */
+body.in-tournament-room { height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+body.in-tournament-room #topbar { flex: 0 0 auto; }
+body.in-tournament-room .brand { font-size: .95rem; }
+/* En la mesa ya no se elige nombre: se recupera ese ancho para el tapete. */
+body.in-tournament-room .topbar-session { display: none; }
+body.in-tournament-room .topbar-right { flex: 0 0 auto; }
+body.in-tournament-room .chips-display { padding: 4px 8px; font-size: .78rem; }
+body.in-tournament-room .auth-topbar { padding: 5px 9px; font-size: .78rem; }
+/* main (#app) se queda con el alto que sobra: así la mesa crece. */
+body.in-tournament-room #app {
+  display: flex; flex-direction: column; flex: 1;
+  min-height: 0; min-width: 0; max-width: 100%; width: 100%;
+  padding: 6px; overflow: hidden;
+}
+/* Solo cuando la pantalla está activa: una regla por id no puede ser anulada
+   por la clase .screen.hidden, así que se filtra con :not(.hidden). */
+#screen-tournament:not(.hidden) { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+.trn-topbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  background: #101922; border: 1px solid #ffffff1f; border-radius: 10px; padding: 6px 10px;
+  flex: 0 0 auto;
+}
+.trn-topbar b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30%; }
+.trn-topbar .btn { padding: 6px 10px; }
+.trn-topbar b { color: var(--gold-light); }
+.trn-blinds { font-variant-numeric: tabular-nums; color: #9fd8b8; font-weight: bold; }
+.trn-status {
+  flex: 1; text-align: right; font-size: .85rem; color: #cfd8e3; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.trn-stage { flex: 1; min-height: 0; display: flex; gap: 8px; min-width: 0; }
+.trn-table {
+  position: relative; flex: 1 1 auto; min-width: 0; min-height: 260px;
+  border: 14px solid #2a2320; border-radius: 48% / 46%;
+  background: radial-gradient(ellipse at 50% 45%, #1d6b4f, #0c3a2c 75%);
+  box-shadow: inset 0 0 0 3px #b58a54, inset 0 0 70px #061a15, 0 10px 26px #0009;
+}
+.trn-table::before {
+  content: ''; position: absolute; inset: 18px; border: 2px solid #ffffff1a; border-radius: inherit;
+  background: url('../assets/logo.png') center / 170px no-repeat; opacity: .028; pointer-events: none;
+}
+.trn-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 8px;
+}
+.trn-info {
+  color: #bfe6cf; font-size: .78rem; line-height: 1.35; white-space: pre-line;
+  background: #0d2a2299; border: 1px solid #ffffff1f; border-radius: 8px; padding: 4px 8px;
+}
+.trn-pot { color: #ffe9a8; font-weight: bold; font-size: 1.05rem; }
+.trn-board { justify-content: center; flex-wrap: nowrap; gap: 5px; min-height: 74px; }
+.trn-board .playing-card { width: 46px; height: 68px; font-size: .9rem; }
+.trn-phase, .trn-hand-label { color: #d8e6de; font-size: .78rem; }
+
+.trn-seats { position: absolute; inset: 0; }
+.trn-seat {
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: clamp(78px, 17%, 116px); transform: translate(-50%, -50%);
+}
+.trn-avatar {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(#3d4b57, #1d2731); border: 2px solid #6d7b88;
+  color: #e8eef5; font-weight: bold; font-size: .95rem;
+}
+.trn-seat-box {
+  background: #10161de6; border: 1px solid #ffffff26; border-radius: 8px;
+  padding: 3px 6px; text-align: center; max-width: 100%; overflow-wrap: anywhere;
+}
+.trn-seat-name { display: block; font-size: .72rem; color: #e6edf5; }
+.trn-seat-chips { display: block; font-size: .78rem; color: #ffe9a8; font-variant-numeric: tabular-nums; }
+.trn-seat-cards { display: flex; gap: 2px; min-height: 30px; }
+.trn-seat-cards .playing-card { width: 24px; height: 34px; font-size: .55rem; }
+/* Los distintivos (D, SB, BB) van en una línea: nunca deben partirse. */
+.trn-seat-badges { font-size: .58rem; color: #9fb0c0; min-height: 1em; white-space: nowrap; }
+.trn-seat.active .trn-avatar { border-color: var(--gold); box-shadow: 0 0 12px #d4af3788; }
+.trn-seat.active .trn-seat-box { border-color: var(--gold); }
+.trn-seat.folded { opacity: .45; }
+.trn-seat.eliminated { opacity: .35; filter: grayscale(1); }
+.trn-seat.self .trn-seat-box { border-color: #4ea3ff; }
+
+.trn-side { width: min(250px, 34%); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.trn-me { display: flex; align-items: center; gap: 6px; }
+.trn-me-cards { display: flex; gap: 3px; }
+.trn-me-cards .playing-card { width: 40px; height: 58px; font-size: .8rem; }
+.trn-me-box {
+  flex: 1; min-width: 0; background: #10161de6; border: 1px solid #4ea3ff66;
+  border-radius: 8px; padding: 4px 6px; text-align: center; overflow-wrap: anywhere;
+}
+.trn-me-box b { display: block; font-size: .75rem; }
+.trn-me-chips { display: block; color: #ffe9a8; font-size: .82rem; }
+
+.trn-actions { display: flex; flex-direction: column; gap: 6px; }
+.trn-actions.disabled { opacity: .55; }
+.trn-quick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+.trn-quick-btn { background: #b32424; color: #fff; font-size: .8rem; padding: 8px 4px; }
+.trn-quick-btn:hover { background: #cf2f2f; }
+.trn-amount-row { display: flex; align-items: center; gap: 4px; }
+.trn-amount-row .name-input { width: 74px; min-height: 34px; }
+.trn-slider { flex: 1; min-width: 0; accent-color: #4ea3ff; }
+.trn-main-actions { display: flex; flex-direction: column; gap: 5px; }
+.trn-fold { background: #2b3644; color: #e6edf5; }
+.trn-call { background: #1f7a4d; color: #fff; }
+.trn-raise { background: #b32424; color: #fff; font-weight: bold; }
+
+.trn-final {
+  background: #0f1620f2; border: 1px solid #d4af3755; border-radius: 12px;
+  padding: 10px; overflow-y: auto; font-size: .85rem;
+}
+.trn-final h3 { margin: 0 0 6px; color: var(--gold-light); font-size: .95rem; }
+.trn-standings { margin: 0 0 8px; padding-left: 20px; }
+.trn-standings .me { color: var(--gold-light); font-weight: bold; }
+
+/* Listado de torneos del lobby */
+.tournament-list { display: grid; gap: 10px; }
+.tournament-card {
+  background: #0f1720; border: 1px solid #ffffff1f; border-radius: 12px; padding: 12px;
+}
+.tournament-card.trn-status-en_curso { border-color: #4ea3ff66; }
+.tournament-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tournament-card-head strong { font-size: 1.05rem; color: var(--gold-light); }
+
+/* Formulario de torneos en el panel admin */
+.admin-tournament-form { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 16px; }
+.trn-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.trn-admin-grid label, .admin-tournament-form > label {
+  display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: #cfd8e3;
+}
+.trn-admin-check { flex-direction: row !important; align-items: center; gap: 8px !important; }
+/* Aviso de fecha programada en el listado del admin */
+.trn-when { color: var(--gold); opacity: .9; margin: 6px 0; }
+.trn-admin-prizes summary { cursor: pointer; color: var(--gold); font-size: .85rem; }
+.trn-admin-prize-list { display: grid; gap: 6px; margin: 8px 0; }
+.trn-prize-row { display: grid; grid-template-columns: 68px 1fr 90px 1fr auto; gap: 6px; align-items: center; }
+.admin-tournament { border: 1px solid #ffffff1f; border-radius: 10px; padding: 10px; margin-bottom: 10px; background: #0f1720; }
+.admin-tournament-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.admin-tournament-requests { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 5px; }
+.trn-request {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: #16202c; border-radius: 8px; padding: 5px 8px; font-size: .85rem;
+}
+.trn-request-pendiente { border-left: 3px solid var(--gold); }
+.trn-request-aceptada { border-left: 3px solid #58d68d; }
+.trn-request-rechazada { border-left: 3px solid #b32424; opacity: .7; }
+
+@media (max-width: 760px) {
+  /* En vertical la mesa manda: los controles pasan a una franja inferior. */
+  .trn-stage { flex-direction: column; }
+  .trn-table { flex: 1 1 auto; min-height: 300px; border-width: 8px; }
+  .trn-side {
+    width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px;
+    background: #0d151ecc; border: 1px solid #ffffff1f; border-radius: 12px; padding: 8px;
+  }
+  .trn-me { flex: 0 0 auto; flex-direction: column; gap: 2px; max-width: 42%; }
+  .trn-me-box { text-align: left; }
+  .trn-actions { flex: 1; min-width: 0; }
+  .trn-quick { grid-template-columns: repeat(4, 1fr); }
+  .trn-quick-btn { font-size: .72rem; padding: 7px 2px; }
+  .trn-amount-row .name-input { width: 62px; }
+  .trn-main-actions { flex-direction: row; }
+  .trn-main-actions .btn { flex: 1; font-size: .78rem; padding: 9px 4px; }
+  .trn-seat { width: 62px; }
+  .trn-avatar { width: 28px; height: 28px; font-size: .75rem; }
+  .trn-seat-name { font-size: .6rem; }
+  .trn-seat-chips { font-size: .66rem; }
+  .trn-seat-cards .playing-card { width: 17px; height: 24px; font-size: .42rem; }
+  .trn-seat-badges { font-size: .52rem; }
+  .trn-board .playing-card { width: 30px; height: 44px; font-size: .68rem; }
+  .trn-info, .trn-phase, .trn-hand-label { font-size: .68rem; }
+  .trn-pot { font-size: .9rem; }
+  .trn-topbar { gap: 6px; padding: 5px 8px; }
+  .trn-status { font-size: .72rem; }
+  /* Las ciegas ya salen en el panel central de la mesa: aquí sobra espacio. */
+  .trn-blinds { display: none; }
+  .trn-topbar b { max-width: 40%; }
+  .trn-prize-row { grid-template-columns: 54px 1fr 70px auto; }
+}
+
+.trn-badge {
+  font-size: .68rem; letter-spacing: 1px; padding: 3px 8px; border-radius: 999px;
+  border: 1px solid #ffffff33; color: #cfd8e3;
+}
+.trn-badge-registro { border-color: #4ea3ff88; color: #9fd0ff; }
+.trn-badge-en_curso { border-color: #58d68d; color: #8ff0b4; }
+.trn-badge-finalizado { border-color: #d4af37; color: var(--gold-light); }
+.tournament-facts {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 8px 0; font-size: .85rem;
+}
+.tournament-facts dt { color: #8fa0b0; }
+.tournament-facts dd { margin: 0; color: #e6edf5; }
+.tournament-prizes { margin: 6px 0; padding-left: 18px; font-size: .85rem; color: #ffe9a8; }
+.tournament-results { margin: 6px 0; padding-left: 20px; font-size: .85rem; }
+.tournament-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.tournament-actions .hint { margin: 0; }
+/* "Cómo inscribirse": enlace a WhatsApp en verde, debajo del botón de entrar. */
+.trn-howto {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  text-decoration: none; background: #128c7e; border-color: #25d366; color: #fff;
+}
+.trn-howto:hover, .trn-howto:focus-visible { border-color: #25d366; background: #17a08f; }
+.trn-howto:active { transform: scale(0.96); }
+
+
+/* Asientos repartidos alrededor del óvalo (sentido horario desde la izquierda).
+   El translate(-50%,-50%) centra la caja: se deja margen para que no se corte. */
+.trn-seat-0 { left: 14%; top: 33%; }
+.trn-seat-1 { left: 16%; top: 64%; }
+.trn-seat-2 { left: 30%; top: 86%; }
+.trn-seat-3 { left: 50%; top: 91%; }
+.trn-seat-4 { left: 70%; top: 86%; }
+.trn-seat-5 { left: 84%; top: 64%; }
+.trn-seat-6 { left: 86%; top: 33%; }
+.trn-seat-7 { left: 70%; top: 11%; }
+.trn-seat-8 { left: 30%; top: 11%; }
+
 
 /* ==== PÃ³ker compacto: una sola pantalla, sin scroll vertical ==== */
 body.in-poker-room { height: 100dvh; min-height: 0; overflow: hidden; }
-body.in-poker-room #topbar { height: 50px; padding: 5px 16px; flex-shrink: 0; }
+body.in-poker-room #topbar {
+  height: calc(50px + env(safe-area-inset-top, 0px));
+  padding: calc(5px + env(safe-area-inset-top, 0px)) 16px 5px;
+  flex-shrink: 0;
+}
 body.in-poker-room .brand { font-size: 1.05rem; }
 body.in-poker-room .chips-display { padding: 5px 10px; font-size: .82rem; }
 body.in-poker-room .auth-topbar { padding: 5px 10px; font-size: .82rem; }
 body.in-poker-room #app {
-  width: 100%; max-width: 1600px; height: calc(100dvh - 50px);
+  width: 100%; max-width: 1600px; height: calc(100dvh - 50px - env(safe-area-inset-top, 0px));
   min-height: 0; padding: 0; overflow: hidden;
 }
 body.in-poker-room #screen-room {
@@ -745,6 +967,14 @@ body.in-poker-room #pk-clock { min-width: 0; overflow: hidden; text-overflow: el
 .pk-compact-btn {
   width: 28px; height: 28px; flex: 0 0 28px; padding: 0; border: 1px solid #ffffff35;
   border-radius: 7px; color: var(--text); background: #263547; cursor: pointer;
+  position: relative;
+}
+/* El botón se ve pequeño para no robar altura a la mesa, pero se toca como
+   pide iOS: 44x44 reales mediante un pseudo-elemento que no affecta al diseño.
+   Así el "←" de salir no falla el primer toque junto a la barra de estado. */
+.pk-compact-btn::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
 }
 .pk-compact-btn:hover { border-color: var(--gold); }
 body.in-poker-room .poker-table {
@@ -848,7 +1078,7 @@ body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-ar
 }
 
 @media (max-width: 760px) {
-  body.in-poker-room #topbar { padding: 5px 10px; }
+  body.in-poker-room #topbar { padding: calc(5px + env(safe-area-inset-top, 0px)) 10px 5px; }
   body.in-poker-room #screen-room { padding: 5px; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 5px; }
   body.in-poker-room #net-poker { grid-template-rows: 27px minmax(0, 1fr) auto; gap: 4px; }
   body.in-poker-room .poker-meta { padding: 2px 5px; gap: 5px; justify-content: space-between; font-size: .67rem; }
@@ -898,12 +1128,16 @@ body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-ar
 /* ==== Blackjack compacto: misma sala que Poker, sin cambiar sus reglas ==== */
 .blackjack-meta { display: none; }
 body.in-blackjack-room { height: 100dvh; min-height: 0; overflow: hidden; }
-body.in-blackjack-room #topbar { height: 50px; padding: 5px 16px; flex-shrink: 0; }
+body.in-blackjack-room #topbar {
+  height: calc(50px + env(safe-area-inset-top, 0px));
+  padding: calc(5px + env(safe-area-inset-top, 0px)) 16px 5px;
+  flex-shrink: 0;
+}
 body.in-blackjack-room .brand { font-size: 1.05rem; }
 body.in-blackjack-room .chips-display { padding: 5px 10px; font-size: .82rem; }
 body.in-blackjack-room .auth-topbar { padding: 5px 10px; font-size: .82rem; }
 body.in-blackjack-room #app {
-  width: 100%; max-width: 1600px; height: calc(100dvh - 50px);
+  width: 100%; max-width: 1600px; height: calc(100dvh - 50px - env(safe-area-inset-top, 0px));
   min-height: 0; padding: 0; overflow: hidden;
 }
 body.in-blackjack-room #screen-room {
@@ -972,7 +1206,7 @@ body.in-blackjack-room #net-blackjack-controls .message { min-height: 0; margin:
 body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)); }
 
 @media (max-width: 760px) {
-  body.in-blackjack-room #topbar { padding: 5px 10px; }
+  body.in-blackjack-room #topbar { padding: calc(5px + env(safe-area-inset-top, 0px)) 10px 5px; }
   body.in-blackjack-room #screen-room { padding: 5px; grid-template-rows: 27px minmax(0, 1fr) auto; gap: 4px; }
   body.in-blackjack-room .blackjack-meta { padding: 2px 5px; gap: 5px; justify-content: space-between; font-size: .67rem; }
   body.in-blackjack-room .blackjack-meta > b { display: none; }
@@ -1364,7 +1598,12 @@ body.in-blackjack-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(saf
 }
 /* ---- Layout compacto de Book of Fran: una sola pantalla ---- */
 body.in-slot-room { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
-body.in-slot-room #topbar { position: static; flex: 0 0 52px; height: 52px; min-height: 52px; padding: 5px 12px; }
+body.in-slot-room #topbar {
+  position: static; flex: 0 0 calc(52px + env(safe-area-inset-top, 0px));
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  min-height: calc(52px + env(safe-area-inset-top, 0px));
+  padding: calc(5px + env(safe-area-inset-top, 0px)) 12px 5px;
+}
 body.in-slot-room .brand { font-size: 1.05rem; }
 body.in-slot-room .chips-display { padding: 5px 10px; font-size: .82rem; }
 body.in-slot-room main { flex: 1 1 auto; width: 100%; min-height: 0; max-width: 1180px; padding: 6px 12px; overflow: hidden; }
@@ -1425,7 +1664,12 @@ body.in-slot-room .bof-paytable-details[open] { position: absolute; z-index: 30;
 body.in-slot-room .bof-paytable { max-height: min(330px, 48vh); margin: 0; padding: 6px; overflow: auto; font-size: .6rem; }
 body.in-slot-room .bof-pay-row { padding: 2px 4px; }
 @media (max-width: 600px) {
-  body.in-slot-room #topbar { flex-basis: 48px; height: 48px; min-height: 48px; padding: 4px 7px; gap: 5px; }
+  body.in-slot-room #topbar {
+    flex-basis: calc(48px + env(safe-area-inset-top, 0px));
+    height: calc(48px + env(safe-area-inset-top, 0px));
+    min-height: calc(48px + env(safe-area-inset-top, 0px));
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 7px 4px; gap: 5px;
+  }
   body.in-slot-room .brand { font-size: .92rem; }
   body.in-slot-room .brand span { display: none; }
   body.in-slot-room .topbar-session { min-width: 0; }
