@@ -745,58 +745,13 @@ body.in-tournament-room #app {
 }
 
 .trn-stage { flex: 1; min-height: 0; display: flex; gap: 8px; min-width: 0; }
-.trn-table {
-  position: relative; flex: 1 1 auto; min-width: 0; min-height: 260px;
-  border: 14px solid #2a2320; border-radius: 48% / 46%;
-  background: radial-gradient(ellipse at 50% 45%, #1d6b4f, #0c3a2c 75%);
-  box-shadow: inset 0 0 0 3px #b58a54, inset 0 0 70px #061a15, 0 10px 26px #0009;
-}
-.trn-table::before {
-  content: ''; position: absolute; inset: 18px; border: 2px solid #ffffff1a; border-radius: inherit;
-  background: url('../assets/logo.png') center / 170px no-repeat; opacity: .028; pointer-events: none;
-}
-.trn-center {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 4px; text-align: center; padding: 8px;
-}
+/* La mesa del torneo es la misma del póker normal: solo cambia el marco que la
+   rodea. Por eso se reutiliza .poker-table y sus clases pk-* sin duplicar reglas. */
+.pk-room .trn-stage .poker-table { flex: 1 1 auto; min-width: 0; min-height: 0; }
 .trn-info {
-  color: #bfe6cf; font-size: .78rem; line-height: 1.35; white-space: pre-line;
-  background: #0d2a2299; border: 1px solid #ffffff1f; border-radius: 8px; padding: 4px 8px;
+  color: #bfe6cf; font-size: .72rem; line-height: 1.3; white-space: pre-line;
+  text-align: center; max-width: 100%;
 }
-.trn-pot { color: #ffe9a8; font-weight: bold; font-size: 1.05rem; }
-.trn-board { justify-content: center; flex-wrap: nowrap; gap: 5px; min-height: 74px; }
-.trn-board .playing-card { width: 46px; height: 68px; font-size: .9rem; }
-.trn-phase, .trn-hand-label { color: #d8e6de; font-size: .78rem; }
-
-.trn-seats { position: absolute; inset: 0; }
-.trn-seat {
-  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  width: clamp(78px, 17%, 116px); transform: translate(-50%, -50%);
-}
-.trn-avatar {
-  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-  background: linear-gradient(#3d4b57, #1d2731); border: 2px solid #6d7b88;
-  color: #e8eef5; font-weight: bold; font-size: .95rem;
-}
-.trn-seat-box {
-  background: #10161de6; border: 1px solid #ffffff26; border-radius: 8px;
-  padding: 3px 6px; text-align: center; max-width: 100%; overflow-wrap: anywhere;
-}
-.trn-seat-name { display: block; font-size: .72rem; color: #e6edf5; }
-.trn-seat-chips { display: block; font-size: .78rem; color: #ffe9a8; font-variant-numeric: tabular-nums; }
-.trn-seat-cards { display: flex; gap: 2px; min-height: 30px; }
-.trn-seat-cards .playing-card { width: 24px; height: 34px; font-size: .55rem; }
-/* Los distintivos (D, SB, BB) van en una línea: nunca deben partirse. */
-.trn-seat-badges { font-size: .58rem; color: #9fb0c0; min-height: 1em; white-space: nowrap; }
-.trn-seat.active .trn-avatar { border-color: var(--gold); box-shadow: 0 0 12px #d4af3788; }
-.trn-seat.active .trn-seat-box { border-color: var(--gold); }
-.trn-seat.folded { opacity: .45; }
-.trn-seat.eliminated { opacity: .35; filter: grayscale(1); }
-/* Ausente: sigue en la mesa (le tocan ciegas) pero no está jugando. */
-.trn-seat.sitting-out .trn-seat-box { border-style: dashed; border-color: #7d8ea0; }
-.trn-seat.sitting-out .trn-avatar { opacity: .5; }
-.trn-seat.sitting-out .trn-seat-badges { color: #d8a0a0; }
-.trn-seat.self .trn-seat-box { border-color: #4ea3ff; }
 
 .trn-side { width: min(250px, 34%); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .trn-me { display: flex; align-items: center; gap: 6px; }
@@ -870,7 +825,7 @@ body.in-tournament-room #app {
 @media (max-width: 760px) {
   /* En vertical la mesa manda: los controles pasan a una franja inferior. */
   .trn-stage { flex-direction: column; }
-  .trn-table { flex: 1 1 auto; min-height: 300px; border-width: 8px; }
+  .pk-room .trn-stage .poker-table { min-height: 300px; }
   .trn-side {
     width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px;
     background: #0d151ecc; border: 1px solid #ffffff1f; border-radius: 12px; padding: 8px;
@@ -878,20 +833,30 @@ body.in-tournament-room #app {
   .trn-me { flex: 0 0 auto; flex-direction: column; gap: 2px; max-width: 42%; }
   .trn-me-box { text-align: left; }
   .trn-actions { flex: 1; min-width: 0; }
+  /* Dos columnas: a la izquierda tus cartas, a la derecha atajos y botones.
+     Así el panel ocupa la mitad de alto y la mesa gana sitio. */
+  .trn-actions {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px; align-content: start;
+  }
+  .trn-me { grid-column: 1; grid-row: 1 / span 2; }
+  .trn-quick { grid-column: 2; grid-row: 1; }
+  .trn-main-actions { grid-column: 2; grid-row: 2; }
+  .trn-extra-actions { grid-column: 1; grid-row: 3; }
+  .trn-amount-row { grid-column: 2; grid-row: 3; }
   .trn-quick { grid-template-columns: repeat(4, 1fr); }
   .trn-quick-btn { font-size: .72rem; padding: 7px 2px; }
   .trn-amount-row .name-input { width: 62px; }
   .trn-main-actions { flex-direction: row; }
   .trn-main-actions .btn { flex: 1; font-size: .78rem; padding: 9px 4px; }
-  .trn-seat { width: 62px; }
-  .trn-avatar { width: 28px; height: 28px; font-size: .75rem; }
-  .trn-seat-name { font-size: .6rem; }
-  .trn-seat-chips { font-size: .66rem; }
-  .trn-seat-cards .playing-card { width: 17px; height: 24px; font-size: .42rem; }
-  .trn-seat-badges { font-size: .52rem; }
-  .trn-board .playing-card { width: 30px; height: 44px; font-size: .68rem; }
-  .trn-info, .trn-phase, .trn-hand-label { font-size: .68rem; }
-  .trn-pot { font-size: .9rem; }
+  .trn-info { font-size: .62rem; }
+  /* En móvil mandan la mesa y los botones: se ocultan los textos de apoyo. */
+  .pk-footer details { display: none; }
+  .trn-sitout-note { display: none; }
+  .pk-room .trn-stage .poker-table { min-height: 240px; }
+  .trn-me-cards .playing-card { width: 34px; height: 50px; font-size: .72rem; }
+  .trn-me-box { padding: 2px 5px; }
+  .trn-me-box b { font-size: .7rem; }
+  .trn-me-chips { font-size: .74rem; }
   .trn-topbar { gap: 6px; padding: 5px 8px; }
   .trn-status { font-size: .72rem; }
   /* Las ciegas ya salen en el panel central de la mesa: aquí sobra espacio. */
@@ -925,17 +890,8 @@ body.in-tournament-room #app {
 .trn-howto:active { transform: scale(0.96); }
 
 
-/* Asientos repartidos alrededor del óvalo (sentido horario desde la izquierda).
-   El translate(-50%,-50%) centra la caja: se deja margen para que no se corte. */
-.trn-seat-0 { left: 14%; top: 33%; }
-.trn-seat-1 { left: 16%; top: 64%; }
-.trn-seat-2 { left: 30%; top: 86%; }
-.trn-seat-3 { left: 50%; top: 91%; }
-.trn-seat-4 { left: 70%; top: 86%; }
-.trn-seat-5 { left: 84%; top: 64%; }
-.trn-seat-6 { left: 86%; top: 33%; }
-.trn-seat-7 { left: 70%; top: 11%; }
-.trn-seat-8 { left: 30%; top: 11%; }
+/* Los asientos (pk-seat) se reparten alrededor del óvalo con las reglas del
+   póker normal; aquí solo se añade el marco del torneo. */
 
 
 /* ==== PÃ³ker compacto: una sola pantalla, sin scroll vertical ==== */
@@ -966,13 +922,21 @@ body.in-poker-room #net-poker {
   min-width: 0; min-height: 0; height: 100%; display: grid;
   grid-template-rows: 30px minmax(0, 1fr) auto; gap: 6px; overflow: hidden;
 }
+/* Franja de estado al pie: mismo papel que el mensaje del torneo. */
+.pk-footer {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: #121d29f5; border: 1px solid #d4af3740; border-radius: 12px; padding: 6px 9px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom)); min-height: 0;
+}
+.pk-footer:has(#pk-results:empty) { padding-top: 4px; }
+.pk-room #pk-results:empty { display: none; }
 body.in-poker-room .poker-meta {
   min-width: 0; margin: 0; padding: 3px 7px; gap: 8px; flex-wrap: nowrap;
   justify-content: center; align-items: center; border-radius: 9px;
   background: #121d29e8; border: 1px solid #d4af3738; font-size: .78rem;
 }
 body.in-poker-room .poker-meta > span { white-space: nowrap; }
-body.in-poker-room #pk-clock { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pk-room #pk-clock { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pk-compact-btn {
   width: 28px; height: 28px; flex: 0 0 28px; padding: 0; border: 1px solid #ffffff35;
   border-radius: 7px; color: var(--text); background: #263547; cursor: pointer;
@@ -986,63 +950,72 @@ body.in-poker-room #pk-clock { min-width: 0; overflow: hidden; text-overflow: el
   width: 44px; height: 44px; transform: translate(-50%, -50%);
 }
 .pk-compact-btn:hover { border-color: var(--gold); }
-body.in-poker-room .poker-table {
+.pk-room .poker-table {
   width: 100%; max-width: 1100px; height: 100%; min-height: 0; margin: 0 auto;
   display: block; padding: 0; border-width: 8px; border-radius: 48% / 44%; overflow: visible;
 }
-body.in-poker-room .poker-table::before { inset: 14px; }
-body.in-poker-room .pk-dealer { position: absolute; top: 1%; left: 50%; z-index: 3; transform: translateX(-50%); }
-body.in-poker-room .pk-dealer .shoe { width: 31px; height: 43px; margin: 3px auto 0; }
-body.in-poker-room .pk-dealer .shoe i { height: 5px; margin-top: 3px; }
-body.in-poker-room .pk-center {
+.pk-room .poker-table::before { inset: 14px; }
+.pk-room .pk-dealer { position: absolute; top: 1%; left: 50%; z-index: 3; transform: translateX(-50%); }
+.pk-room .pk-dealer .shoe { width: 31px; height: 43px; margin: 3px auto 0; }
+.pk-room .pk-dealer .shoe i { height: 5px; margin-top: 3px; }
+.pk-room .pk-center {
   position: absolute; top: 48%; left: 50%; z-index: 2;
   transform: translate(-50%, -50%); width: min(54%, 500px);
 }
-body.in-poker-room .pk-brand { font-size: .8rem; letter-spacing: 2px; }
-body.in-poker-room .pk-pot { margin: 4px 0; font-size: 1rem; }
-body.in-poker-room .pk-board { min-height: 58px; margin-bottom: 3px; gap: 4px; }
-body.in-poker-room .pk-board .playing-card { width: 40px; height: 58px; padding: 3px; font-size: .82rem; }
-body.in-poker-room .pk-board .suit { font-size: 1.05rem; }
-body.in-poker-room .pk-private-hand { min-height: 1.2em; margin-top: 2px; font-size: .72rem; }
-body.in-poker-room #pk-phase { font-size: .72rem; }
-body.in-poker-room .pk-seats { position: absolute; inset: 0; display: block; }
-body.in-poker-room .pk-seat {
+.pk-room .pk-brand { font-size: .8rem; letter-spacing: 2px; }
+.pk-room .pk-pot { margin: 4px 0; font-size: 1rem; }
+.pk-room .pk-board { min-height: 58px; margin-bottom: 3px; gap: 4px; }
+.pk-room .pk-board .playing-card { width: 40px; height: 58px; padding: 3px; font-size: .82rem; }
+.pk-room .pk-board .suit { font-size: 1.05rem; }
+.pk-room .pk-private-hand { min-height: 1.2em; margin-top: 2px; font-size: .72rem; }
+.pk-room #pk-phase { font-size: .72rem; }
+.pk-room .pk-seats { position: absolute; inset: 0; display: block; }
+.pk-room .pk-seat {
   position: absolute; width: clamp(92px, 15%, 126px); padding: 4px 3px;
   border-radius: 10px; background: #0b201ddd; box-shadow: 0 3px 9px #0007;
   display: grid; grid-template-columns: 1fr 1fr; gap: 1px 3px; align-items: center;
 }
-body.in-poker-room .pk-seat .pk-name { grid-column: 1; }
-body.in-poker-room .pk-seat .pk-badges { grid-column: 2; justify-self: end; }
-body.in-poker-room .pk-seat .pk-chips { grid-column: 1; }
-body.in-poker-room .pk-seat .pk-bet { grid-column: 2; justify-self: end; white-space: nowrap; }
-body.in-poker-room .pk-seat .pk-hole,
-body.in-poker-room .pk-seat .pk-result { grid-column: 1 / -1; }
-body.in-poker-room .pk-seat .pk-result:empty { display: none; }
-body.in-poker-room .pk-seat:has(.pk-result:not(:empty)) .pk-bet { display: none; }
-body.in-poker-room .pk-seat-0 { right: .5%; top: 28%; }
-body.in-poker-room .pk-seat-1 { right: 2%; top: 58%; }
-body.in-poker-room .pk-seat-2 { right: 18%; bottom: 3%; }
-body.in-poker-room .pk-seat-3 { left: 18%; bottom: 3%; }
-body.in-poker-room .pk-seat-4 { left: 2%; top: 58%; }
-body.in-poker-room .pk-seat-5 { left: .5%; top: 28%; }
-body.in-poker-room .pk-name { font-size: .74rem; line-height: 1.05; }
-body.in-poker-room .pk-chips,
-body.in-poker-room .pk-bet,
-body.in-poker-room .pk-badges,
-body.in-poker-room .pk-result { min-height: 1.05em; font-size: .64rem; line-height: 1.05; }
-body.in-poker-room .pk-seat .pk-name,
-body.in-poker-room .pk-seat .pk-chips,
-body.in-poker-room .pk-seat .pk-bet,
-body.in-poker-room .pk-seat .pk-badges { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-body.in-poker-room .pk-seat .pk-result { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-body.in-poker-room .pk-badges { margin: 1px 0; }
-body.in-poker-room .pk-hole { min-height: 46px; margin: 2px 0; gap: 2px; }
-body.in-poker-room .pk-hole .playing-card { width: 32px; height: 46px; padding: 2px; font-size: .68rem; }
-body.in-poker-room .pk-hole .suit { font-size: .85rem; }
-body.in-poker-room .pk-seat.winner {
+.pk-room .pk-seat.folded .pk-hole { opacity: .4; }
+.pk-room .pk-seat .pk-name { grid-column: 1; }
+.pk-room .pk-seat .pk-badges { grid-column: 2; justify-self: end; }
+.pk-room .pk-seat .pk-chips { grid-column: 1; }
+.pk-room .pk-seat .pk-bet { grid-column: 2; justify-self: end; white-space: nowrap; }
+.pk-room .pk-seat .pk-hole,
+.pk-room .pk-seat .pk-result { grid-column: 1 / -1; }
+.pk-room .pk-seat .pk-result:empty { display: none; }
+.pk-room .pk-seat:has(.pk-result:not(:empty)) .pk-bet { display: none; }
+.pk-room .pk-seat-0 { right: .5%; top: 28%; }
+.pk-room .pk-seat-1 { right: 2%; top: 58%; }
+.pk-room .pk-seat-2 { right: 18%; bottom: 3%; }
+.pk-room .pk-seat-3 { left: 18%; bottom: 3%; }
+.pk-room .pk-seat-4 { left: 2%; top: 58%; }
+.pk-room .pk-seat-5 { left: .5%; top: 28%; }
+/* Años 7 a 9 (solo para torneos, que admiten nueve asientos). */
+.pk-room .pk-seat-6 { left: 84%; top: 34%; }
+.pk-room .pk-seat-7 { left: 68%; top: 12%; }
+.pk-room .pk-seat-8 { left: 30%; top: 12%; }
+.pk-room .pk-name { font-size: .74rem; line-height: 1.05; }
+.pk-room .pk-chips,
+.pk-room .pk-bet,
+.pk-room .pk-badges,
+.pk-room .pk-result { min-height: 1.05em; font-size: .64rem; line-height: 1.05; }
+.pk-room .pk-seat .pk-name,
+.pk-room .pk-seat .pk-chips,
+.pk-room .pk-seat .pk-bet,
+.pk-room .pk-seat .pk-badges { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-room .pk-seat .pk-result { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-room .pk-badges { margin: 1px 0; }
+.pk-room .pk-hole { min-height: 46px; margin: 2px 0; gap: 2px; }
+.pk-room .pk-hole .playing-card { width: 32px; height: 46px; padding: 2px; font-size: .68rem; }
+.pk-room .pk-hole .suit { font-size: .85rem; }
+.pk-room .pk-seat.winner {
   z-index: 8; border: 2px solid var(--gold-light); background: #174f35f5;
   box-shadow: 0 0 0 2px #d4af3740, 0 0 22px #ffd700aa; color: #fff;
 }
+/* Torneos: eliminado (fuera del torneo) y ausente (sigue pagando ciegas). */
+.pk-room .pk-seat.eliminated { opacity: .35; filter: grayscale(1); }
+.pk-room .pk-seat.sitting-out .pk-badges { color: #e0a0a0; }
+.pk-room .pk-seat.sitting-out .pk-name::after { content: ' · ausente'; color: #9fb0c0; font-size: .85em; }
 .pk-showdown {
   position: absolute; top: 50%; left: 50%; z-index: 9; width: min(72%, 520px);
   transform: translate(-50%, -50%); padding: 9px 12px; text-align: center; pointer-events: none;
@@ -1055,35 +1028,24 @@ body.in-poker-room .pk-seat.winner {
 .pk-winning-hands .playing-card { width: 28px; height: 42px; padding: 2px; font-size: .64rem; flex-shrink: 0; box-shadow: 0 2px 6px #0008; animation: none; }
 .pk-winning-hands .playing-card .suit { font-size: .8rem; }
 
-/* Barra persistente: el estado y las acciones ocupan una zona reservada. */
-body.in-poker-room .pk-controls {
-  position: relative; display: grid; grid-template-columns: minmax(150px, .75fr) minmax(0, 2fr);
-  gap: 4px 10px; align-items: center; margin: 0; padding: 7px 9px; border-radius: 11px;
-}
-.pk-turn { min-width: 0; display: flex; align-items: center; gap: 8px; }
-body.in-poker-room #pk-status { margin: 0; font-size: .78rem; }
-body.in-poker-room #pk-start { min-height: 36px; padding: 7px 12px; font-size: .78rem; }
-body.in-poker-room #pk-actions, body.in-poker-room #pk-actions .btn-row { min-width: 0; }
-body.in-poker-room #pk-actions .btn-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
-body.in-poker-room #pk-actions .btn,
-body.in-poker-room #pk-amount { min-width: 0; width: 100%; min-height: 36px; padding: 6px 7px; font-size: .75rem; }
-body.in-poker-room .pk-controls details { position: relative; justify-self: end; font-size: .68rem; }
-body.in-poker-room .pk-controls details[open] .pk-rules-copy {
-  display: block; position: absolute; right: 0; bottom: 18px; width: min(300px, 70vw);
-  padding: 8px; border-radius: 7px; background: #101923; box-shadow: 0 4px 14px #000; z-index: 8;
-}
-body.in-poker-room #pk-results { grid-column: 1 / -1; min-height: 0; margin: 0; font-size: .7rem; line-height: 1.15; }
+/* Estado y turno: abajo en el panel lateral, igual que en el torneo. */
+.pk-turn { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.pk-room #pk-status { margin: 0; font-size: .78rem; }
+.pk-room #pk-start { min-height: 36px; padding: 7px 12px; font-size: .78rem; }
+.pk-room #pk-amount { min-width: 0; min-height: 34px; padding: 4px 6px; font-size: .8rem; }
+.pk-room .pk-rules-copy { font-size: .68rem; }
+.pk-room #pk-results { min-height: 0; margin: 0; font-size: .7rem; line-height: 1.2; text-align: center; }
 body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px)); }
 
 @media (max-height: 700px) {
-  body.in-poker-room .pk-seat-0 { top: 11%; }
-  body.in-poker-room .pk-seat-5 { top: 11%; }
-  body.in-poker-room .pk-seat-1 { top: 39%; }
-  body.in-poker-room .pk-seat-4 { top: 39%; }
-  body.in-poker-room .pk-seat-2, body.in-poker-room .pk-seat-3 { bottom: 2%; }
-  body.in-poker-room .pk-hole { min-height: 37px; }
-  body.in-poker-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
-  body.in-poker-room .pk-hole .suit { font-size: .72rem; }
+  .pk-room .pk-seat-0 { top: 11%; }
+  .pk-room .pk-seat-5 { top: 11%; }
+  .pk-room .pk-seat-1 { top: 39%; }
+  .pk-room .pk-seat-4 { top: 39%; }
+  .pk-room .pk-seat-2, .pk-room .pk-seat-3 { bottom: 2%; }
+  .pk-room .pk-hole { min-height: 37px; }
+  .pk-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
+  .pk-room .pk-hole .suit { font-size: .72rem; }
 }
 
 @media (max-width: 760px) {
@@ -1092,49 +1054,57 @@ body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-ar
   body.in-poker-room #net-poker { grid-template-rows: 27px minmax(0, 1fr) auto; gap: 4px; }
   body.in-poker-room .poker-meta { padding: 2px 5px; gap: 5px; justify-content: space-between; font-size: .67rem; }
   body.in-poker-room .poker-meta > b { display: none; }
-  body.in-poker-room .poker-table { border-width: 5px; border-radius: 46% / 41%; }
-  body.in-poker-room .pk-dealer { font-size: .58rem; }
-  body.in-poker-room .pk-dealer .shoe { width: 25px; height: 34px; }
-  body.in-poker-room .pk-dealer .shoe i:nth-child(2) { display: none; }
-  body.in-poker-room .pk-center { width: 58%; }
-  body.in-poker-room .pk-brand { display: none; }
+  .pk-room .poker-table { border-width: 5px; border-radius: 46% / 41%; }
+  .pk-room .pk-dealer { font-size: .58rem; }
+  .pk-room .pk-dealer .shoe { width: 25px; height: 34px; }
+  .pk-room .pk-dealer .shoe i:nth-child(2) { display: none; }
+  .pk-room .pk-center { width: 58%; }
+  .pk-room .pk-brand { display: none; }
   /* La mano propia no se oculta en móvil: es imprescindible saber qué llevas.
      Se compacta (más pequeña y sin hueco extra) para no robar altura a la mesa. */
-  body.in-poker-room .pk-private-hand { min-height: 1.1em; margin: 1px 0 0; font-size: .6rem; }
-  body.in-poker-room .pk-pot { margin: 0 0 2px; font-size: .78rem; }
-  body.in-poker-room .pk-board { min-height: 43px; gap: 2px; }
-  body.in-poker-room .pk-board .playing-card { width: 29px; height: 43px; padding: 2px; font-size: .66rem; }
-  body.in-poker-room .pk-board .suit { font-size: .82rem; }
-  body.in-poker-room #pk-phase { font-size: .62rem; }
+  .pk-room .pk-private-hand { min-height: 1.1em; margin: 1px 0 0; font-size: .6rem; }
+  .pk-room .pk-pot { margin: 0 0 2px; font-size: .78rem; }
+  .pk-room .pk-board { min-height: 43px; gap: 2px; }
+  .pk-room .pk-board .playing-card { width: 29px; height: 43px; padding: 2px; font-size: .66rem; }
+  .pk-room .pk-board .suit { font-size: .82rem; }
+  .pk-room #pk-phase { font-size: .62rem; }
   .pk-showdown { width: 78%; padding: 6px 7px; border-radius: 10px; }
   .pk-winner-title { font-size: .74rem; }
   .pk-winning-detail { margin: 1px 0 4px; font-size: .56rem; }
   .pk-winning-hands { gap: 2px; }
   .pk-winning-hands .playing-card { width: 22px; height: 33px; padding: 1px; font-size: .5rem; }
   .pk-winning-hands .playing-card .suit { font-size: .62rem; }
-  body.in-poker-room .pk-seat { width: clamp(80px, 25%, 96px); padding: 3px 2px; }
-  body.in-poker-room .pk-seat-0 { top: 11%; }
-  body.in-poker-room .pk-seat-5 { top: 11%; }
-  body.in-poker-room .pk-seat-1 { top: 39%; }
-  body.in-poker-room .pk-seat-4 { top: 39%; }
-  body.in-poker-room .pk-seat-2, body.in-poker-room .pk-seat-3 { bottom: 2%; }
-  body.in-poker-room .pk-hole { min-height: 37px; }
-  body.in-poker-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
-  body.in-poker-room .pk-hole .suit { font-size: .72rem; }
-  body.in-poker-room .pk-controls { grid-template-columns: 1fr; gap: 3px; padding: 5px 6px; }
+  .pk-room .pk-seat { width: clamp(80px, 25%, 96px); padding: 3px 2px; }
+  /* Mesas estrechas: el ancho del asiento baja para que no se solapen. */
+  .pk-room .pk-seat { width: clamp(50px, 20%, 72px); padding: 2px 1px; }
+  .pk-room .pk-hole { min-height: 30px; }
+  .pk-room .pk-hole .playing-card { width: 19px; height: 27px; padding: 1px; font-size: .46rem; }
+  .pk-room .pk-hole .suit { font-size: .58rem; }
+  .pk-room .pk-name, .pk-room .pk-chips, .pk-room .pk-bet, .pk-room .pk-badges { font-size: .52rem; }
+  .pk-room .pk-seat-0 { top: 11%; }
+  .pk-room .pk-seat-5 { top: 11%; }
+  .pk-room .pk-seat-1 { top: 39%; }
+  .pk-room .pk-seat-4 { top: 39%; }
+  .pk-room .pk-seat-2, .pk-room .pk-seat-3 { bottom: 2%; }
+  .pk-room .pk-hole { min-height: 37px; }
+  .pk-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
+  .pk-room .pk-hole .suit { font-size: .72rem; }
   .pk-turn { justify-content: center; }
-  body.in-poker-room #pk-status { font-size: .68rem; }
-  body.in-poker-room #pk-start { min-height: 32px; padding: 5px 9px; font-size: .7rem; }
-  body.in-poker-room #pk-actions .btn-row { grid-template-columns: repeat(3, 1fr); gap: 3px; }
-  body.in-poker-room #pk-actions .btn, body.in-poker-room #pk-amount { min-height: 32px; padding: 4px 3px; font-size: .66rem; }
-  body.in-poker-room #pk-amount { grid-column: span 2; }
-  body.in-poker-room .pk-controls details { display: none; }
-  body.in-poker-room #pk-results { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .62rem; text-align: center; }
+  .pk-turn { flex-direction: row; justify-content: center; gap: 6px; }
+  .pk-turn #pk-status { font-size: .64rem; flex: 1; min-width: 0; }
+  .pk-footer { padding: 4px 7px; gap: 1px; }
+  .trn-side { padding: 6px; gap: 6px; }
+  .trn-amount-row .name-input, .pk-room #pk-amount { min-height: 28px; }
+  .trn-sitout { min-height: 30px; padding: 5px 8px; font-size: .74rem; }
+  .pk-room #pk-status { font-size: .68rem; }
+  .pk-room #pk-start { min-height: 32px; padding: 5px 9px; font-size: .7rem; }
+  .pk-room .pk-controls details { display: none; }
+  .pk-room #pk-results { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .62rem; text-align: center; }
 }
 @media (max-height: 620px) and (max-width: 760px) {
-  body.in-poker-room .pk-name, body.in-poker-room .pk-chips { font-size: .58rem; }
-  body.in-poker-room .pk-hole { min-height: 32px; }
-  body.in-poker-room .pk-hole .playing-card { width: 23px; height: 32px; }
+  .pk-room .pk-name, .pk-room .pk-chips { font-size: .58rem; }
+  .pk-room .pk-hole { min-height: 32px; }
+  .pk-room .pk-hole .playing-card { width: 23px; height: 32px; }
 }
 
 /* ==== Blackjack compacto: misma sala que Poker, sin cambiar sus reglas ==== */

@@ -337,7 +337,7 @@
         </div>
       </div>
 
-      <div id="net-poker" class="hidden">
+      <div id="net-poker" class="hidden pk-room">
         <div class="poker-meta">
           <button class="pk-compact-btn" type="button" onclick="Net.leave()" title="Salir de la mesa" aria-label="Salir de la mesa">←</button>
           <b>♠ Texas Hold’em</b>
@@ -346,6 +346,7 @@
           <span id="pk-clock"></span>
           <button class="pk-compact-btn" type="button" onclick="Net.copyLink()" title="Copiar invitación" aria-label="Copiar invitación">↗</button>
         </div>
+        <div class="net-poker-inner trn-stage">
         <div id="pk-table" class="poker-table">
           <div class="pk-dealer">CRUPIER <div id="pk-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
           <div class="pk-center">
@@ -362,23 +363,52 @@
           </div>
           <div id="pk-seats" class="pk-seats"></div>
         </div>
-        <div class="controls pk-controls">
-          <div class="pk-turn">
-            <p id="pk-status" role="status"></p>
-            <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
-          </div>
-          <div id="pk-actions" class="hidden">
-            <div class="btn-row">
-              <button id="pk-fold" class="btn" onclick="Poker.act('fold')">Retirarse</button>
-              <button id="pk-call" class="btn primary" onclick="Poker.call()">Pasar</button>
-              <button id="pk-allin" class="btn" onclick="Poker.act('allIn')">All-in</button>
-              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1" aria-label="Importe de la subida" title="Importe de la subida">
-              <button id="pk-raise" class="btn" onclick="Poker.raise()">Subir</button>
+        <!-- Mismos mandos que en el torneo: tus cartas, atajos de importe,
+             slider y el botón de ausentarse. Un solo panel para los dos juegos. -->
+        <div class="trn-side">
+          <div class="trn-me">
+            <div id="pk-me-cards" class="cards trn-me-cards"></div>
+            <div class="trn-me-box">
+              <b id="pk-me-name">Tú</b>
+              <span id="pk-me-chips" class="trn-me-chips"></span>
             </div>
           </div>
-          <details class="hint"><summary>Reglas de la mesa</summary><span class="pk-rules-copy">D = dealer · SB/BB = ciegas. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis o retirarse.</span></details>
-          <p id="pk-results" class="message"></p>
+          <div id="pk-actions-box" class="trn-actions">
+            <div class="trn-quick">
+              <button class="btn trn-quick-btn" type="button" onclick="Poker.bet('min')">Mín.</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Poker.bet('half')">50 %</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Poker.bet('pot')">Bote</button>
+              <button class="btn trn-quick-btn" type="button" onclick="Poker.bet('max')">Máx.</button>
+            </div>
+            <div class="trn-amount-row">
+              <input id="pk-amount" class="name-input" type="number" inputmode="numeric" min="20" step="1" aria-label="Importe de la subida" title="Importe de la subida">
+              <button class="btn" type="button" onclick="Poker.stepAmount(-1)" aria-label="Bajar el importe">−</button>
+              <input id="pk-slider" class="trn-slider" type="range" min="1" max="100" value="50" step="1" aria-label="Ajuste rápido del importe">
+              <button class="btn" type="button" onclick="Poker.stepAmount(1)" aria-label="Subir el importe">+</button>
+            </div>
+            <div class="trn-main-actions">
+              <button id="pk-fold" class="btn trn-fold" type="button" onclick="Poker.act('fold')">Retirarse</button>
+              <button id="pk-call" class="btn trn-call" type="button" onclick="Poker.call()">Pasar</button>
+              <button id="pk-allin" class="btn" type="button" onclick="Poker.act('allIn')">All-in</button>
+              <button id="pk-raise" class="btn trn-raise" type="button" onclick="Poker.raise()">Subir</button>
+            </div>
+            <div class="trn-extra-actions">
+              <button id="pk-sitout" class="btn trn-sitout" type="button" onclick="Poker.toggleSitOut()"
+                aria-pressed="false">Ausentarse</button>
+              <p id="pk-sitout-note" class="hint trn-sitout-note">Si te ausentas, las ciegas que te toquen se te descuentan igual y tu mano se retira sola.</p>
+            </div>
+          </div>
         </div>
+      </div>
+      <!-- Estado, reparto y resultado: la franja inferior, como en el torneo. -->
+      <div class="pk-footer">
+        <div class="pk-turn">
+          <p id="pk-status" role="status"></p>
+          <button id="pk-start" class="btn primary" onclick="Poker.act('start')">Repartir siguiente mano</button>
+        </div>
+        <details class="hint"><summary>Reglas de la mesa</summary><span class="pk-rules-copy">D = dealer · SB/BB = ciegas. Cartas privadas hasta el showdown. Al agotar 45 s: pasar si es gratis o retirarse.</span></details>
+        <p id="pk-results" class="message"></p>
+      </div>
       </div>
       <div id="net-chat" class="room-chat" role="dialog" aria-modal="false" aria-labelledby="net-chat-title">
         <div class="room-chat-head">
@@ -441,8 +471,9 @@
       </div>
     </section>
 
-    <!-- MESA DE TORNEO -->
-    <section id="screen-tournament" class="screen hidden">
+    <!-- MESA DE TORNEO: misma mesa que el póker normal (clases pk-*) y el
+           mismo panel lateral de mandos, para que se vean como el mismo juego. -->
+    <section id="screen-tournament" class="screen hidden pk-room">
       <div class="trn-topbar">
         <button class="btn" type="button" onclick="Tournaments.closeTable()">← Salir</button>
         <b id="trn-name">Torneo</b>
@@ -450,15 +481,21 @@
         <span id="trn-status" class="trn-status" role="status" aria-live="polite"></span>
       </div>
       <div class="trn-stage">
-        <div id="trn-table" class="trn-table">
-          <div class="trn-center">
-            <div id="trn-info" class="trn-info"></div>
-            <div id="trn-pot" class="trn-pot"></div>
-            <div id="trn-board" class="cards trn-board"></div>
-            <div id="trn-phase" class="trn-phase"></div>
-            <div id="trn-hand-label" class="trn-hand-label"></div>
+        <div id="trn-table" class="poker-table">
+          <div class="pk-dealer">CRUPIER <div id="trn-shoe" class="shoe"><i></i><i></i><span>♠</span></div></div>
+          <div class="pk-center">
+            <div id="trn-info" class="trn-info pk-phase"></div>
+            <div id="trn-pot" class="pk-pot"></div>
+            <div id="trn-board" class="cards pk-board"></div>
+            <div id="trn-phase"></div>
+            <div id="trn-hand-label" class="pk-private-hand" role="status" aria-live="polite"></div>
           </div>
-          <div id="trn-seats" class="trn-seats"></div>
+          <div id="trn-showdown" class="pk-showdown hidden" role="status" aria-live="polite">
+            <div id="trn-winner-title" class="pk-winner-title"></div>
+            <div id="trn-winning-detail" class="pk-winning-detail"></div>
+            <div id="trn-winning-hands" class="cards pk-winning-hands"></div>
+          </div>
+          <div id="trn-seats" class="pk-seats"></div>
         </div>
         <div class="trn-side">
           <div class="trn-me">

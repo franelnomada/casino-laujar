@@ -6,6 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { TournamentRoom } = require('../js/tournament-engine.js');
+const { PokerRoom } = require('../js/poker-engine.js');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 const PLAYERS = [
@@ -211,7 +212,7 @@ async function main() {
     await js(`Tournaments.state = ${JSON.stringify(state)};Tournaments.render(${JSON.stringify(state)})`);
     await wait(700);
     const table = await js(`(() => {
-      const seats = [...document.querySelectorAll('#trn-seats .trn-seat')];
+      const seats = [...document.querySelectorAll('#trn-seats .pk-seat')];
       return {
         seatCount: seats.length,
         selfSeat: seats.filter(s => s.classList.contains('self')).length,
@@ -224,11 +225,11 @@ async function main() {
         meChips: document.getElementById('trn-me-chips').textContent,
         meCards: document.querySelectorAll('#trn-me-cards .playing-card').length,
         myHole: document.querySelector('#trn-me-cards .playing-card').textContent,
-        rivalHidden: document.querySelector('#trn-seats .trn-seat:not(.self) .trn-seat-cards .playing-card').className.includes('face-down'),
+        rivalHidden: document.querySelector('#trn-seats .pk-seat:not(.self) .pk-hole .playing-card').className.includes('face-down'),
         call: document.getElementById('trn-call').textContent,
         raise: document.getElementById('trn-raise').textContent,
         tableRadius: getComputedStyle(document.getElementById('trn-table')).borderRadius,
-        quick: [...document.querySelectorAll('.trn-quick-btn')].map(b => b.textContent),
+        quick: [...document.querySelectorAll('#trn-actions .trn-quick-btn')].map(b => b.textContent),
       };
     })()`);
     assert.equal(table.seatCount, 9, 'Los nueve jugadores se sientan alrededor de la mesa');
@@ -256,12 +257,12 @@ async function main() {
     const sitUi = await js(`(() => {
       const button = document.getElementById('trn-sitout');
       const note = document.getElementById('trn-sitout-note');
-      const seatOf = id => document.querySelector('#trn-seats .trn-seat[data-player="' + id + '"]');
+      const seatOf = id => document.querySelector('#trn-seats .pk-seat[data-player="' + id + '"]');
       const seat = seatOf(Tournaments.table.playerId);
       return {
         exists: !!button, text: button.textContent, pressed: button.getAttribute('aria-pressed'),
         note: note.textContent, hasSeat: !!seat, awayClass: !!(seat && seat.classList.contains('sitting-out')),
-        badge: seat ? seat.querySelector('.trn-seat-badges').textContent : '',
+        badge: seat ? seat.querySelector('.pk-badges').textContent : '',
         disabled: button.disabled,
       };
     })()`);
@@ -275,11 +276,11 @@ async function main() {
     await js(`Tournaments.render(${JSON.stringify(awayState)})`);
     const afterSit = await js(`(() => {
       const button = document.getElementById('trn-sitout');
-      const seat = document.querySelector('#trn-seats .trn-seat[data-player="' + Tournaments.table.playerId + '"]');
+      const seat = document.querySelector('#trn-seats .pk-seat[data-player="' + Tournaments.table.playerId + '"]');
       return {
         text: button.textContent, pressed: button.getAttribute('aria-pressed'),
         awayClass: !!(seat && seat.classList.contains('sitting-out')),
-        badge: seat ? seat.querySelector('.trn-seat-badges').textContent : '',
+        badge: seat ? seat.querySelector('.pk-badges').textContent : '',
         note: document.getElementById('trn-sitout-note').textContent,
         disabled: button.disabled,
       };
@@ -293,6 +294,40 @@ async function main() {
     await js(`Tournaments.render(${JSON.stringify(state)})`);
     assert.equal(await js(`document.getElementById('trn-sitout').textContent`), 'Ausentarse',
       'Al volver, el botón vuelve a ofrecer ausentarse');
+    // Las dos mesas comparten marcado: el torneo usa las clases del póker normal,
+    // así que las cartas se ven exactamente igual en los dos juegos.
+    // Para poder comparar, se pinta también una mesa de póker normal.
+    const trnState = await js('JSON.stringify(Tournaments.state)');
+    const pokerRoom = new PokerRoom('COMPAR');
+    for (const id of ['p1', 'p2']) pokerRoom.addPlayer(id, id, 1000);
+    pokerRoom.start('p1', Date.now());
+    pokerRoom.board = [{ rank: 'A', suit: '♠' }, { rank: 'K', suit: '♥' }];
+    await js(`App.show('room'); Net.playerId='p1'; Net.state=${JSON.stringify(pokerRoom.stateFor('p1'))}; Net.render()`);
+    await wait(500);
+    const sameTable = await js(`(() => {
+      const trn = document.getElementById('trn-table'), pk = document.getElementById('pk-table');
+      const cls = n => [...n.classList].sort().join(' ');
+      const cardOf = (root, sel) => { const c = root.querySelector(sel); const s = getComputedStyle(c);
+        return s.width + 'x' + s.height; };
+      return {
+        sameClasses: cls(trn) === cls(pk),
+        seats: cls(document.getElementById('trn-seats')) === cls(document.getElementById('pk-seats')),
+        seatOf: cls(document.querySelector('#trn-seats .pk-seat')) === cls(document.querySelector('#pk-seats .pk-seat')),
+        hole: cls(document.querySelector('#trn-seats .pk-hole')) === cls(document.querySelector('#pk-seats .pk-hole')),
+        board: cls(document.getElementById('trn-board')) === cls(document.getElementById('pk-board')),
+        trnCard: cardOf(document.getElementById('trn-board'), '.playing-card'),
+        pkCard: cardOf(document.getElementById('pk-board'), '.playing-card'),
+        showdown: !!document.querySelector('#trn-table .pk-showdown'),
+      };
+    })()`);
+    assert.equal(sameTable.sameClasses && sameTable.seats && sameTable.seatOf &&
+      sameTable.hole && sameTable.board, true,
+      'El torneo usa las mismas clases que el póker: ' + JSON.stringify(sameTable));
+    assert.equal(sameTable.trnCard, sameTable.pkCard,
+      'Las cartas se ven igual en los dos juegos: ' + JSON.stringify(sameTable));
+    assert.equal(sameTable.showdown, true, 'El torneo también muestra el panel del showdown');
+    // Vuelve a la mesa de torneo para seguir la prueba.
+    await js(`App.show('tournament'); Tournaments.render(${trnState})`);
 
     if (process.env.MEASURE) {
       const m = await js(`(() => {
@@ -352,8 +387,8 @@ async function main() {
     assert.ok(await js(`Number(document.getElementById('trn-amount').value)`) < state.maxRaiseTo, 'El botón "−" baja el importe');
 
     // ---------- Los nodos no se recrean en cada actualización ----------
-    await js(`window.trnFirstSeat=document.querySelector('#trn-seats .trn-seat');Tournaments.render(${JSON.stringify(state)});Tournaments.render(${JSON.stringify(state)})`);
-    assert.equal(await js(`trnFirstSeat===document.querySelector('#trn-seats .trn-seat')`), true,
+    await js(`window.trnFirstSeat=document.querySelector('#trn-seats .pk-seat');Tournaments.render(${JSON.stringify(state)});Tournaments.render(${JSON.stringify(state)})`);
+    assert.equal(await js(`trnFirstSeat===document.querySelector('#trn-seats .pk-seat')`), true,
       'Los asientos no se recrean en cada actualización');
 
     // ---------- El descanso y el final se explican en pantalla ----------

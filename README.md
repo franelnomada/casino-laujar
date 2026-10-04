@@ -129,6 +129,23 @@ Sección propia del lobby: el admin publica el torneo y acepta a quien lo solici
 - **Premios** por puesto, en % del bote o en fichas fijas. Lo que sobre tras aplicar los % se reparte entre ellos; el bote no se queda fichas.
 - **Visibilidad** pública o privada (solo el admin y los invitados).
 
+### Ausentarse (sit out)
+
+Los dos juegos de póker (mesa normal y torneo) tienen el botón **"Ausentarse"** en el panel lateral. Está copiado del comportamiento de PokerStars:
+
+- El ausente **sigue pagando las ciegas que le toquen**, pequeña o grande. Las fichas se le van quitando así mano a mano.
+- Cuando le llega el turno, **su mano se retira sola**: no tiene que decidir nada y no puede perder más por esa mano.
+- En la mesa, los demás lo ven con la etiqueta **AUSENTE**.
+- Con **"Volver a la mesa"** entra de nuevo en la siguiente mano.
+- Si se ausenta **todo el mundo**, la mano se reparte igualmente y se vuelve a sentar a todos (si no, la ciega grande nunca se cobraría).
+- No se puede ausentar sin fichas.
+
+### La mesa es la misma en los dos juegos
+
+Póker normal y torneo comparten literalmente el mismo marcado y las mismas clases CSS (`pk-table`, `pk-seat`, `pk-hole`, `pk-board`, `pk-showdown`…), así que **las cartas, los asientos, el tapete y el showdown se ven igual** en los dos. También comparten el panel lateral de mandos: tus cartas en grande, atajos Mín./50 %/Bote/Máx., slider de importe, botón de subir y el de ausentarse.
+
+La única diferencia es el marco: el torneo añade arriba la barra con nombre, ciegas y estado del torneo, y el póker normal la franja de estado al pie.
+
 ### Qué son los niveles
 
 Son la forma de que un torneo no se eternice. El reparto de fichas es siempre el mismo, pero **la apuesta mínima sube con el tiempo**, así que nadie puede quedarse escondido esperando con 2 fichas.

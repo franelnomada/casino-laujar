@@ -322,10 +322,14 @@ async function main() {
       assert.equal(await js('document.documentElement.scrollWidth <= innerWidth'),true,'Desbordamiento a '+width);
       assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Scroll vertical a '+width+'x'+height);
       const overlap=await js(`(()=>{const r=[...document.querySelectorAll('.pk-seat')].map(n=>n.getBoundingClientRect());return r.some((a,i)=>r.some((b,j)=>j>i&&a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom));})()`);
-      assert.equal(overlap,false,'Asientos superpuestos a '+width+' '+JSON.stringify(await js(`[...document.querySelectorAll('.pk-seat')].map(n=>({class:n.className,x:n.offsetLeft,y:n.offsetTop,w:n.offsetWidth,h:n.offsetHeight}))`)));
-      const layout=await js(`(()=>{const c=document.querySelector('.pk-controls').getBoundingClientRect();const a=[...document.querySelectorAll('#pk-actions button')].map(n=>n.getBoundingClientRect());return {c:{top:c.top,bottom:c.bottom},a:a.map(r=>({top:r.top,bottom:r.bottom})),height:innerHeight};})()`);
-      assert.equal(layout.c.bottom <= layout.height && layout.c.top >= 0,true,'Controles fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
+      assert.equal(overlap,false,'Asientos superpuestos a '+width+' '+JSON.stringify(await js(`(()=>{const box=document.querySelector('#net-poker .trn-side').getBoundingClientRect();const table=document.getElementById('pk-table').getBoundingClientRect();const foot=document.querySelector('#net-poker .pk-footer').getBoundingClientRect();return {table:Math.round(table.height),side:Math.round(box.height),footer:Math.round(foot.height),vp:innerHeight,seats:[...document.querySelectorAll('.pk-seat')].map(n=>n.offsetHeight)};})()`)));
+      const layout=await js(`(()=>{const c=document.querySelector('#net-poker .trn-side').getBoundingClientRect();
+        const a=[...document.querySelectorAll('#pk-actions-box button')].map(n=>n.getBoundingClientRect());
+        const mine=document.querySelectorAll('#pk-me-cards .playing-card').length;
+        return {c:{top:c.top,bottom:c.bottom},a:a.map(r=>({top:r.top,bottom:r.bottom})),height:innerHeight,mine};})()`);
+      assert.equal(layout.c.bottom <= layout.height && layout.c.top >= 0,true,'El panel de mandos queda en pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
       assert.equal(layout.a.every(r=>r.top>=0&&r.bottom<=layout.height),true,'Acciones fuera de pantalla a '+width+'x'+height+' '+JSON.stringify(layout));
+      assert.equal(layout.mine,2,'Tus dos cartas se ven en el panel lateral a '+width+'x'+height+' '+JSON.stringify(layout));
     }
     const blackjackRoom=new BlackjackRoom('BJVIEW');
     blackjackRoom.addPlayer('a','Ana');blackjackRoom.addPlayer('b','Bruno');blackjackRoom.start();

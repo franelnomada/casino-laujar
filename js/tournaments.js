@@ -368,6 +368,7 @@ const Tournaments = {
     this.el('hand-label').textContent = label ? 'Tu mano: ' + label : '';
 
     this.renderSeats(s, me);
+    this.renderShowdown(s, s.phase === 'finished' && (s.showdown || (s.pots || []).length > 0));
     this.renderMe(me);
     this.renderActions(s, me);
     this.renderStatus(s, me, info);
@@ -416,32 +417,34 @@ const Tournaments = {
     const ids = new Set(ordered.map(p => p.id));
     for (const seat of [...box.children]) if (!ids.has(seat.dataset.player)) seat.remove();
 
+    // Los asientos se construyen igual que en el póker normal (pk-seat con
+    // nombre, distintivos, fichas, cartas, apuesta y resultado): al compartir
+    // clases, la mesa se ve exactamente igual en los dos juegos.
     ordered.forEach((p, index) => {
       let seat = [...box.children].find(n => n.dataset.player === p.id);
       if (!seat) {
         seat = document.createElement('div');
         seat.dataset.player = p.id;
-        seat.innerHTML = '<div class="trn-avatar"></div><div class="trn-seat-box">' +
-          '<span class="trn-seat-name"></span><span class="trn-seat-chips"></span></div>' +
-          '<div class="cards trn-seat-cards"></div><div class="trn-seat-badges"></div>';
+        seat.innerHTML = '<div class="pk-name"></div><div class="pk-badges"></div>' +
+          '<div class="pk-chips"></div><div class="cards pk-hole"></div>' +
+          '<div class="pk-bet"></div><div class="pk-result"></div>';
         box.appendChild(seat);
       }
-      seat.className = 'trn-seat trn-seat-' + index + (p.id === (me && me.id) ? ' self' : '') +
-        (p.folded ? ' folded' : '') + (p.eliminated ? ' eliminated' : '') +
-        (p.sittingOut && !p.eliminated ? ' sitting-out' : '') +
-        (p.id === s.turnId ? ' active' : '');
-      seat.querySelector('.trn-avatar').textContent = (p.name || '?').slice(0, 1).toUpperCase();
-      seat.querySelector('.trn-seat-name').textContent = p.name + (p.eliminated ? ' · ' + (p.place ? p.place + 'º' : 'fuera') : '');
+      seat.className = 'pk-seat pk-seat-' + index + (p.folded ? ' folded' : '') +
+        (p.eliminated ? ' eliminated' : '') + (p.sittingOut && !p.eliminated ? ' sitting-out' : '') +
+        (p.id === (me && me.id) ? ' self' : '') + (p.id === s.turnId ? ' active' : '');
+      seat.querySelector('.pk-name').textContent = p.name + (p.id === (me && me.id) ? ' · Tú' : '') +
+        (p.eliminated ? ' · ' + (p.place ? p.place + 'º' : 'fuera') : '');
       // En torneo el bote ya no se reparte al final: las fichas son del jugador.
-      seat.querySelector('.trn-seat-chips').textContent = p.eliminated ? '—' : p.chips.toLocaleString('es-ES');
-      seat.querySelector('.trn-seat-badges').textContent = [
+      seat.querySelector('.pk-chips').textContent = p.eliminated ? '—' : p.chips.toLocaleString('es-ES');
+      seat.querySelector('.pk-badges').textContent = [
         p.id === s.dealerId ? '⚪ D' : '', p.id === s.sbId ? '🔵 SB' : '', p.id === s.bbId ? '🟡 BB' : '',
         p.allIn ? 'ALL-IN' : '', p.sittingOut && !p.eliminated ? 'AUSENTE' : '',
       ].filter(Boolean).join(' ');
 
       // Solo se ven las cartas del rival cuando el servidor las envía
       // descubiertas (showdown); hasta entonces llegan a null.
-      const holder = seat.querySelector('.trn-seat-cards');
+      const holder = seat.querySelector('.pk-hole');
       const cards = p.cards || [];
       const revealed = cards.length > 0 && cards.every(c => !!c);
       const wanted = cards.length ? cards.length : 2;
@@ -449,7 +452,23 @@ const Tournaments = {
         this.placeCard(holder, 'hole:' + p.id + ':' + i, cards[i] || null, !revealed);
       }
       while (holder.children.length > wanted) holder.removeChild(holder.lastElementChild);
+      seat.querySelector('.pk-bet').textContent = p.inHand ? (p.folded ? 'Retirado'
+        : p.allIn ? 'ALL-IN' : 'Apuesta: ' + p.bet) : 'Esperando';
     });
+  },
+
+  // Panel del showdown: mismo aspecto que el del póker normal (cartas ganadoras).
+  renderShowdown(s, resultsReady) {
+    const panel = this.el('showdown');
+    const pot = (s.pots || []).find(p => !p.refund) || (s.pots || [])[0];
+    const winners = pot ? pot.winners.map(id => s.players.find(p => p.id === id)).filter(Boolean) : [];
+    const visible = resultsReady && winners.length > 0;
+    panel.classList.toggle('hidden', !visible);
+    if (!visible) return;
+    this.el('winner-title').textContent = winners.map(p => p.name + ' gana con ' + p.handName).join(' · ');
+    this.el('winning-detail').textContent = 'Estas son las cinco cartas de la combinación ganadora.';
+    this.el('winning-hands').innerHTML = (winners[0].bestHand || [])
+      .map(card => Blackjack.cardHTML(card)).join('');
   },
 
   renderMe(me) {

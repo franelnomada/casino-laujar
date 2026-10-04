@@ -7,6 +7,7 @@ const Poker = {
     for (const a of this.animations) a.cancel();
     this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null; this.showKey = null;
     this.el('seats').innerHTML = ''; this.el('board').innerHTML = '';
+    this.el('me-cards').innerHTML = '';
     this.el('private-hand').textContent = '';
     this.el('winning-hands').innerHTML = '';
     this.el('showdown').classList.add('hidden');
@@ -37,7 +38,9 @@ const Poker = {
     const amount = this.el('amount');
     const minimum = Math.min(s.minRaiseTo, s.maxRaiseTo);
     amount.min = minimum; amount.max = s.maxRaiseTo;
-    if (document.activeElement !== amount) amount.value = minimum;
+    if (document.activeElement !== amount) this.setAmount(minimum);
+    amount.oninput = () => this.setAmount(Number(amount.value) || minimum);
+    this.el('slider').oninput = () => this.syncSlider();
     this.update();
     if (!this.timer) this.timer = setInterval(() => this.update(), 150);
   },
@@ -54,6 +57,7 @@ const Poker = {
     }
     node._card = card;
     node._type = type;
+    return node;
   },
   fly(node, event) {
     const source = this.el('shoe').getBoundingClientRect();
@@ -120,7 +124,7 @@ const Poker = {
     for (const node of this.nodes.values()) {
       if (node._arrival && now >= node._arrival) node.dataset.arrived = 'true';
       node.style.visibility = node._arrival && now < node._arrival ? 'hidden' : '';
-      if (node.dataset.arrived === 'true' && (node._type === 'board' || node.parentElement.parentElement.dataset.player === Net.playerId || resultsReady)) this.reveal(node);
+      if (node.dataset.arrived === 'true' && (node._type === 'board' || node.dataset.own === 'true' || node.parentElement.parentElement.dataset.player === Net.playerId || resultsReady)) this.reveal(node);
     }
     this.el('pot').textContent = (resultsReady ? 'Bote repartido: ' : 'Bote: ') + s.pot;
     const visibleBoard = [...this.nodes.entries()].filter(([k,n]) => k.startsWith('board:') && n.dataset.arrived === 'true').length;
@@ -139,7 +143,8 @@ const Poker = {
     this.el('private-hand').textContent = label ? 'Tu mano: ' + label + alone : '';
     const turn = s.players.find(p => p.id === s.turnId);
     const mine = s.turnId === Net.playerId;
-    const canAct = mine && !dealing && !this.busy && !!turn;
+    const away = !!((s.players.find(p => p.id === Net.playerId) || {}).sittingOut);
+    const canAct = mine && !dealing && !this.busy && !!turn && !away;
     this.showResult(s, resultsReady);
     for (const seat of this.el('seats').children) {
       const p = s.players.find(p => p.id === seat.dataset.player);
@@ -163,13 +168,95 @@ const Poker = {
     start.classList.toggle('hidden', s.phase !== 'lobby' || s.hostId !== Net.playerId);
     start.textContent = 'Repartir primera mano';
     start.disabled = dealing || this.busy || !enoughPlayers;
-    this.el('actions').classList.toggle('hidden', !mine);
-    for (const id of ['fold','call','raise','allin','amount']) this.el(id).disabled = !canAct;
+    const box = this.el('actions-box');
+    // Con el panel lateral los mandos no se ocultan: se apagan (como el torneo).
+    box.classList.toggle('disabled', !mine || away);
+    for (const id of ['fold','call','raise','allin','amount','slider']) this.el(id).disabled = !canAct;
     this.el('raise').disabled = !canAct || !s.canRaise;
     this.el('amount').disabled = !canAct || !s.canRaise;
+    this.el('slider').disabled = this.el('amount').disabled;
     this.el('allin').disabled = !canAct || (!s.canRaise && s.maxRaiseTo > s.currentBet);
     this.el('call').textContent = s.toCall ? 'Igualar ' + s.toCall : 'Pasar';
     this.el('results').textContent = resultsReady ? s.message : '';
+    this.renderMe(s, ownCardsReady);
+    this.renderSitOut(s);
+  },
+  // Tus cartas en el panel lateral: las mismas que ves en tu asiento, en grande.
+  renderMe(s, ownCardsReady) {
+    const me = s.players.find(p => p.id === Net.playerId);
+    const box = this.el('me-cards');
+    this.el('me-name').textContent = me ? me.name + ' · Tú' : 'Tú';
+    this.el('me-chips').textContent = me ? me.chips.toLocaleString('es-ES') + ' fichas' : '—';
+    const wanted = me && ownCardsReady ? me.cards.length : 0;
+    for (let i = 0; i < wanted; i++) {
+      const node = this.card(box, 'mine', Net.playerId, i, me.cards[i]);
+      node.dataset.own = 'true';
+    }
+    while (box.children.length > wanted) box.removeChild(box.lastElementChild);
+  },
+  // Botón de ausentarse: mismo comportamiento que en el torneo.
+  renderSitOut(s) {
+    const me = s.players.find(p => p.id === Net.playerId);
+    const button = this.el('sitout');
+    const away = !!(me && me.sittingOut);
+    button.disabled = this.busy || !me || me.eliminated || me.left;
+    button.textContent = away ? 'Volver a la mesa' : 'Ausentarse';
+    button.setAttribute('aria-pressed', away ? 'true' : 'false');
+    button.classList.toggle('is-away', away);
+    const note = this.el('sitout-note');
+    if (note) note.textContent = away
+      ? 'Estás ausente: tu mano se retirará sola. Las ciegas que te toquen se descuentan igual.'
+      : 'Si te ausentas, las ciegas que te toquen se te descuentan igual y tu mano se retira sola.';
+  },
+  toggleSitOut() {
+    const me = this.state && this.state.players.find(p => p.id === Net.playerId);
+    return this.act(me && me.sittingOut ? 'sitin' : 'sitout');
+  },
+  // Atajos de importe: Mín. / 50 % / Bote / Máx. (igual que el torneo).
+  bet(kind) {
+    const s = this.state;
+    if (!s) return;
+    const min = Math.min(s.minRaiseTo, s.maxRaiseTo);
+    const max = s.maxRaiseTo;
+    const value = {
+      min,
+      half: Math.floor((min + max) / 2),
+      pot: max + (s.pot || 0),
+      max,
+    }[kind];
+    if (value == null) return;
+    this.setAmount(value);
+  },
+  stepAmount(direction) {
+    const s = this.state;
+    if (!s) return;
+    const step = Math.max(1, Math.floor(s.minRaiseTo / 2));
+    this.setAmount((Number(this.el('amount').value) || 0) + direction * step);
+  },
+  // El slider mueve el importe entre el mínimo legal y el all-in.
+  syncSlider() {
+    const s = this.state;
+    if (!s) return;
+    const min = Math.min(s.minRaiseTo, s.maxRaiseTo);
+    const max = s.maxRaiseTo || min;
+    const value = min + Math.round((max - min) * (Number(this.el('slider').value) / 100));
+    this.setAmount(Math.max(min, Math.min(max, value)));
+  },
+  // Fija el importe y recoloca el slider en la posición equivalente.
+  setAmount(value) {
+    const s = this.state;
+    if (!s) return;
+    const min = Math.min(s.minRaiseTo, s.maxRaiseTo);
+    const max = s.maxRaiseTo || min;
+    const clamped = Math.max(min, Math.min(max, Math.round(Number(value) || min)));
+    const amount = this.el('amount');
+    amount.min = min; amount.max = max;
+    amount.value = String(clamped);
+    const slider = this.el('slider');
+    if (max > min) {
+      slider.value = String(Math.max(1, Math.min(100, Math.round((clamped - min) / (max - min) * 100))));
+    }
+    this.el('raise').textContent = 'Subir ' + clamped.toLocaleString('es-ES');
   },
   async act(type, amount) {
     if (this.busy) return;
