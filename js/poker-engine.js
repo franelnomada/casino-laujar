@@ -45,6 +45,37 @@ function bestFive(cards) {
 }
 function evaluate(cards) { return bestFive(cards).score; }
 const LABELS = ['Carta alta','Pareja','Doble pareja','Trío','Escalera','Color','Full','Póker','Escalera de color'];
+// Los rangos en plural y los palos, para nombrar la combinación con detalle:
+// "Pareja de doses" dice qué llevas; "Pareja" a secas no lo dice.
+const RANK_PLURAL = {2:'doses',3:'treses',4:'cuatros',5:'cincos',6:'seises',7:'sietes',8:'ochos',
+  9:'nueves',10:'dieces',11:'jotas',12:'reinas',13:'reyes',14:'ases'};
+const SUIT_NAME = {'♠':'picas','♥':'corazones','♦':'diamantes','♣':'tréboles'};
+const rankValue = card => RANKS.indexOf(card.rank) + 2;
+// Antes del flop solo hay dos cartas: no hay mesa todavía, así que se nombran a mano.
+function holeLabel(hand) {
+  if (hand[0].rank === hand[1].rank) return 'Pareja de ' + RANK_PLURAL[rankValue(hand[0])];
+  const top = rankValue(hand[0]) >= rankValue(hand[1]) ? hand[0].rank : hand[1].rank;
+  return 'Carta alta (' + top + ')';
+}
+// Nombre completo de la combinación con el detalle: qué cartas la forman.
+function handLabel(cards) {
+  if (cards.length < 5) return holeLabel(cards);
+  const score = evaluate(cards);
+  // La escalera del 5 al as se puntúa con un 5 como carta alta: se deshace aquí.
+  const high = score[1] === 5 ? 14 : score[1];
+  const low = score[1] === 5 ? 2 : score[1] - 4;
+  switch (LABELS[score[0]]) {
+    case 'Pareja': return 'Pareja de ' + RANK_PLURAL[score[1]];
+    case 'Doble pareja': return 'Doble pareja de ' + RANK_PLURAL[score[1]] + ' y ' + RANK_PLURAL[score[2]];
+    case 'Trío': return 'Trío de ' + RANK_PLURAL[score[1]];
+    case 'Full': return 'Full de ' + RANK_PLURAL[score[1]] + ' sobre ' + RANK_PLURAL[score[2]];
+    case 'Póker': return 'Póker de ' + RANK_PLURAL[score[1]];
+    case 'Escalera': return 'Escalera de ' + RANK_PLURAL[low] + ' a ' + RANK_PLURAL[high];
+    case 'Escalera de color': return 'Escalera de color de ' + RANK_PLURAL[low] + ' a ' + RANK_PLURAL[high];
+    case 'Color': return 'Color de ' + SUIT_NAME[cards[0].suit];
+    default: return 'Carta alta (' + cards[0].rank + ')';
+  }
+}
 const fail = error => ({ ok: false, error });
 class PokerRoom {
   constructor(code, options = {}) {
@@ -224,9 +255,8 @@ class PokerRoom {
     // El cliente elige la última calle cuyo reparto ya se ve completo.
     const privateHand = p && !p.left && p.inHand && p.hand.length === 2 ? {
       playerId: id,
-      labels: Array.from({length: this.board.length + 1}, (_, count) => count < 3 ?
-        (p.hand[0].rank === p.hand[1].rank ? 'Pareja' : 'Carta alta') :
-        LABELS[evaluate([...p.hand, ...this.board.slice(0, count)])[0]])
+      labels: Array.from({length: this.board.length + 1}, (_, count) =>
+        handLabel([...p.hand, ...this.board.slice(0, count)]))
     } : null;
     return {game:this.game,code:this.code,version:this.version,phase:this.phase,handNo:this.handNo,privateHand,
       hostId:this.hostId,dealerId:this.dealerId,sbId:this.sbId,bbId:this.bbId,turnId:this.turnId,
@@ -242,8 +272,8 @@ class PokerRoom {
       players:this.players.filter(q=>!q.left||q.inHand).map(q=>({id:q.id,name:q.name,chips:q.chips,bet:q.bet,total:q.total,
         folded:q.folded,allIn:q.allIn,inHand:q.inHand,left:q.left,result:q.result,
         cards:(q.id===id||(this.phase==='finished'&&this.showdown&&!q.folded))?q.hand:q.hand.map(()=>null),
-        handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?LABELS[evaluate([...q.hand,...this.board])[0]]:'',
+        handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?handLabel([...q.hand,...this.board]):'',
         bestHand:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?bestFive([...q.hand,...this.board]).cards:[]}))};
   }
 }
-module.exports={PokerRoom,buildDeck,evaluate,bestFive,compare};
+module.exports={PokerRoom,buildDeck,evaluate,bestFive,compare,handLabel};

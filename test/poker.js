@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { PokerRoom, buildDeck, evaluate, bestFive, compare } = require('../js/poker-engine');
+const { PokerRoom, buildDeck, evaluate, bestFive, compare, handLabel } = require('../js/poker-engine');
 const cards = s => s.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
 const r = new PokerRoom('TEST');
 r.addPlayer('a','Ana');r.addPlayer('b','Bob');r.addPlayer('c','Cris');
@@ -64,29 +64,35 @@ assert.equal(hint.stateFor('a').privateHand, null);
 hint.phase = 'flop';
 for (const p of hint.players) p.inHand = true;
 for (const [hand, board, label] of [
-  ['A♠ A♥', '', 'Pareja'],
-  ['A♠ K♥', '', 'Carta alta'],
-  ['A♠ A♥', '2♦ 3♣ 9♠', 'Pareja'],
-  ['A♠ K♥', 'A♦ K♣ 9♠', 'Doble pareja'],
-  ['A♠ A♥', 'A♦ 3♣ 9♠', 'Trío'],
-  ['A♠ 2♥', '3♦ 4♣ 5♠', 'Escalera'],
-  ['A♠ K♠', '2♠ 4♠ 9♠', 'Color'],
-  ['A♠ A♥', 'A♦ K♣ K♠', 'Full'],
-  ['A♠ A♥', 'A♦ A♣ K♠', 'Póker'],
-  ['A♠ K♠', 'Q♠ J♠ 10♠', 'Escalera de color'],
-  ['2♠ 3♥', '10♦ J♣ Q♠ K♥ A♦', 'Escalera'],
+  ['A♠ A♥', '', 'Pareja de ases'],
+  ['A♠ K♥', '', 'Carta alta (A)'],
+  ['A♠ A♥', '2♦ 3♣ 9♠', 'Pareja de ases'],
+  ['A♠ K♥', 'A♦ K♣ 9♠', 'Doble pareja de ases y reyes'],
+  ['A♠ A♥', 'A♦ 3♣ 9♠', 'Trío de ases'],
+  ['A♠ 2♥', '3♦ 4♣ 5♠', 'Escalera de doses a ases'],
+  ['A♠ K♠', '2♠ 4♠ 9♠', 'Color de picas'],
+  ['A♠ A♥', 'A♦ K♣ K♠', 'Full de ases sobre reyes'],
+  ['A♠ A♥', 'A♦ A♣ K♠', 'Póker de ases'],
+  ['A♠ K♠', 'Q♠ J♠ 10♠', 'Escalera de color de dieces a ases'],
+  ['2♠ 3♥', '10♦ J♣ Q♠ K♥ A♦', 'Escalera de dieces a ases'],
 ]) {
   hint.find('a').hand = cards(hand); hint.board = board ? cards(board) : [];
   assert.equal(hint.stateFor('a').privateHand.labels.at(-1), label);
 }
 hint.find('a').hand = cards('A♠ K♠'); hint.find('b').hand = cards('2♥ 2♦');
 hint.board = cards('Q♠ J♠ 10♠');
-assert.equal(hint.stateFor('a').privateHand.labels[3], 'Escalera de color');
-assert.equal(hint.stateFor('b').privateHand.labels[3], 'Pareja');
+assert.equal(hint.stateFor('a').privateHand.labels[3], 'Escalera de color de dieces a ases');
+assert.equal(hint.stateFor('b').privateHand.labels[3], 'Pareja de doses');
 assert.equal(hint.stateFor('b').privateHand.playerId, 'b');
 assert.ok(hint.stateFor('b').players.every(p => !p.handName && !p.bestHand.length && !p.privateHand));
 assert.deepEqual(hint.stateFor('b').players[0].cards, [null,null]);
 assert.equal(hint.stateFor('unknown').privateHand, null);
 hint.find('a').inHand = false;
 assert.equal(hint.stateFor('a').privateHand, null);
+// El nombre dice qué cartas llevas, no solo la categoría: "Pareja de doses".
+assert.equal(handLabel(cards('2♠ 2♥')), 'Pareja de doses');
+assert.equal(handLabel(cards('7♠ 7♥ 9♦ 4♣ 2♠')), 'Pareja de sietes');
+assert.equal(handLabel(cards('J♠ 3♥')), 'Carta alta (J)');
+assert.equal(handLabel(cards('A♠ 2♥ 3♦ 4♣ 5♠')), 'Escalera de doses a ases');
+assert.equal(handLabel(cards('9♥ 8♥ 7♥ 6♥ 2♥')), 'Color de corazones');
 console.log('✅ Poker: indicador privado, todas las combinaciones y sin filtración entre jugadores');

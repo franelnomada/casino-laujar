@@ -288,7 +288,7 @@ async function main() {
     assert.equal(await js('Poker.animations.size'),0);
     await render();
     assert.equal(await js('Poker.animations.size'),0);
-    assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
+    assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja de \w+|Carta alta \([\dJQKA]+\))$/);
     // En móvil el rótulo de la mano propia se mantiene visible (antes se ocultaba).
     for(const [w,h] of [[320,568],[390,844],[430,932]]) {
       await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:true});
@@ -376,12 +376,12 @@ async function main() {
     hintRoom.events=hintRoom.board.map((c,index)=>({type:'board',target:'board',index,at:future+index*1000,duration:1000}));
     await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
     await js(`Poker.reset();Net.playerId='a';Net.state=${JSON.stringify(hintRoom.stateFor('a'))};Net.render();`);
-    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Carta alta · Solo tú');
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Carta alta (A)');
     await js(`Poker.offset+=65000;Poker.update()`);
-    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Escalera de color · Solo tú');
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Escalera de color de dieces a ases');
     hintRoom.events=[];
     await js(`Poker.reset();Net.playerId='b';Net.state=${JSON.stringify(hintRoom.stateFor('b'))};Net.render();`);
-    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Pareja · Solo tú');
+    assert.equal(await js(`Poker.el('private-hand').textContent`),'Tu mano: Pareja de doses');
     assert.equal(await js(`document.querySelector('#pk-phase').nextElementSibling.id`),'pk-private-hand');
     assert.deepEqual(errors,[]);
     await js('Poker.reset()');

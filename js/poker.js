@@ -133,7 +133,10 @@ const Poker = {
     });
     const label = privateHand && privateHand.playerId === Net.playerId && ownCardsReady ?
       privateHand.labels[visibleBoard] : '';
-    this.el('private-hand').textContent = label ? 'Tu mano: ' + label + ' · Solo tú' : '';
+    // En móvil el rótulo se queda solo con la combinación: "· Solo tú" ocupa
+    // media línea y aquí lo que importa es qué llevas.
+    const alone = window.matchMedia('(max-width: 760px)').matches ? '' : ' · Solo tú';
+    this.el('private-hand').textContent = label ? 'Tu mano: ' + label + alone : '';
     const turn = s.players.find(p => p.id === s.turnId);
     const mine = s.turnId === Net.playerId;
     const canAct = mine && !dealing && !this.busy && !!turn;
