@@ -171,7 +171,7 @@ class TournamentRoom extends PokerRoom {
     this.players.push({
       id, name: String(name || 'Jugador').slice(0, 12), chips: this.startChips,
       hand: [], bet: 0, total: 0, folded: false, allIn: false, inHand: false,
-      left: false, eliminated: false, result: '', actedAt: null,
+      left: false, eliminated: false, result: '', actedAt: null, sittingOut: false,
       accountKey: (meta && meta.accountKey) || null, buyIn, seat: ++this.seatCounter,
     });
     this.prizePool += buyIn;
@@ -186,6 +186,13 @@ class TournamentRoom extends PokerRoom {
     }
     if (this.tournamentPhase === 'finalizado') return fail('El torneo ya ha terminado.');
     const alive = p => !p.left && !p.eliminated && p.chips > 0;
+    // Si en esta mesa no queda nadie presente la mano no puede repartirse: como
+    // en PokerStars, se vuelve a sentar a todos para cobrar la ciega grande.
+    const present = p => alive(p) && !p.sittingOut;
+    if (this.players.some(alive) && !this.players.some(present)) {
+      this.players.filter(alive).forEach(p => { p.sittingOut = false; });
+      this.message = 'Todos estaban ausentes: se reanuda el reparto.';
+    }
     if (this.players.filter(alive).length < 2) return fail('Se necesitan dos jugadores con fichas.');
 
     if (this.startedAt === null) { this.startedAt = now; this.tournamentPhase = 'en_curso'; }

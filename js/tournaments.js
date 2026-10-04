@@ -428,6 +428,7 @@ const Tournaments = {
       }
       seat.className = 'trn-seat trn-seat-' + index + (p.id === (me && me.id) ? ' self' : '') +
         (p.folded ? ' folded' : '') + (p.eliminated ? ' eliminated' : '') +
+        (p.sittingOut && !p.eliminated ? ' sitting-out' : '') +
         (p.id === s.turnId ? ' active' : '');
       seat.querySelector('.trn-avatar').textContent = (p.name || '?').slice(0, 1).toUpperCase();
       seat.querySelector('.trn-seat-name').textContent = p.name + (p.eliminated ? ' · ' + (p.place ? p.place + 'º' : 'fuera') : '');
@@ -435,7 +436,7 @@ const Tournaments = {
       seat.querySelector('.trn-seat-chips').textContent = p.eliminated ? '—' : p.chips.toLocaleString('es-ES');
       seat.querySelector('.trn-seat-badges').textContent = [
         p.id === s.dealerId ? '⚪ D' : '', p.id === s.sbId ? '🔵 SB' : '', p.id === s.bbId ? '🟡 BB' : '',
-        p.allIn ? 'ALL-IN' : '',
+        p.allIn ? 'ALL-IN' : '', p.sittingOut && !p.eliminated ? 'AUSENTE' : '',
       ].filter(Boolean).join(' ');
 
       // Solo se ven las cartas del rival cuando el servidor las envía
@@ -467,7 +468,9 @@ const Tournaments = {
     const slider = this.el('slider');
     const min = Math.min(s.minRaiseTo, s.maxRaiseTo);
     const max = s.maxRaiseTo || 1;
-    const canAct = s.canAct && me && !me.eliminated && !this.busy;
+    const away = !!(me && me.sittingOut);
+    // Ausentado no se pierde el turno por accidente: los mandos se apagan.
+    const canAct = s.canAct && me && !me.eliminated && !this.busy && !away;
     box.classList.toggle('disabled', !canAct);
 
     amount.min = min;
@@ -482,6 +485,27 @@ const Tournaments = {
     this.el('raise').disabled = !canAct || !s.canRaise;
     this.el('call').textContent = s.toCall ? 'Igualar ' + s.toCall.toLocaleString('es-ES') : 'Pasar';
     this.el('raise').textContent = 'Apostar ' + Number(amount.value || 0).toLocaleString('es-ES');
+    // Ausentarse / volver: siempre disponible mientras sigas en el torneo.
+    const sitout = this.el('sitout');
+    const canSit = !!(me && !me.eliminated && !this.busy);
+    sitout.disabled = !canSit;
+    sitout.textContent = away ? 'Volver a la mesa' : 'Ausentarse';
+    sitout.setAttribute('aria-pressed', away ? 'true' : 'false');
+    sitout.classList.toggle('is-away', away);
+    sitout.title = away
+      ? 'Vuelve a jugar: entrarás en la próxima mano.'
+      : 'Deja de jugar un rato. Si te toca ciega, se te descontará igual.';
+    const note = this.el('sitout-note');
+    if (note) note.textContent = away
+      ? 'Estás ausente: tu mano se retirará sola. Las ciegas que te toquen se descuentan igual.'
+      : 'Si te ausentas, las ciegas que te toquen se te descuentan igual y tu mano se retira sola.';
+  },
+
+  // Ausentarse / volver a la mesa (sit out, como en PokerStars).
+  toggleSitOut() {
+    const me = this.state && this.state.players
+      ? this.state.players.find(p => p.id === (this.table && this.table.playerId)) : null;
+    return this.act(me && me.sittingOut ? 'sitin' : 'sitout');
   },
 
   // El slider mueve el importe entre el mínimo legal y el all-in.

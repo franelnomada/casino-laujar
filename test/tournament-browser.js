@@ -252,6 +252,48 @@ async function main() {
     assert.equal(table.quick.join('|'), 'Mín.|50 %|Bote|Máx.', 'Los cuatro atajos de importe: ' + table.quick);
     assert.ok(/4\d% \/ 4\d%/.test(table.tableRadius), 'La mesa es un óvalo, no un rectángulo: ' + table.tableRadius);
 
+    // ---------- Ausentarse: botón, estado y aviso de las ciegas ----------
+    const sitUi = await js(`(() => {
+      const button = document.getElementById('trn-sitout');
+      const note = document.getElementById('trn-sitout-note');
+      const seatOf = id => document.querySelector('#trn-seats .trn-seat[data-player="' + id + '"]');
+      const seat = seatOf(Tournaments.table.playerId);
+      return {
+        exists: !!button, text: button.textContent, pressed: button.getAttribute('aria-pressed'),
+        note: note.textContent, hasSeat: !!seat, awayClass: !!(seat && seat.classList.contains('sitting-out')),
+        badge: seat ? seat.querySelector('.trn-seat-badges').textContent : '',
+        disabled: button.disabled,
+      };
+    })()`);
+    assert.equal(sitUi.exists, true, 'La mesa de torneo tiene el botón de ausentarse');
+    assert.equal(sitUi.text, 'Ausentarse', 'El botón ofrece ausentarse: ' + sitUi.text);
+    assert.match(sitUi.note, /ciegas/i, 'Se avisa de que las ciegas se cobran igual: ' + sitUi.note);
+    assert.equal(sitUi.awayClass, false, 'Antes de pulsarlo no está marcado como ausente');
+
+    // El estado marca al jugador como ausente: la mesa debe reflejarlo entero.
+    const awayState = { ...state, players: state.players.map(p => ({ ...p, sittingOut: p.id === 'a' })) };
+    await js(`Tournaments.render(${JSON.stringify(awayState)})`);
+    const afterSit = await js(`(() => {
+      const button = document.getElementById('trn-sitout');
+      const seat = document.querySelector('#trn-seats .trn-seat[data-player="' + Tournaments.table.playerId + '"]');
+      return {
+        text: button.textContent, pressed: button.getAttribute('aria-pressed'),
+        awayClass: !!(seat && seat.classList.contains('sitting-out')),
+        badge: seat ? seat.querySelector('.trn-seat-badges').textContent : '',
+        note: document.getElementById('trn-sitout-note').textContent,
+        disabled: button.disabled,
+      };
+    })()`);
+    assert.equal(afterSit.text, 'Volver a la mesa', 'Al ausentarse, el botón ofrece volver: ' + afterSit.text);
+    assert.equal(afterSit.pressed, 'true', 'El botón queda marcado como pulsado');
+    assert.equal(afterSit.awayClass, true, 'El asiento se ve como ausente');
+    assert.match(afterSit.badge, /AUSENTE/, 'Los rivales ven que está ausente: ' + afterSit.badge);
+    assert.match(afterSit.note, /Estás ausente/, 'Se avisa de que su mano se retira sola');
+    // Volver a la mesa devuelve el botón a su estado inicial.
+    await js(`Tournaments.render(${JSON.stringify(state)})`);
+    assert.equal(await js(`document.getElementById('trn-sitout').textContent`), 'Ausentarse',
+      'Al volver, el botón vuelve a ofrecer ausentarse');
+
     if (process.env.MEASURE) {
       const m = await js(`(() => {
         const r = el => { const b = el.getBoundingClientRect(); return {t: Math.round(b.top), h: Math.round(b.height), w: Math.round(b.width)}; };

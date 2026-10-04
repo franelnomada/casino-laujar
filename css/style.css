@@ -792,6 +792,10 @@ body.in-tournament-room #app {
 .trn-seat.active .trn-seat-box { border-color: var(--gold); }
 .trn-seat.folded { opacity: .45; }
 .trn-seat.eliminated { opacity: .35; filter: grayscale(1); }
+/* Ausente: sigue en la mesa (le tocan ciegas) pero no está jugando. */
+.trn-seat.sitting-out .trn-seat-box { border-style: dashed; border-color: #7d8ea0; }
+.trn-seat.sitting-out .trn-avatar { opacity: .5; }
+.trn-seat.sitting-out .trn-seat-badges { color: #d8a0a0; }
 .trn-seat.self .trn-seat-box { border-color: #4ea3ff; }
 
 .trn-side { width: min(250px, 34%); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -814,6 +818,11 @@ body.in-tournament-room #app {
 .trn-amount-row .name-input { width: 74px; min-height: 34px; }
 .trn-slider { flex: 1; min-width: 0; accent-color: #4ea3ff; }
 .trn-main-actions { display: flex; flex-direction: column; gap: 5px; }
+.trn-extra-actions { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.trn-sitout { min-height: 34px; padding: 7px 10px; font-size: .8rem; background: #2b3644; color: #e6edf5; }
+.trn-sitout:hover { border-color: var(--gold); }
+.trn-sitout.is-away { background: #1f7a4d; color: #fff; border-color: #2fb37a; }
+.trn-sitout-note { margin: 0; font-size: .64rem; line-height: 1.25; }
 .trn-fold { background: #2b3644; color: #e6edf5; }
 .trn-call { background: #1f7a4d; color: #fff; }
 .trn-raise { background: #b32424; color: #fff; font-weight: bold; }

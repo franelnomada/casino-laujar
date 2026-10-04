@@ -103,7 +103,7 @@ class PokerRoom {
     // Respeta el saldo real del jugador, incluido el cero (antes se regalaban 2000
     // fichas de torneo cada vez, ignorando el saldo real). Default solo si no llega valor.
     const chips = (initChips != null) ? Math.max(0, initChips) : 1000;
-    this.players.push({id,name:String(name||'Jugador').slice(0,12),chips,hand:[],bet:0,total:0,folded:false,allIn:false,inHand:false,left:false,result:'',actedAt:null});
+    this.players.push({id,name:String(name||'Jugador').slice(0,12),chips,hand:[],bet:0,total:0,folded:false,allIn:false,inHand:false,left:false,result:'',actedAt:null,sittingOut:false});
     if(!this.hostId) this.hostId=id;
     this.touch(); return {ok:true};
   }
@@ -120,6 +120,13 @@ class PokerRoom {
   start(id, now=Date.now(), deck=null) {
     if(id!==this.hostId) return fail('Solo el anfitrión abre la siguiente mano.');
     if(!['lobby','finished'].includes(this.phase) || now<this.visualUntil) return fail('La mano o el reparto aún no han terminado.');
+    // Si todo el mundo está ausente no hay mano que repartir: como en PokerStars,
+    // se vuelve a sentar a todos para que la ciega grande pueda cobrarse.
+    const present=p=>!p.left && p.chips>0 && !p.sittingOut;
+    if(this.players.filter(p=>!p.left && p.chips>0).length>0 && !this.players.some(present)) {
+      this.players.filter(p=>!p.left && p.chips>0).forEach(p=>{p.sittingOut=false;});
+      this.message='Todos estaban ausentes: se reanuda el reparto.';
+    }
     const alive=p=>!p.left && p.chips>0;
     if(this.players.filter(alive).length<2) return fail('Se necesitan dos jugadores con fichas.');
     if(this.startedAt===null) this.startedAt=now;
@@ -145,8 +152,27 @@ class PokerRoom {
   canRaise(p) {
     return p.actedAt===null || this.currentBet-p.actedAt>=this.minRaise;
   }
+  // Sentarse o volver a la mesa. El ausente sigue pagando las ciegas que le
+  // toquen (es lo que hace que ausentarse salga a cuenta) y su mano se retira
+  // sola cuando le llegue el turno, sin pedirle ninguna decisión.
+  setSittingOut(id,out,now=Date.now()) {
+    const p=this.find(id);
+    if(!p) return fail('No estás en esta mesa.');
+    if(p.left||p.eliminated) return fail('Ya no juegas en esta mesa.');
+    if(p.chips<=0) return fail('No te quedan fichas para seguir.');
+    out=!!out;
+    if(p.sittingOut===out) return {ok:true};
+    p.sittingOut=out;
+    this.message=out ? p.name+' se ausenta: si le toca ciega, se le descontará igual.'
+      : p.name+' vuelve a la mesa.';
+    if(out && this.pending.includes(id)) this.progress(now);
+    this.touch();
+    return {ok:true};
+  }
   action(id,type,amount,now=Date.now()) {
     if(type==='start') return this.start(id,now);
+    if(type==='sitout') return this.setSittingOut(id,true,now);
+    if(type==='sitin') return this.setSittingOut(id,false,now);
     const p=this.find(id);
     if(!p || p.left || id!==this.turnId || now<this.visualUntil || ['lobby','finished'].includes(this.phase)) return fail('Espera tu turno y a que termine el reparto.');
     const owed=Math.max(0,this.currentBet-p.bet);
@@ -176,9 +202,19 @@ class PokerRoom {
     this.progress(now); this.touch(); return {ok:true};
   }
   progress(now) {
+    this.pending=this.pending.filter(id=>{const p=this.find(id);return p&&p.inHand&&!p.folded&&!p.allIn;});
+    // El ausente no decide: cuando le toca se retira solo. Sus ciegas ya se le
+    // cobraron en el reparto, así que seguirle costando aunque no juegue.
+    this.pending=this.pending.filter(id=>{
+      const p=this.find(id);
+      if(!p) return false;
+      if(!p.sittingOut) return true;
+      p.folded=true; p.result='Ausente'; p.actedAt=this.currentBet;
+      this.message=p.name+' está ausente: su mano se retira sola.';
+      return false;
+    });
     const live=this.players.filter(p=>p.inHand&&!p.folded);
     if(live.length<=1) { this.finish(false,now); return; }
-    this.pending=this.pending.filter(id=>{const p=this.find(id);return p&&p.inHand&&!p.folded&&!p.allIn;});
     const able=live.filter(p=>!p.allIn);
     if(able.length===1 && able[0].bet>=this.currentBet) this.pending=[];
     if(this.pending.length) {
@@ -270,7 +306,7 @@ class PokerRoom {
       maxRaiseTo:p?p.bet+p.chips:0,canAct,
       canRaise:!!(p&&this.canRaise(p)&&live.some(q=>q.id!==id)&&p.bet+p.chips>this.currentBet),
       players:this.players.filter(q=>!q.left||q.inHand).map(q=>({id:q.id,name:q.name,chips:q.chips,bet:q.bet,total:q.total,
-        folded:q.folded,allIn:q.allIn,inHand:q.inHand,left:q.left,result:q.result,
+        folded:q.folded,allIn:q.allIn,inHand:q.inHand,left:q.left,result:q.result,sittingOut:!!q.sittingOut,
         cards:(q.id===id||(this.phase==='finished'&&this.showdown&&!q.folded))?q.hand:q.hand.map(()=>null),
         handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?handLabel([...q.hand,...this.board]):'',
         bestHand:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?bestFive([...q.hand,...this.board]).cards:[]}))};

@@ -486,6 +486,11 @@
               <button id="trn-call" class="btn trn-call" type="button" onclick="Tournaments.call()">Pasar</button>
               <button id="trn-raise" class="btn trn-raise" type="button" onclick="Tournaments.act('raise')">Apostar</button>
             </div>
+            <div class="trn-extra-actions">
+              <button id="trn-sitout" class="btn trn-sitout" type="button" onclick="Tournaments.toggleSitOut()"
+                aria-pressed="false">Ausentarse</button>
+              <p id="trn-sitout-note" class="hint trn-sitout-note">Si te ausentas, las ciegas que te toquen se te descuentan igual y tu mano se retira sola.</p>
+            </div>
           </div>
           <div id="trn-final" class="trn-final hidden"></div>
         </div>
