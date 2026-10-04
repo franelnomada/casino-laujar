@@ -289,6 +289,16 @@ async function main() {
     await render();
     assert.equal(await js('Poker.animations.size'),0);
     assert.match(await js(`document.getElementById('pk-private-hand').textContent`), /^Tu mano: (Pareja|Carta alta) · Solo tú$/);
+    // En móvil el rótulo de la mano propia se mantiene visible (antes se ocultaba).
+    for(const [w,h] of [[320,568],[390,844],[430,932]]) {
+      await send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:true});
+      const handUi=await js(`(()=>{const e=document.getElementById('pk-private-hand');const r=e.getBoundingClientRect();
+        return {display:getComputedStyle(e).display,text:e.textContent,height:Math.round(r.height),fits:e.scrollWidth<=e.clientWidth+1};})()`);
+      assert.equal(handUi.display!=='none'&&/^Tu mano: /.test(handUi.text),true,'La mano propia se ve en '+w+'x'+h+' '+JSON.stringify(handUi));
+      assert.equal(handUi.fits,true,'El rótulo de la mano cabe en una línea a '+w+'x'+h+' '+JSON.stringify(handUi));
+      assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Sin scroll con la mano visible a '+w+'x'+h);
+    }
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await js(`Net.renderChat([{id:'chat-1',playerId:'p0',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',playerId:'p0',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);
     assert.equal(await js(`document.getElementById('net-chat').classList.contains('is-open')`),false,'El chat empieza cerrado');
     assert.equal(await js(`getComputedStyle(document.getElementById('net-chat-messages')).display`),'none','El historial está oculto al inicio');

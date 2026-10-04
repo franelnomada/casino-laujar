@@ -1088,7 +1088,10 @@ body.in-poker-room .room-chat:not(.is-open) { bottom: max(84px, calc(env(safe-ar
   body.in-poker-room .pk-dealer .shoe { width: 25px; height: 34px; }
   body.in-poker-room .pk-dealer .shoe i:nth-child(2) { display: none; }
   body.in-poker-room .pk-center { width: 58%; }
-  body.in-poker-room .pk-brand, body.in-poker-room .pk-private-hand { display: none; }
+  body.in-poker-room .pk-brand { display: none; }
+  /* La mano propia no se oculta en móvil: es imprescindible saber qué llevas.
+     Se compacta (más pequeña y sin hueco extra) para no robar altura a la mesa. */
+  body.in-poker-room .pk-private-hand { min-height: 1.1em; margin: 1px 0 0; font-size: .6rem; }
   body.in-poker-room .pk-pot { margin: 0 0 2px; font-size: .78rem; }
   body.in-poker-room .pk-board { min-height: 43px; gap: 2px; }
   body.in-poker-room .pk-board .playing-card { width: 29px; height: 43px; padding: 2px; font-size: .66rem; }
