@@ -271,13 +271,16 @@ const Net = {
     localStorage.removeItem(this.KEY);
   },
 
-  // La burbuja del chat se mete dentro de la mesa indicada (o sale si es null),
-  // para que quede anclada a una esquina y no tape cartas ni mandos.
+  // La burbuja del chat se mete dentro de la mesa indicada (o sale al body si es
+  // null), para que quede anclada a una esquina y no tape cartas ni mandos.
+  // Importante: al abrirlo tiene que salir de la mesa, porque .poker-table crea
+  // un contexto de apilado (isolation) y el topbar se pintaría por encima.
   mountChat(tableId) {
     const chat = document.getElementById('net-chat');
     const table = tableId ? document.getElementById(tableId) : null;
     if (!chat) return;
-    const target = table || document.getElementById('app') || document.body;
+    if (tableId) this.chatTableId = tableId;
+    const target = table || document.body;
     if (chat.parentElement !== target) target.appendChild(chat);
     chat.classList.toggle('mounted', !!table);
   },
@@ -301,6 +304,9 @@ const Net = {
     const panel = document.getElementById('net-chat');
     const toggle = document.getElementById('net-chat-toggle');
     if (!panel) return;
+    // Fuera de la mesa: dentro, el chat quedaría por debajo del topbar y la
+    // cruz quedaría tapada. Abierto, va suelto en el body.
+    this.mountChat(null);
     panel.classList.add('is-open');
     panel.setAttribute('aria-modal', 'true');
     if (toggle) toggle.setAttribute('aria-expanded', 'true');
@@ -328,6 +334,8 @@ const Net = {
     this.chatUnread = false;
     const dot = document.getElementById('net-chat-unread');
     if (dot) dot.classList.add('hidden');
+    // Cerrado, la burbuja vuelve a la esquina de su mesa.
+    if (this.chatTableId) this.mountChat(this.chatTableId);
     if (restoreFocus && toggle && typeof toggle.focus === 'function') toggle.focus();
   },
 

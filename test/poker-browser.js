@@ -333,8 +333,19 @@ async function main() {
     const chatBox=await js(`(()=>{const r=document.getElementById('net-chat').getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,messages:document.querySelectorAll('#net-chat-messages .chat-message').length,closeVisible:getComputedStyle(document.getElementById('net-chat-close')).display!=='none'};})()`);
     assert.equal(chatBox.left===0&&chatBox.top===0&&chatBox.right===chatBox.width&&chatBox.bottom===chatBox.height,true,'El chat abierto ocupa toda la pantalla '+JSON.stringify(chatBox));
     assert.equal(chatBox.messages===4&&chatBox.closeVisible,true,'El historial y la cruz se ven al abrir');
+    // La cruz tiene que ser alcanzable: nada puede taparla (el topbar, la mesa…).
+    const closeHit=await js(`(()=>{const c=document.getElementById('net-chat-close');const r=c.getBoundingClientRect();
+      const x=Math.round(r.left+r.width/2),y=Math.round(r.top+r.height/2);
+      const top=document.elementFromPoint(x,y);
+      return {x,y,w:Math.round(r.width),h:Math.round(r.height),insideWindow:r.top>=0&&r.bottom<=innerHeight,
+        reachable:!!top&&(top===c||c.contains(top)||top.contains(c)),coveredBy:top?top.className||top.id||top.tagName:''};})()`);
+    assert.equal(closeHit.insideWindow&&closeHit.reachable,
+      true,'La cruz del chat se puede pulsar (no queda tapada): '+JSON.stringify(closeHit));
     await js(`document.getElementById('net-chat-close').click()`);
     assert.equal(await js(`Net.chatVisible===false&&!document.getElementById('net-chat').classList.contains('is-open')`),true,'La cruz cierra el chat');
+    // Al cerrar, la burbuja vuelve a anclarse en la esquina de la mesa.
+    assert.equal(await js(`document.getElementById('net-chat').parentElement.id`),'pk-table',
+      'Cerrado, el chat vuelve a la esquina de la mesa');
     await js(`Net.openChat();document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
     assert.equal(await js(`Net.chatVisible===false&&document.querySelectorAll('#net-chat-messages .chat-message').length===4`),true,'Escape cierra el chat conservando el historial');
     for(const [width,height] of [[320,568],[390,844],[768,600],[1100,700],[1440,900]]) {
