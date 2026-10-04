@@ -691,6 +691,17 @@ body.at-welcome #topbar { display: none; }
 .pk-chips,.pk-bet,.pk-badges,.pk-result { font-size: .8rem; min-height: 1.3em; }
 .pk-badges { margin: 3px 0; }
 .pk-result { color: var(--gold-light); }
+/* Última acción de cada jugador: el color dice qué ha hecho en la ronda.
+   Pasa = gris · Iguala = verde · Sube = dorado · Todo-in = rojo · Se retira = apagado. */
+.pk-result.pk-act { font-weight: bold; letter-spacing: .2px; }
+.pk-act-check { color: #b8c4d0; }
+.pk-act-call { color: #57d68d; }
+.pk-act-raise { color: #ffd760; }
+.pk-act-allIn { color: #ff7a6b; }
+.pk-act-fold { color: #8b98a5; }
+/* Quien sube la apuesta se resalta con un halo dorado: es la señal principal. */
+.pk-room .pk-seat.act-raise { box-shadow: 0 0 0 2px #ffd76088, 0 0 16px #ffd76055; }
+.pk-room .pk-seat.act-allIn { box-shadow: 0 0 0 2px #ff7a6b99, 0 0 16px #ff7a6b66; }
 .pk-hole { justify-content: center; flex-wrap: nowrap; gap: 5px; margin: 6px 0; min-height: 64px; }
 .pk-hole .playing-card { width: 44px; height: 64px; padding: 3px; font-size: .9rem; }
 .pk-hole .playing-card .suit { font-size: 1.15rem; }
@@ -937,7 +948,7 @@ body.in-poker-room #net-message,
 body.in-poker-room #net-blackjack-controls { display: none !important; }
 body.in-poker-room #net-poker {
   min-width: 0; min-height: 0; height: 100%; display: grid;
-  grid-template-rows: 30px minmax(0, 1fr) auto; gap: 6px; overflow: hidden;
+  grid-template-rows: 30px minmax(0, 1fr) auto; gap: 5px; overflow: hidden;
 }
 /* Franja de estado al pie: mismo papel que el mensaje del torneo. */
 .pk-footer {
@@ -999,7 +1010,9 @@ body.in-poker-room .poker-meta > span { white-space: nowrap; }
 .pk-room .pk-seat .pk-bet { grid-column: 2; justify-self: end; white-space: nowrap; }
 .pk-room .pk-seat .pk-hole,
 .pk-room .pk-seat .pk-result { grid-column: 1 / -1; }
-.pk-room .pk-seat .pk-result:empty { display: none; }
+/* El hueco del rótulo se reserva siempre (aunque esté vacío) para que los
+   asientos midan lo mismo y la mesa no se descentre al actuar. */
+.pk-room .pk-seat .pk-result:empty { visibility: hidden; }
 .pk-room .pk-seat:has(.pk-result:not(:empty)) .pk-bet { display: none; }
 .pk-room .pk-seat-0 { right: .5%; top: 28%; }
 .pk-room .pk-seat-1 { right: 2%; top: 58%; }
@@ -1097,13 +1110,21 @@ body.in-poker-room .poker-meta > span { white-space: nowrap; }
   .pk-room .pk-hole .playing-card { width: 19px; height: 27px; padding: 1px; font-size: .46rem; }
   .pk-room .pk-hole .suit { font-size: .58rem; }
   .pk-room .pk-name, .pk-room .pk-chips, .pk-room .pk-bet, .pk-room .pk-badges { font-size: .52rem; }
+  /* El rótulo de la acción es la señal principal: se lee bien incluso en minúscula
+   y reserva su alto en todos los asientos, para que la mesa no se descentre. */
+  .pk-room .pk-result.pk-act { font-size: .58rem; }
+  .pk-room .pk-seat .pk-result { min-height: 1em; font-size: .52rem; line-height: 1.1; }
   /* La apuesta se ve en el panel central; aquí el alto es para las cartas. */
   .pk-room .pk-seat .pk-bet { display: none; }
-  .pk-room .pk-seat-0 { top: 11%; }
-  .pk-room .pk-seat-5 { top: 11%; }
-  .pk-room .pk-seat-1 { top: 39%; }
-  .pk-room .pk-seat-4 { top: 39%; }
-  .pk-room .pk-seat-2, .pk-room .pk-seat-3 { bottom: 2%; }
+  .pk-room .pk-hole { min-height: 26px; }
+  .pk-room .pk-name, .pk-room .pk-chips { font-size: .5rem; }
+  /* Reparto vertical ajustado al alto del asiento: con el rótulo de acción
+     reservado, los huecos tienen que dar de sí para que nada se solape. */
+  .pk-room .pk-seat-0 { top: 4%; }
+  .pk-room .pk-seat-5 { top: 4%; }
+  .pk-room .pk-seat-1 { top: 36%; }
+  .pk-room .pk-seat-4 { top: 36%; }
+  .pk-room .pk-seat-2, .pk-room .pk-seat-3 { bottom: 1%; }
   .pk-room .pk-hole { min-height: 37px; }
   .pk-room .pk-hole .playing-card { width: 26px; height: 37px; font-size: .58rem; }
   .pk-room .pk-hole .suit { font-size: .72rem; }

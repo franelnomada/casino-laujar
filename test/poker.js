@@ -89,6 +89,21 @@ assert.deepEqual(hint.stateFor('b').players[0].cards, [null,null]);
 assert.equal(hint.stateFor('unknown').privateHand, null);
 hint.find('a').inHand = false;
 assert.equal(hint.stateFor('a').privateHand, null);
+// La última acción de cada jugador viaja al cliente: sin esto no se puede ver
+// en la mesa quién pasa, quién iguala y quién sube.
+const acts = new PokerRoom('ACTS');
+acts.addPlayer('a', 'Ana', 1000); acts.addPlayer('b', 'Bob', 1000); acts.addPlayer('c', 'Carla', 1000);
+acts.start('a', 1000);
+const turn = () => acts.turnId;
+if (turn() === 'a') acts.action('a', 'raise', 300, acts.visualUntil + 1);
+while (turn() && turn() !== 'b') acts.action(turn(), 'call', null, acts.visualUntil + 1);
+acts.action('b', 'raise', 600, acts.visualUntil + 1);
+while (turn() && turn() !== 'c') acts.action(turn(), 'call', null, acts.visualUntil + 1);
+acts.action('c', 'call', null, acts.visualUntil + 1);
+const seen = acts.stateFor('a').players;
+assert.equal(seen.find(p => p.id === 'b').lastAction, 'raise', 'El que sube declara su acción');
+assert.equal(seen.find(p => p.id === 'b').lastBet, 600, 'Y el importe con el que subió');
+assert.equal(seen.find(p => p.id === 'c').lastAction, 'call', 'El que iguala también declara la suya');
 // El nombre dice qué cartas llevas, no solo la categoría: "Pareja de doses".
 assert.equal(handLabel(cards('2♠ 2♥')), 'Pareja de doses');
 assert.equal(handLabel(cards('7♠ 7♥ 9♦ 4♣ 2♠')), 'Pareja de sietes');

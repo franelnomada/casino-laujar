@@ -135,7 +135,7 @@ class PokerRoom {
     this.dealerId=this.order(this.dealerId,alive)[0].id;
     this.deck=deck ? deck.map(c=>({...c})) : buildDeck();
     this.board=[]; this.pots=[]; this.events=[]; this.visualUntil=now; this.nextHandAt=0; this.handNo++;
-    this.players.forEach(p=>Object.assign(p,{hand:[],bet:0,total:0,folded:!alive(p),inHand:alive(p),allIn:false,result:'',actedAt:null}));
+    this.players.forEach(p=>Object.assign(p,{hand:[],bet:0,total:0,folded:!alive(p),inHand:alive(p),allIn:false,result:'',actedAt:null,lastAction:null,lastBet:0}));
     const count=this.players.filter(alive).length;
     this.sbId=count===2 ? this.dealerId : this.order(this.dealerId,alive)[0].id;
     this.bbId=this.order(this.sbId,alive)[0].id;
@@ -197,6 +197,9 @@ class PokerRoom {
       }
     } else return fail('Acción de póker desconocida.');
     p.actedAt=this.currentBet;
+    // Qué ha hecho cada uno en esta ronda: el cliente lo pinta en el asiento
+    // para que se vea de un vistazo quién pasa, quién iguala y quién sube.
+    p.lastAction=type; p.lastBet=p.bet;
     this.pending=this.pending.filter(x=>x!==id);
     this.message=p.name+': '+({fold:'se retira',check:'pasa',call:'iguala',raise:'sube a '+p.bet,allIn:'all-in '+p.bet}[type]);
     this.progress(now); this.touch(); return {ok:true};
@@ -307,6 +310,7 @@ class PokerRoom {
       canRaise:!!(p&&this.canRaise(p)&&live.some(q=>q.id!==id)&&p.bet+p.chips>this.currentBet),
       players:this.players.filter(q=>!q.left||q.inHand).map(q=>({id:q.id,name:q.name,chips:q.chips,bet:q.bet,total:q.total,
         folded:q.folded,allIn:q.allIn,inHand:q.inHand,left:q.left,result:q.result,sittingOut:!!q.sittingOut,
+        lastAction:q.lastAction||'', lastBet:q.lastBet||0,
         cards:(q.id===id||(this.phase==='finished'&&this.showdown&&!q.folded))?q.hand:q.hand.map(()=>null),
         handName:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?handLabel([...q.hand,...this.board]):'',
         bestHand:this.phase==='finished'&&this.showdown&&q.inHand&&!q.folded?bestFive([...q.hand,...this.board]).cards:[]}))};

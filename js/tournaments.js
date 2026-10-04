@@ -430,7 +430,8 @@ const Tournaments = {
           '<div class="pk-bet"></div><div class="pk-result"></div>';
         box.appendChild(seat);
       }
-      seat.className = 'pk-seat pk-seat-' + index + (p.folded ? ' folded' : '') +
+      seat.className = 'pk-seat pk-seat-' + index + (p.folded ? ' folded' : '')
+        + (p.lastAction && !p.folded ? ' act-' + p.lastAction : '') +
         (p.eliminated ? ' eliminated' : '') + (p.sittingOut && !p.eliminated ? ' sitting-out' : '') +
         (p.id === (me && me.id) ? ' self' : '') + (p.id === s.turnId ? ' active' : '');
       seat.querySelector('.pk-name').textContent = p.name + (p.id === (me && me.id) ? ' · Tú' : '') +
@@ -454,6 +455,10 @@ const Tournaments = {
       while (holder.children.length > wanted) holder.removeChild(holder.lastElementChild);
       seat.querySelector('.pk-bet').textContent = p.inHand ? (p.folded ? 'Retirado'
         : p.allIn ? 'ALL-IN' : 'Apuesta: ' + p.bet) : 'Esperando';
+      // Última acción, para ver de un vistazo quién pasa y quién sube.
+      const result = seat.querySelector('.pk-result');
+      result.textContent = Poker.actionLabel(p);
+      result.className = 'pk-result' + (p.lastAction ? ' pk-act pk-act-' + p.lastAction : '');
     });
   },
 

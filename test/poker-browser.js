@@ -312,6 +312,23 @@ async function main() {
         'El chat cerrado es una burbuja pequeña: ' + JSON.stringify(overlapUi));
       assert.equal(overlapUi.overChat, false,
         'El chat no tapa tus cartas ni los mandos de apuesta: ' + JSON.stringify(overlapUi));
+      // Cada asiento dice qué ha hecho su jugador: pasa, iguala o sube.
+      const actsUi = await js(`(()=>{const state=Poker.state;
+        const withAct=Object.assign({},state,{players:state.players.map((p,i)=>i===0?{...p,lastAction:'raise',lastBet:250}:p)});
+        Poker.render(withAct);
+        const seat=document.querySelector('#pk-seats .pk-seat');
+        const label=seat.querySelector('.pk-result');
+        const style=getComputedStyle(label);
+        return {seatClass:seat.className,text:label.textContent,labelClass:label.className,
+          color:style.color,bold:parseInt(style.fontWeight,10)>=600,
+          lines:Math.round(label.getBoundingClientRect().height/parseFloat(style.lineHeight||16)),
+          glow:getComputedStyle(seat).boxShadow};})()`);
+      assert.equal(/Sube 250/.test(actsUi.text)&&/pk-act-raise/.test(actsUi.labelClass),
+        true,'El asiento rotula la acción y la marca por tipo: '+JSON.stringify(actsUi));
+      assert.equal(actsUi.bold&&actsUi.glow!=='none',
+        true,'Quien sube se distingue en negrita y con halo: '+JSON.stringify(actsUi));
+      // El rótulo cabe en una línea: si no, el asiento crece y se solapan.
+      assert.equal(actsUi.lines, 1, 'El rótulo de la acción va en una sola línea: '+JSON.stringify(actsUi));
     }
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await js(`Net.renderChat([{id:'chat-1',playerId:'p0',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',playerId:'p0',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);

@@ -13,6 +13,16 @@ const Poker = {
     this.el('showdown').classList.add('hidden');
   },
   now() { return Date.now() + (this.offset || 0); },
+  // Rótulo de la última acción de un jugador. Con el color (pk-act-*) se
+  // distingue de un vistazo quién pasa, quién iguala y quién sube. Se mantiene
+  // corto para que quepa en una línea incluso en el asiento más pequeño.
+  actionLabel(p) {
+    if (!p || !p.lastAction) return '';
+    return {
+      fold: 'Retirado', check: 'Pasa', call: 'Iguala',
+      raise: 'Sube ' + p.lastBet, allIn: 'Todo-in',
+    }[p.lastAction] || '';
+  },
   render(s) {
     const key = s.code + ':' + s.handNo;
     if (key !== this.key) { this.reset(); this.key = key; }
@@ -31,7 +41,9 @@ const Poker = {
         seat.innerHTML = '<div class="pk-name"></div><div class="pk-badges"></div><div class="pk-chips"></div><div class="cards pk-hole"></div><div class="pk-bet"></div><div class="pk-result"></div>';
         seats.appendChild(seat);
       }
-      seat.className = 'pk-seat pk-seat-' + i + (p.folded ? ' folded' : '') + (p.id === Net.playerId ? ' self' : '');
+      seat.className = 'pk-seat pk-seat-' + i + (p.folded ? ' folded' : '')
+        + (p.lastAction && !p.folded ? ' act-' + p.lastAction : '')
+        + (p.id === Net.playerId ? ' self' : '');
       seat.querySelector('.pk-name').textContent = p.name + (p.id === Net.playerId ? ' · Tú' : '');
       seat.querySelector('.pk-badges').textContent = [p.id === s.dealerId ? '⚪ D' : '',p.id === s.sbId ? '🔵 SB' : '',p.id === s.bbId ? '🟡 BB' : ''].filter(Boolean).join(' ');
       seat.querySelector('.pk-bet').textContent = p.inHand ? (p.folded ? 'Retirado' : p.allIn ? 'ALL-IN' : 'Apuesta: ' + p.bet) : 'Esperando';
@@ -158,7 +170,15 @@ const Poker = {
         return sum + Math.floor(pot.amount / pot.winners.length) + (i < pot.amount % pot.winners.length ? 1 : 0);
       },0);
       seat.querySelector('.pk-chips').textContent = '💰 ' + (s.phase === 'finished' && !resultsReady ? p.chips - awarded : p.chips);
-      seat.querySelector('.pk-result').textContent = resultsReady ? [p.result,p.handName].filter(Boolean).join(' · ') : '';
+      const result = seat.querySelector('.pk-result');
+      if (resultsReady) {
+        result.textContent = [p.result,p.handName].filter(Boolean).join(' · ');
+        result.className = 'pk-result';
+      } else {
+        // Última acción del jugador: pasa, iguala, sube a X o se retira.
+        result.textContent = Poker.actionLabel(p);
+        result.className = 'pk-result' + (p.lastAction ? ' pk-act pk-act-' + p.lastAction : '');
+      }
     }
     const enoughPlayers = s.players.filter(p => !p.left && p.chips > 0).length >= 2;
     this.el('status').textContent = dealing ? 'Repartiendo, espera a que lleguen las cartas…' : turn ?
