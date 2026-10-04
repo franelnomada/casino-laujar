@@ -297,15 +297,35 @@ async function main() {
       assert.equal(handUi.display!=='none'&&/^Tu mano: /.test(handUi.text),true,'La mano propia se ve en '+w+'x'+h+' '+JSON.stringify(handUi));
       assert.equal(handUi.fits,true,'El rótulo de la mano cabe en una línea a '+w+'x'+h+' '+JSON.stringify(handUi));
       assert.equal(await js('document.documentElement.scrollHeight <= innerHeight'),true,'Sin scroll con la mano visible a '+w+'x'+h);
+      // Nada puede quedar tapado: la barra de la mesa (con el botón de salir)
+      // tiene que verse entera y el chat no puede cubrir tus cartas ni los mandos.
+      const overlapUi = await js(`(()=>{const box=n=>document.querySelector(n).getBoundingClientRect();
+        const bar=box('#topbar'),meta=box('#net-poker .poker-meta'),mine=box('#pk-me-cards'),
+          buttons=box('#pk-actions-box'),chat=box('#net-chat');
+        const hit=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
+        return {barBottom:Math.round(bar.bottom),metaTop:Math.round(meta.top),mineTop:Math.round(mine.top),
+          chatW:Math.round(chat.width),chatH:Math.round(chat.height),
+          overChat:hit(chat,mine)||hit(chat,buttons),overTop:hit(chat,meta)};})()`);
+      assert.equal(overlapUi.metaTop >= overlapUi.barBottom - 1, true,
+        'La barra de la mesa no queda tapada por el topbar: ' + JSON.stringify(overlapUi));
+      assert.ok(overlapUi.chatW <= 64 && overlapUi.chatH <= 64,
+        'El chat cerrado es una burbuja pequeña: ' + JSON.stringify(overlapUi));
+      assert.equal(overlapUi.overChat, false,
+        'El chat no tapa tus cartas ni los mandos de apuesta: ' + JSON.stringify(overlapUi));
     }
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await js(`Net.renderChat([{id:'chat-1',playerId:'p0',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',playerId:'p0',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);
     assert.equal(await js(`document.getElementById('net-chat').classList.contains('is-open')`),false,'El chat empieza cerrado');
     assert.equal(await js(`getComputedStyle(document.getElementById('net-chat-messages')).display`),'none','El historial está oculto al inicio');
-    assert.equal(await js(`document.querySelectorAll('#net-chat-preview .chat-preview-message').length`),2,'La previsualización muestra los mensajes iniciales');
+    // Cerrado es una burbuja pequeña anclada dentro de la mesa: así no tapa las
+    // cartas propias ni los mandos de apuesta (que están en el panel de al lado).
+    const bubble=await js(`(()=>{const c=document.getElementById('net-chat');const r=c.getBoundingClientRect();
+      return {mounted:c.classList.contains('mounted'),parent:c.parentElement.id,
+        w:Math.round(r.width),h:Math.round(r.height),top:Math.round(r.top),bottom:Math.round(r.bottom)};})()`);
+    assert.equal(bubble.mounted&&bubble.parent==='pk-table',true,'La burbuja del chat vive dentro de la mesa: '+JSON.stringify(bubble));
+    assert.ok(bubble.w<=64&&bubble.h<=64,'Cerrado el chat es una burbuja pequeña, no una franja: '+JSON.stringify(bubble));
     await js(`Net.renderChat([{id:'chat-3',playerId:'p0',name:'Ana',text:'Tercer mensaje',ts:Date.now()},{id:'chat-4',playerId:'p0',name:'Luis',text:'Cuarto mensaje',ts:Date.now()}])`);
-    const chatActivity=await js(`({preview:document.querySelectorAll('#net-chat-preview .chat-preview-message').length,last:document.getElementById('net-chat-preview').textContent,unread:!document.getElementById('net-chat-unread').classList.contains('hidden')})`);
-    assert.equal(chatActivity.preview===3&&/Cuarto mensaje/.test(chatActivity.last)&&chatActivity.unread,true,'La previsualización muestra 3 mensajes y avisa de nuevos mensajes');
+    assert.equal(await js(`!document.getElementById('net-chat-unread').classList.contains('hidden')`),true,'La burbuja avisa de mensajes nuevos');
     await js('Net.openChat()');
     assert.equal(await js(`document.getElementById('net-chat-unread').classList.contains('hidden')`),true,'Abrir el chat limpia el indicador de no leídos');
     await js('Net.closeChat()');

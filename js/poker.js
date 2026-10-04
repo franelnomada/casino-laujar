@@ -16,6 +16,14 @@ const Poker = {
   render(s) {
     const key = s.code + ':' + s.handNo;
     if (key !== this.key) { this.reset(); this.key = key; }
+    // La burbuja del chat vive dentro de la mesa: así nunca tapa las cartas
+    // propias ni los mandos, que están en el panel de al lado.
+    const chat = document.getElementById('net-chat');
+    const table = this.el('table');
+    if (chat && table && chat.parentElement !== table) {
+      chat.classList.add('mounted');
+      table.appendChild(chat);
+    }
     this.state = s; this.offset = s.serverNow - Date.now();
     this.el('blinds').textContent = `Nivel ${s.level + 1} · SB ${s.smallBlind} / BB ${s.bigBlind}`;
     const seats = this.el('seats');

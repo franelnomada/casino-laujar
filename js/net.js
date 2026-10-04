@@ -271,6 +271,17 @@ const Net = {
     localStorage.removeItem(this.KEY);
   },
 
+  // La burbuja del chat se mete dentro de la mesa indicada (o sale si es null),
+  // para que quede anclada a una esquina y no tape cartas ni mandos.
+  mountChat(tableId) {
+    const chat = document.getElementById('net-chat');
+    const table = tableId ? document.getElementById(tableId) : null;
+    if (!chat) return;
+    const target = table || document.getElementById('app') || document.body;
+    if (chat.parentElement !== target) target.appendChild(chat);
+    chat.classList.toggle('mounted', !!table);
+  },
+
   clearChat() {
     this.chatIds.clear();
     this.chatPrimed = false;
@@ -577,6 +588,8 @@ const Net = {
     if (slotRoom) this.closeChat(false); else this.renderChat(s.chat || []);
     const notBJ = s.game === 'poker' || s.game === 'roulette' || slotRoom;
     document.getElementById('net-blackjack-table').classList.toggle('hidden', notBJ);
+    // El chat se ancla dentro de la mesa de cada juego para no tapar los mandos.
+    this.mountChat(s.game === 'blackjack' ? 'net-blackjack-table' : null);
     document.getElementById('net-blackjack-controls').classList.toggle('hidden', notBJ);
     document.getElementById('net-poker').classList.toggle('hidden', s.game !== 'poker');
     document.getElementById('net-roulette').classList.toggle('hidden', s.game !== 'roulette');
