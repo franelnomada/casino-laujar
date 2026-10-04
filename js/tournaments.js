@@ -368,10 +368,32 @@ const Tournaments = {
     this.el('hand-label').textContent = label ? 'Tu mano: ' + label : '';
 
     this.renderSeats(s, me);
-    this.renderShowdown(s, s.phase === 'finished' && (s.showdown || (s.pots || []).length > 0));
+    const resultsReady = s.phase === 'finished' && (s.showdown || (s.pots || []).length > 0);
+    this.renderShowdown(s, resultsReady);
     this.renderMe(me);
     this.renderActions(s, me);
     this.renderStatus(s, me, info);
+    this.alerts(s, resultsReady);
+  },
+
+  // Avisos de mesa, igual que en el póker normal: aviso de turno, reparto y
+  // resultado. Solo cuando cambia algo de verdad (no en cada refresco).
+  alerts(s, resultsReady) {
+    const myId = this.table && this.table.playerId;
+    const myTurn = s.turnId === myId;
+    const sig = [s.code, s.handNo, myTurn ? 'me' : s.turnId || '-', resultsReady ? 'r' : 'p'].join(':');
+    if (sig === this.alertKey) return;
+    const first = this.alertKey === undefined;
+    this.alertKey = sig;
+    if (first) return;
+    if (resultsReady) {
+      const pot = (s.pots || []).find(p => !p.refund) || (s.pots || [])[0];
+      GameAlerts.play(pot && pot.winners.includes(myId) ? 'win' : 'lose');
+      return;
+    }
+    if (!s.board.length && s.handNo !== this.handNo) GameAlerts.play('deal');
+    this.handNo = s.handNo;
+    if (myTurn) GameAlerts.play('turn');
   },
 
   countArrived(prefix) {
@@ -586,6 +608,9 @@ const Tournaments = {
     if (this.busy || !this.table || !this.state) return;
     if (type === 'raise' && !this.state.canRaise) return;
     this.busy = true;
+    // Aviso de la propia acción, igual que en el póker normal.
+    GameAlerts.play({ fold: 'fold', raise: 'raise', allIn: 'allin', sitout: 'check', sitin: 'call' }[type]
+      || (this.state.toCall ? 'call' : 'check'));
     const amount = Number(this.el('amount').value);
     try {
       const response = await this.api('/api/tournaments/' + this.table.id + '/action', {

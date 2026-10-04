@@ -109,6 +109,34 @@ Sin cuenta también se juega: en el welcome hay una tarjeta **Entrar / Crear cue
 - Persistencia: `BETTING_FILE` o `DATA_DIR` para el JSON y `FIREBASE_BETTING_PATH` para la réplica opcional (por defecto `casino-laujar/betting`).
 
 
+## 🔔 Avisos de mesa (sonido y vibración)
+
+Póker y torneo avisan de lo importante, al estilo de PokerStars. Se activa en el **primer toque** que hagas en la página (los navegadores no dejan sonar nada hasta entonces).
+
+| Aviso | Cuándo |
+|---|---|
+| **«Tu turno»** | Cuando te toca decidir: dos notas cortas que suben |
+| Reparto | Empieza una mano nueva |
+| Iguala | Cuando igualas la apuesta |
+| Sube | Cuando subes: un tono que trepa |
+| Todo-in | Todo el bote: tres notas intensas |
+| Se retira | Tono que baja |
+| Victoria / Derrota | Al cerrar el showdown: arpegio o descenso |
+
+- Botón **🔊 / 🔇** junto a las fichas para silenciar. La preferencia se recuerda.
+- El aviso **no se repite** en cada refresco: solo suena cuando te toca de verdad.
+
+### Limitación importante: en iPhone no hay vibración
+
+**Safari en iOS no implementa la API de vibración del navegador** (`navigator.vibrate` no existe). No es un fallo de la web ni algo que se pueda arreglar desde la web: la app comprueba si el dispositivo puede vibrar y, si no, **avisa solo con sonido**.
+
+| | Sonido | Vibración |
+|---|---|---|
+| Android (Chrome) | Sí | **Sí** |
+| iPhone / iPad | Sí | **No** (limitación de iOS) |
+
+Los sonidos tampoco suenan con el móvil en **pantalla bloqueada**: harían falta notificaciones push (un service worker y un servidor que las envíe). Si algún día quieres eso, dímelo y lo planteamos.
+
 ## 🏆 Torneos de póker
 
 Sección propia del lobby: el admin publica el torneo y acepta a quien lo solicite; el jugador pide plaza, espera la aprobación y juega cuando la mesa arranca.

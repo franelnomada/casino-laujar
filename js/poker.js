@@ -6,6 +6,7 @@ const Poker = {
     clearInterval(this.timer); this.timer = null;
     for (const a of this.animations) a.cancel();
     this.animations.clear(); this.nodes.clear(); this.state = null; this.key = null; this.showKey = null;
+    this.alertKey = undefined; this.handNo = 0;
     this.el('seats').innerHTML = ''; this.el('board').innerHTML = '';
     this.el('me-cards').innerHTML = '';
     this.el('private-hand').textContent = '';
@@ -104,6 +105,28 @@ const Poker = {
       this.animations.add(a); a.onfinish = () => this.animations.delete(a);
     }
   },
+  // Avisos de mesa: suenan (y vibran) cuando te toca jugar, cuando reparten
+    // cartas y en el showdown. Solo cuando el estado cambia de verdad, para
+    // no repetir el aviso en cada refresco del long-polling.
+  alerts(s, resultsReady) {
+    const me = Net.playerId;
+    const myTurn = s.turnId === me;
+    const sig = [s.code, s.handNo, myTurn ? 'me' : s.turnId || '-', resultsReady ? 'r' : 'p'].join(':');
+    if (sig === this.alertKey) return;
+    const first = this.alertKey === undefined;
+    this.alertKey = sig;
+    if (first) return;
+    if (resultsReady) {
+      const pot = s.pots.find(p => !p.refund) || s.pots[0];
+      const iWon = pot && pot.winners.includes(me);
+      GameAlerts.play(iWon ? 'win' : 'lose');
+      return;
+    }
+    if (!s.board.length && s.handNo !== this.handNo) GameAlerts.play('deal');
+    this.handNo = s.handNo;
+    if (myTurn && !this.dealing) GameAlerts.play('turn');
+  },
+
   showResult(s, resultsReady) {
     const panel = this.el('showdown');
     const mainPot = s.pots.find(pot => !pot.refund) || s.pots[0];
@@ -133,6 +156,7 @@ const Poker = {
   update() {
     const s = this.state; if (!s) return;
     const now = this.now(); const dealing = now < s.visualUntil;
+    this.dealing = dealing;
     const show = s.events.find(e => e.type === 'showdown');
     const resultsReady = s.phase === 'finished' && (!show || now >= show.at);
     const winnerIds = new Set(s.pots.flatMap(pot => pot.winners));
@@ -160,6 +184,7 @@ const Poker = {
     const mine = s.turnId === Net.playerId;
     const away = !!((s.players.find(p => p.id === Net.playerId) || {}).sittingOut);
     const canAct = mine && !dealing && !this.busy && !!turn && !away;
+    this.alerts(s, resultsReady);
     this.showResult(s, resultsReady);
     for (const seat of this.el('seats').children) {
       const p = s.players.find(p => p.id === seat.dataset.player);
@@ -284,6 +309,9 @@ const Poker = {
   async act(type, amount) {
     if (this.busy) return;
     this.busy = true; this.update();
+    // Sonido de la propia acción: se oye al pulsar, sin esperar al servidor.
+    GameAlerts.play({ fold: 'fold', allIn: 'allin', raise: 'raise' }[type]
+      || (this.state && this.state.toCall ? 'call' : 'check'));
     try { await Net.action(type,amount); } finally { this.busy = false; this.update(); }
   },
   call() { return this.act(this.state.toCall ? 'call' : 'check'); },

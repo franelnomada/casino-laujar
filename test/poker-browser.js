@@ -329,6 +329,49 @@ async function main() {
         true,'Quien sube se distingue en negrita y con halo: '+JSON.stringify(actsUi));
       // El rótulo cabe en una línea: si no, el asiento crece y se solapan.
       assert.equal(actsUi.lines, 1, 'El rótulo de la acción va en una sola línea: '+JSON.stringify(actsUi));
+      // Avisos: el audio solo se desbloquea con un gesto real del usuario, así que
+      // se pulsa el botón de verdad (con CDP) y luego se comprueba.
+      const soundBox = await js(`(()=>{const r=document.getElementById('sound-toggle').getBoundingClientRect();
+        return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};})()`);
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: soundBox.x, y: soundBox.y, button: 'left', clickCount: 1 });
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: soundBox.x, y: soundBox.y, button: 'left', clickCount: 1 });
+      await wait(200);
+      const alertsUi = await js(`(()=>{window.__vib=[];window.__sounds=[];
+        navigator.vibrate=p=>{window.__vib.push(p);return true;};
+        const play=GameAlerts.play.bind(GameAlerts);
+        GameAlerts.play=name=>{window.__sounds.push(name);return play(name);};
+        if(!GameAlerts.enabled) GameAlerts.toggle();
+        GameAlerts.unlock();
+        const running=GameAlerts.ctx?GameAlerts.ctx.state:'';
+        // Se fuerza turno nuevo y mano nueva, y se repinta dos veces seguidas.
+        // El primer aviso se ignora a propósito (no debe sonar al abrir la mesa):
+        // hace falta una segunda mano para ver que el aviso sí suena y no se repite.
+        const turn=(n)=>{Poker.state={...Poker.state,turnId:Net.playerId,handNo:n,board:[],phase:'preflop'};
+          Poker.update();Poker.update();};
+        Poker.alertKey=undefined;
+        turn(90);
+        const afterFirst=window.__sounds.length;
+        turn(91);
+        const afterTurn=window.__sounds.length;
+        turn(91);
+        return {canVibrate:GameAlerts.canVibrate(),running,sounds:window.__sounds.slice(),
+          vib:window.__vib.length,afterTurn,afterFirst,
+          label:document.getElementById('sound-toggle').textContent};})()`);
+      assert.equal(alertsUi.canVibrate, true, 'En este navegador hay vibración disponible: '+JSON.stringify(alertsUi));
+      assert.equal(alertsUi.running, 'running', 'El primer toque real desbloquea el audio: '+JSON.stringify(alertsUi));
+      assert.ok(alertsUi.sounds.includes('turn'), 'Al tocarme el turno suena el aviso: '+JSON.stringify(alertsUi));
+      assert.equal(alertsUi.afterFirst, 0, 'Al abrir la mesa no suena nada de golpe: '+JSON.stringify(alertsUi));
+      assert.equal(alertsUi.sounds.length, alertsUi.afterTurn, 'El aviso no se repite en cada refresco: '+JSON.stringify(alertsUi));
+      assert.ok(alertsUi.vib >= 1, 'El aviso de turno también vibra: '+JSON.stringify(alertsUi));
+      // El botón silencia y vuelve a activar; el aviso cambia de icono.
+      const muted = await js(`(GameAlerts.toggle(),document.getElementById('sound-toggle').textContent)`);
+      assert.equal(muted, '🔇', 'El botón silencia los avisos y lo muestra');
+      const silent = await js(`(()=>{window.__vib=[];GameAlerts.play('turn');
+        return {enabled:GameAlerts.enabled,vib:window.__vib.length,notes:GameAlerts.ctx?GameAlerts.ctx.currentTime:0};})()`);
+      assert.equal(silent.enabled, false, 'Silenciado queda desactivado: '+JSON.stringify(silent));
+      assert.equal(silent.vib, 0, 'Silenciado tampoco vibra: '+JSON.stringify(silent));
+      await js('GameAlerts.toggle()');
+      assert.equal(await js(`document.getElementById('sound-toggle').textContent`), '🔊', 'Y vuelve a activarse al pulsarlo otra vez');
     }
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await js(`Net.renderChat([{id:'chat-1',playerId:'p0',name:'Ana',text:'Hola mesa',ts:Date.now()},{id:'chat-2',playerId:'p0',name:'Luis',text:'¿Qué tal?',ts:Date.now()}])`);

@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { PokerRoom, buildDeck, evaluate, bestFive, compare, handLabel } = require('../js/poker-engine');
 const cards = s => s.split(' ').map(x => ({rank:x.slice(0,-1),suit:x.slice(-1)}));
 const r = new PokerRoom('TEST');
@@ -21,6 +23,19 @@ assert.equal(shownWinner.bestHand.length,5,'El showdown expone cinco cartas gana
 assert.ok(shownWinner.bestHand.every(c=>available.has(c.rank+c.suit)),'Las cartas ganadoras pertenecen a la mano');
 assert.ok(shownWinner.handName,'El ganador recibe el nombre de su combinación');
 assert.equal(r.start('a',601001).ok,true);assert.equal(r.smallBlind,20);assert.equal(r.dealerId,'b');
+// Avisos de mesa: cada aviso tiene su sonido y su patrón de vibración.
+const soundsSrc = fs.readFileSync(path.join(__dirname,'..','js','sounds.js'),'utf8');
+assert.match(soundsSrc,/const GameAlerts/,'El módulo de avisos de mesa existe');
+for (const name of ['turn','deal','call','raise','allin','fold','win','lose']) {
+  assert.ok(soundsSrc.includes("case '" + name + "':"), 'El aviso "' + name + '" tiene su sonido');
+}
+// Los avisos con vibración propia: turno, todo-in, victoria y reparto.
+for (const name of ['turn','allin','win','deal']) {
+  assert.ok(new RegExp(name + ':\\s*\\[').test(soundsSrc), 'El aviso "' + name + '" tiene su vibración');
+}
+// En iPhone no hay API de vibración: el código lo contempla y no falla sin ella.
+assert.match(soundsSrc,/if \(navigator\.vibrate\)/,'La vibración solo se usa si el dispositivo la tiene');
+assert.match(soundsSrc,/AudioContext/,'El audio se desbloquea tras un gesto del usuario');
 console.log('✅ Poker: mano completa, turnos, privacidad, reparto secuencial y subida de ciegas');
 assert.equal(evaluate(cards('A♠ 2♥ 3♦ 4♣ 5♠ K♥ Q♦'))[1],5);
 assert.equal(evaluate(cards('A♠ K♠ Q♠ J♠ 10♠ 2♥ 3♦'))[0],8);
