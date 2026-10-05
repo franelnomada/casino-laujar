@@ -135,7 +135,31 @@ Póker y torneo avisan de lo importante, al estilo de PokerStars. Se activa en e
 | Android (Chrome) | Sí | **Sí** |
 | iPhone / iPad | Sí | **No** (limitación de iOS) |
 
-Los sonidos tampoco suenan con el móvil en **pantalla bloqueada**: harían falta notificaciones push (un service worker y un servidor que las envíe). Si algún día quieres eso, dímelo y lo planteamos.
+Los sonidos tampoco suenan con el móvil en **pantalla bloqueada**. Para eso está el botón **🔕** del topbar, que activa **avisos push** (notificaciones del sistema):
+
+- Con el móvil bloqueado, en otra app o con la pestaña en segundo plano, te avisa igual y **en Android también vibra**.
+- Funciona en Chrome y Firefox siempre, y en **Safari desde iOS 16.4** (añadiendo la app a la pantalla de inicio).
+- Botón **🔔 / 🔕** para activarlo o quitarlo.
+
+### Cómo activarlo en el servidor (una sola vez)
+
+Genera las claves VAPID:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Y añade en Render (**Environment**) las tres variables:
+
+| Variable | Valor |
+|---|---|
+| `VAPID_PUBLIC_KEY` | la clave pública |
+| `VAPID_PRIVATE_KEY` | la clave privada (**no se sube al repo**) |
+| `VAPID_SUBJECT` | `mailto:tu@correo.com` |
+
+Sin estas variables todo lo demás sigue funcionando: simplemente no se envían avisos. Las suscripciones se guardan en `casino-laujar-push.json` (o en `DATA_DIR` si lo prefieres).
+
+> Las claves que generé para probar son de ejemplo y **no sirven en producción**: genera las tuyas.
 
 ## 🏆 Torneos de póker
 

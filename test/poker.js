@@ -36,7 +36,55 @@ for (const name of ['turn','allin','win','deal']) {
 // En iPhone no hay API de vibración: el código lo contempla y no falla sin ella.
 assert.match(soundsSrc,/if \(navigator\.vibrate\)/,'La vibración solo se usa si el dispositivo la tiene');
 assert.match(soundsSrc,/AudioContext/,'El audio se desbloquea tras un gesto del usuario');
+// Avisos push: notificación del sistema, la única vía para que suene (y
+// vibre en Android) con el móvil bloqueado o la app en segundo plano.
+assert.match(fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8'),/addEventListener\('push'/,
+  'El service worker escucha los avisos push');
+const serverSrc = fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8');
+assert.match(serverSrc,/require\('web-push'\)/, 'El servidor envía los avisos con web-push');
+assert.match(serverSrc,/\/api\/push\/subscribe/, 'Hay alta de suscripción');
+assert.match(serverSrc,/\/api\/push\/key/, 'El cliente puede pedir la clave pública VAPID');
+assert.match(serverSrc,/\/api\/push\/unsubscribe/, 'Hay baja de suscripción');
+assert.match(serverSrc,/notifyPokerTurns/, 'El servidor avisa al jugador al que le toca');
+// La clave privada nunca se sube al repo: va por variable de entorno.
+assert.ok(!fs.readFileSync(path.join(__dirname,'..','.gitignore'),'utf8').includes('sw.js'),
+  'El service worker sí se versiona (no es un dato sensible)');
+
 console.log('✅ Poker: mano completa, turnos, privacidad, reparto secuencial y subida de ciegas');
+// Prueba real del circuito de avisos: suscripción en el servidor, aviso al
+// tocar el turno y baja. No se envía nada a un push falso (fallaría y está bien
+// que se ignore): lo que se comprueba es que el circuito está montado.
+async function pushCircuit() {
+  const { server, pushStore } = require('../server.js');
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const base = 'http://127.0.0.1:' + server.address().port;
+  const keyRes = await (await fetch(base + '/api/push/key')).json();
+  assert.equal(typeof keyRes.publicKey === 'string', true, 'El servidor expone la clave VAPID');
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/push-de-prueba', keys: { p256dh: 'k', auth: 'a' } };
+  const subOk = await (await fetch(base + '/api/push/subscribe', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscription: sub, playerId: 'jugador-1', name: 'Ana' }),
+  })).json();
+  assert.equal(subOk.ok, true, 'La suscripción se guarda');
+  assert.equal(pushStore.forPlayer('jugador-1').length, 1, 'Queda asociada al jugador');
+  // Una mesa de poker con turno genera el aviso (no se envía: el push es falso).
+  const room = new PokerRoom('PUSH');
+  room.addPlayer('jugador-1', 'Ana', 1000);
+  room.addPlayer('jugador-2', 'Bob', 1000);
+  room.start('jugador-1', Date.now() + 60000);
+  assert.ok(room.turnId, 'La mesa tiene turno asignado');
+  await pushStore.notifyTurn('poker:PUSH', room.turnId, { title: 'test', body: 'test', tag: 'p1' });
+  assert.equal(pushStore.lastTurn.get('poker:PUSH|' + room.turnId), 'p1', 'El aviso se recuerda para no repetirlo');
+  const gone = await (await fetch(base + '/api/push/unsubscribe', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint: sub.endpoint }),
+  })).json();
+  assert.equal(gone.ok, true, 'Se puede dar de baja la suscripción');
+  assert.equal(pushStore.forPlayer('jugador-1').length, 0, 'Tras la baja no quedan avisos');
+  server.close();
+  console.log('✅ Avisos push: suscripción, aviso al tocar el turno y baja');
+}
+pushCircuit().catch(e => { console.error(e); process.exitCode = 1; });
 assert.equal(evaluate(cards('A♠ 2♥ 3♦ 4♣ 5♠ K♥ Q♦'))[1],5);
 assert.equal(evaluate(cards('A♠ K♠ Q♠ J♠ 10♠ 2♥ 3♦'))[0],8);
 assert.deepEqual(bestFive(cards('A♠ K♠ Q♠ J♠ 10♠ 2♥ 3♦')).cards.map(c=>c.rank+c.suit),['A♠','K♠','Q♠','J♠','10♠']);

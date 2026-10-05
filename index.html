@@ -28,6 +28,8 @@
       <div class="chips-display" title="Tus fichas">💰 <span id="chips-amount">0</span> fichas</div>
       <button id="sound-toggle" class="auth-topbar sound-toggle" onclick="GameAlerts.toggle()" aria-pressed="true"
         title="Sonido y vibración activados" aria-label="Sonido y vibración activados">🔊</button>
+      <button id="push-toggle" class="auth-topbar sound-toggle" onclick="PushAlerts.toggle()" aria-pressed="false"
+        title="Activar avisos cuando te toque el turno" aria-label="Activar avisos cuando te toque el turno">🔕</button>
       <button id="auth-topbar" class="auth-topbar" onclick="Auth.openPanel()" title="Entrar o crear cuenta">👤 Invitado</button>
     </div>
   </header>
@@ -697,6 +699,7 @@
 
   <script src="js/app.js"></script>
   <script src="js/sounds.js"></script>
+  <script src="js/push-client.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/split-hands.js"></script>
   <script src="js/blackjack.js"></script>
@@ -707,6 +710,6 @@
   <script src="js/admin.js"></script>
   <script src="js/betting-client.js"></script>
   <script src="js/tx-console.js"></script>
-  <script>GameAlerts.init(); App.init(); Net.init(); Auth.init(); Betting.init(); TxConsole.init(); Tournaments.init();</script>
+  <script>GameAlerts.init(); PushAlerts.init(); App.init(); Net.init(); Auth.init(); Betting.init(); TxConsole.init(); Tournaments.init();</script>
 </body>
 </html>

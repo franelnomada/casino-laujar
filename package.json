@@ -15,5 +15,8 @@
     "type": "git",
     "url": "git+https://github.com/franelnomada/casino-laujar.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
 }

@@ -37,10 +37,120 @@ const IDLE_MS = 2 * 60 * 60 * 1000; // 2 h sin actividad → la sala se borra
 const rooms = new Map(); // code -> BlackjackRoom | PokerRoom | RouletteRoom
 
 // ---- Cuentas de jugador: registro, sesiones y fichas ----
-// USERS_FILE (o DATA_DIR) permite mover el fichero de cuentas fuera del temporal.
+// ============================================================
+//  Avisos push: cuando le toca el turno a un jugador que tiene el
+//  móvil bloqueado o la app en segundo plano, el navegador no deja
+//  sonar nada. Con una notificación push sí: el service worker la
+//  muestra y, en Android, hasta vibra.
+//
+//  Suscripciones en PUSH_PATH (o DATA_DIR). Claves VAPID por entorno:
+//    VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+//  (se generan con: npx web-push generate-vapid-keys)
+// ============================================================
+const webpush = require('web-push');
+
+const PUSH_PATH = process.env.PUSH_FILE ||
+  path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-push.json');
+const VAPID = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || '',
+  privateKey: process.env.VAPID_PRIVATE_KEY || '',
+  subject: process.env.VAPID_SUBJECT || 'mailto:admin@casino-laujar.onrender.com',
+};
+
+class PushStore {
+  constructor(file) {
+    this.file = file;
+    this.subs = new Map(); // endpoint -> { playerId, name, game, room, accountKey }
+    // Último aviso enviado por sala, para no repetir en cada refresco.
+    this.lastTurn = new Map();
+    this.ready = this.load();
+  }
+
+  async load() {
+    try {
+      const data = JSON.parse(await fs.promises.readFile(this.file, 'utf8'));
+      for (const [endpoint, row] of Object.entries(data.subs || {})) this.subs.set(endpoint, row);
+    } catch (e) { /* primera vez: sin suscripciones */ }
+  }
+
+  async save() {
+    const subs = {};
+    for (const [endpoint, row] of this.subs) subs[endpoint] = row;
+    try {
+      await fs.promises.mkdir(path.dirname(this.file), { recursive: true });
+      await fs.promises.writeFile(this.file, JSON.stringify({ subs }));
+    } catch (e) { /* sin persistencia: los avisos siguen funcionando en memoria */ }
+  }
+
+  set(subscription, meta) {
+    if (!subscription || !subscription.endpoint) return false;
+    this.subs.set(subscription.endpoint, { ...meta, endpoint: subscription.endpoint });
+    this.save();
+    return true;
+  }
+
+  remove(endpoint) {
+    const ok = this.subs.delete(endpoint);
+    if (ok) this.save();
+    return ok;
+  }
+
+  forPlayer(playerId) {
+    const rows = [];
+    for (const row of this.subs.values()) {
+      if (row.playerId === playerId || (row.accountKey && row.accountKey === playerId)) rows.push(row);
+    }
+    return rows;
+  }
+
+  // Envía un aviso. Los que ya no valen (suscripción caducada) se limpian.
+  async sendTo(playerId, payload) {
+    if (!this.configured) return { sent: 0 };
+    const body = JSON.stringify(payload);
+    let sent = 0;
+    for (const row of this.forPlayer(playerId)) {
+      if (!row.subscription) continue;
+      try {
+        await webpush.sendNotification(row.subscription, body, { TTL: 60 * 60, urgency: 'high' });
+        sent++;
+      } catch (e) {
+        const gone = e.statusCode === 404 || e.statusCode === 410;
+        if (gone) this.remove(row.endpoint);
+      }
+    }
+    return { sent };
+  }
+
+  get configured() {
+    return !!(VAPID.publicKey && VAPID.privateKey && this.subs.size);
+  }
+
+  // Avisa al jugador al que le toca, una sola vez por turno.
+  async notifyTurn(roomKey, playerId, payload) {
+    if (!playerId) return;
+    const token = roomKey + '|' + playerId;
+    if (this.lastTurn.get(token) === payload.tag) return;
+    this.lastTurn.set(token, payload.tag);
+    await this.sendTo(playerId, payload);
+  }
+}
+
+function setupPush() {
+  if (VAPID.publicKey && VAPID.privateKey) {
+    webpush.setVapidDetails(VAPID.subject, VAPID.publicKey, VAPID.privateKey);
+    return true;
+  }
+  return false;
+}
+  // USERS_FILE (o DATA_DIR) permite mover el fichero de cuentas fuera del temporal.
 const USERS_PATH = process.env.USERS_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-users.json');
 const userStore = new UserStore(USERS_PATH);
+
+// Avisos push. Sin claves VAPID configuradas todo sigue funcionando: los
+// avisos simplemente no se envían y la app avisa de que faltan.
+const pushStore = new PushStore(PUSH_PATH);
+const pushReady = setupPush();
 
 // ---- Consola de transacciones del lobby: últimas 200 entradas ----
 // Mismo mecanismo de guardado que las cuentas: JSON local
@@ -111,6 +221,26 @@ for (const Room of [BlackjackRoom, PokerRoom, RouletteRoom, BookOfFranRoom]) {
 setInterval(() => {
   for (const room of rooms.values()) if (room.game === 'poker') room.tick();
 }, 1000).unref();
+
+// Aviso al jugador al que le toca. Se mira una vez por segundo qué salas
+// tienen turno, y solo se notifica cuando el turno ha cambiado de verdad
+// (el aviso se manda una vez, no en cada pasada).
+function notifyPokerTurns() {
+  if (!pushReady || !pushStore.subs.size) return;
+  for (const room of rooms.values()) {
+    if (room.game !== 'poker' || !room.turnId) continue;
+    const player = room.find(room.turnId);
+    if (!player) continue;
+    pushStore.notifyTurn('poker:' + room.code, player.id, {
+      title: '🎯 Te toca jugar',
+      body: 'Tienes el turno en la mesa de ' + room.code + '. Tienes 45 segundos.',
+      tag: room.code + ':' + room.handNo + ':' + room.turnId,
+      url: './index.html',
+      requireInteraction: true,
+    });
+  }
+}
+setInterval(notifyPokerTurns, 1000).unref();
 setInterval(() => bettingStore.lockExpired(), 1000).unref();
 // Reloj de los torneos: reparte manos, sube niveles de ciegas y,
 // cuando solo queda un jugador, reparte los premios del bote.
@@ -454,6 +584,35 @@ async function handleApi(req, res, pathname, query) {
     }
   }
 
+  // ---------- Avisos push ----------
+  // El cliente necesita la clave pública VAPID para suscribirse. Si el servidor
+  // no tiene claves, responde enabled:false y la app avisa de que faltan.
+  if (req.method === 'GET' && pathname === '/api/push/key') {
+    await pushStore.ready;
+    return json(res, 200, { publicKey: pushReady ? VAPID.publicKey : '', enabled: !!pushReady });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/push/subscribe') {
+    const body = await readBody(req);
+    const token = tokenFrom(req, body, query);
+    const user = userStore.userForToken(token);
+    const meta = {
+      playerId: String(body.playerId || (user && user.key) || ''),
+      accountKey: user ? user.key : null,
+      name: String(body.name || (user && user.name) || '').slice(0, 12),
+      game: String(body.game || ''),
+      room: String(body.room || ''),
+      subscription: body.subscription,
+    };
+    if (!pushStore.set(body.subscription, meta)) return json(res, 400, { error: 'Suscripción no válida.' });
+    return json(res, 200, { ok: true, enabled: !!pushReady });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/push/unsubscribe') {
+    const body = await readBody(req);
+    return json(res, 200, { ok: pushStore.remove(String(body.endpoint || '')) });
+  }
+
   // Cuentas de jugador
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname, query);
 
@@ -698,4 +857,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus, slotJackpot, tournamentStore };
+module.exports = { server, rooms, BlackjackRoom, BookOfFranRoom, userStore, roomsReplica, txLog, bettingStore, weeklyBonus, slotJackpot, tournamentStore, pushStore };
