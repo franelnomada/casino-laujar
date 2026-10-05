@@ -589,7 +589,16 @@ async function handleApi(req, res, pathname, query) {
   // no tiene claves, responde enabled:false y la app avisa de que faltan.
   if (req.method === 'GET' && pathname === '/api/push/key') {
     await pushStore.ready;
-    return json(res, 200, { publicKey: pushReady ? VAPID.publicKey : '', enabled: !!pushReady });
+    // Se dice exactamente qué falta: así no hay que adivinar por qué no van.
+    const missing = [];
+    if (!VAPID.publicKey) missing.push('VAPID_PUBLIC_KEY');
+    if (!VAPID.privateKey) missing.push('VAPID_PRIVATE_KEY');
+    return json(res, 200, {
+      publicKey: pushReady ? VAPID.publicKey : '',
+      enabled: !!pushReady,
+      missing,
+      subjectOk: /^mailto:/i.test(VAPID.subject),
+    });
   }
 
   if (req.method === 'POST' && pathname === '/api/push/subscribe') {
