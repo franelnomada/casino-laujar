@@ -141,15 +141,17 @@ Los sonidos tampoco suenan con el móvil en **pantalla bloqueada**. Para eso est
 - Funciona en Chrome y Firefox siempre, y en **Safari desde iOS 16.4** (añadiendo la app a la pantalla de inicio).
 - Botón **🔔 / 🔕** para activarlo o quitarlo.
 
-### Cómo activarlo en el servidor (una sola vez)
+### Cómo activarlo en el servidor
 
-Genera las claves VAPID:
+**No hay que hacer nada.** Los avisos push se activan solos: si el servidor no encuentra claves VAPID configuradas, genera un par propio y lo guarda junto a las suscripciones, así que funciona desde el primer despliegue.
+
+Si prefieres fijar tú las claves (recomendado en cuanto puedas), genera un par:
 
 ```bash
 npx web-push generate-vapid-keys
 ```
 
-Y añade en Render (**Environment**) las tres variables:
+y añádelo en Render (**Environment**) o en un **Environment Group** enlazado al servicio:
 
 | Variable | Valor |
 |---|---|
@@ -157,17 +159,17 @@ Y añade en Render (**Environment**) las tres variables:
 | `VAPID_PRIVATE_KEY` | la clave privada (**no se sube al repo**) |
 | `VAPID_SUBJECT` | `mailto:tu@correo.com` |
 
-> **El grupo no basta:** las variables tienen que estar en el **Environment del propio servicio** (`casino-laujar` → Environment → *Environment Groups* → `VAPID`). Si están en un grupo que no está enlazado al servicio, no llegan al proceso.
+Las variables del panel **tienen prioridad** sobre las automáticas, así que ponerlas es siempre opcional y no rompe nada. Ojo: si las defines en un grupo que **no** enlazas al servicio, no llegan al proceso y el servidor sigue con las suyas (por eso puede parecer que no funcionan).
 
-Sin estas variables todo lo demás sigue funcionando: simplemente no se envían avisos. Las suscripciones se guardan en `casino-laujar-push.json` (o en `DATA_DIR` si lo prefieres).
-
-Para comprobar si están bien puestas:
+Comprobación:
 
 ```bash
 curl https://casino-laujar.onrender.com/api/push/key
 ```
 
-Con la configuración correcta responde `"enabled": true` y `"missing": []`. Si no, el campo `diagnostics` dice qué variable falla y por qué (no definida, con comillas, longitud incorrecta…) y `hint` indica dónde tocarla. En los **logs** del servicio aparece al arrancar `✅ Avisos push activos` o `⚠️ Avisos push desactivados` con el detalle.
+Responde `"enabled": true`. El campo `origin` dice de dónde salen las claves: `entorno`, `guardado` o `generadas`. En los **logs** del servicio aparece al arrancar `✅ Avisos push activos (claves VAPID …)`.
+
+**Sobre el almacenamiento:** las claves generadas y las suscripciones viven en el mismo fichero (`casino-laujar-push.json`, o en `DATA_DIR` si lo configuras). En Render con disco efímero, un reinicio borra ese fichero, así que **las claves se regeneran y las suscripciones se pierden**: quien tuviese la app abierta tendrá que pulsar 🔔 otra vez. Si te importa que sobrevivan, monta un disco persistente y apunta `DATA_DIR` a él.
 
 El servidor limpia las claves al arrancar, así que un valor pegado con comillas, espacios o saltos de línea (`"BNxx…"`, `VAPID_PUBLIC_KEY=BNxx…`) también funciona.
 

@@ -9,6 +9,8 @@
 //  silencio. Genera un par con:  npx web-push generate-vapid-keys
 // ============================================================
 'use strict';
+const fs = require('fs');
+const webpush = require('web-push');
 
 // Longitudes de una clave VAPID P-256 en base64url: 65 bytes la
 // pública (punto sin comprimir, prefijo 0x04) y 32 la privada.
@@ -113,4 +115,48 @@ function fromEnv(env) {
   };
 }
 
-module.exports = { clean, inspect, isUncompressedPoint, fromEnv, PUBLIC_BYTES, PRIVATE_BYTES };
+// Devuelve un par listo para web-push. Las variables de entorno tienen
+// prioridad; si no hay un par válido ahí, se busca uno guardado en el
+// fichero de datos y, si tampoco hay, se genera uno nuevo.
+//
+// Se guardan junto a las suscripciones a propósito: si el disco sobrevive,
+// sobreviven las dos cosas, así que el navegador que se suscribió con la
+// clave pública sigue reconociendo al servidor. Si el disco se pierde (es
+// lo normal en un hosting efímero), se pierden también las suscripciones,
+// de modo que regenerar la clave no rompe a nadie.
+function ensure(env, store, ops) {
+  const source = env || process.env || {};
+  const fromEnvironment = fromEnv(source);
+  if (fromEnvironment.enabled) {
+    return { ...fromEnvironment, origin: 'entorno' };
+  }
+
+  const io = ops || {
+    read: () => JSON.parse(fs.readFileSync(store, 'utf8')),
+    write: data => fs.writeFileSync(store, JSON.stringify(data)),
+  };
+
+  // Segundo intento: un par guardado en el fichero de suscripciones.
+  let data = null;
+  try { data = io.read() || {}; } catch (e) { data = {}; }
+  const saved = fromEnv({
+    VAPID_PUBLIC_KEY: data.vapidPublicKey,
+    VAPID_PRIVATE_KEY: data.vapidPrivateKey,
+    VAPID_SUBJECT: source.VAPID_SUBJECT,
+  });
+  if (saved.enabled) return { ...saved, origin: 'guardado' };
+
+  // Último recurso: generar el par ahora y anotarlo para el próximo arranque.
+  const generated = webpush.generateVAPIDKeys();
+  try {
+    io.write({ ...data, vapidPublicKey: generated.publicKey, vapidPrivateKey: generated.privateKey });
+  } catch (e) { /* sin disco: el push funciona, pero habrá que re-suscribir */ }
+  const fresh = fromEnv({
+    VAPID_PUBLIC_KEY: generated.publicKey,
+    VAPID_PRIVATE_KEY: generated.privateKey,
+    VAPID_SUBJECT: source.VAPID_SUBJECT,
+  });
+  return { ...fresh, origin: 'generadas' };
+}
+
+module.exports = { clean, inspect, isUncompressedPoint, fromEnv, ensure, PUBLIC_BYTES, PRIVATE_BYTES };

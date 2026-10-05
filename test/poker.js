@@ -60,15 +60,18 @@ async function pushCircuit() {
 const base = 'http://127.0.0.1:' + server.address().port;
   const keyRes = await (await fetch(base + '/api/push/key')).json();
   assert.equal(typeof keyRes.publicKey === 'string', true, 'El servidor expone la clave VAPID');
-  // Sin claves de entorno el endpoint explica cuáles faltan, y con detalle
-  // suficiente para arreglarlo en el panel de Render sin adivinar.
-  assert.deepEqual(keyRes.missing, ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'],
-    'Dice exactamente qué variables faltan');
-  assert.ok(keyRes.hint.length > 10, 'Incluye una pista de cómo configurarlo');
-  assert.ok(keyRes.diagnostics.VAPID_PUBLIC_KEY.reason.includes('definida'),
-    'Detalla el motivo de cada variable ausente');
-  assert.ok(!JSON.stringify(keyRes.diagnostics).includes(process.env.VAPID_PRIVATE_KEY || '\u0000'),
-    'El diagnóstico no filtra la clave privada');
+  // Sin configurar nada a mano, el servidor genera su propio par VAPID y lo
+  // publica: los avisos no dependen de que nadie toque el panel de despliegue.
+  assert.equal(keyRes.enabled, true, 'Los avisos se activan sin configurar variables a mano');
+  assert.equal(keyRes.publicKey.length, 87, 'Se publica una clave pública P-256 de 87 caracteres');
+  assert.ok(['entorno', 'guardado', 'generadas'].includes(keyRes.origin), 'Indica de dónde salen las claves');
+  assert.deepEqual(keyRes.missing, [], 'Con un par válido no falta ninguna variable');
+  // El detalle de cada variable solo se da cuando algo falla, para no publicar
+  // longitudes en un endpoint abierto.
+  assert.ok(!keyRes.diagnostics || !keyRes.diagnostics.VAPID_PUBLIC_KEY.reason,
+    'Sin claves rotas no se publica el detalle de diagnóstico');
+  assert.ok(!JSON.stringify(keyRes).includes(process.env.VAPID_PRIVATE_KEY || '\u0000'),
+    'El endpoint no filtra la clave privada');
   const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/push-de-prueba', keys: { p256dh: 'k', auth: 'a' } };
   const subOk = await (await fetch(base + '/api/push/subscribe', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

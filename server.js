@@ -53,7 +53,10 @@ const PUSH_PATH = process.env.PUSH_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-push.json');
 // Las claves se limpian y validan al arrancar: pegarlas en el panel de
 // Render con comillas o espacios hacía que push fallara sin explicar por qué.
-const VAPID = require('./js/vapid.js').fromEnv(process.env);
+// Si el entorno no trae un par válido, se usa el guardado en el fichero de
+// suscripciones o se genera uno, de modo que los avisos funcionan sin tener
+// que configurar nada a mano en el panel de despliegue.
+const VAPID = require('./js/vapid.js').ensure(process.env, PUSH_PATH);
 
 class PushStore {
   constructor(file) {
@@ -76,7 +79,13 @@ class PushStore {
     for (const [endpoint, row] of this.subs) subs[endpoint] = row;
     try {
       await fs.promises.mkdir(path.dirname(this.file), { recursive: true });
-      await fs.promises.writeFile(this.file, JSON.stringify({ subs }));
+      // Las claves VAPID viven en este mismo fichero: se conservan al
+      // guardar, o los avisos dejarían de funcionar al reiniciar.
+      await fs.promises.writeFile(this.file, JSON.stringify({
+        subs,
+        vapidPublicKey: VAPID.publicKey,
+        vapidPrivateKey: VAPID.privateKey,
+      }));
     } catch (e) { /* sin persistencia: los avisos siguen funcionando en memoria */ }
   }
 
@@ -133,10 +142,16 @@ class PushStore {
   }
 }
 
+const VAPID_ORIGIN = {
+  entorno: 'del panel de despliegue',
+  guardado: 'guardadas en el servidor',
+  generadas: 'generadas al arrancar',
+};
+
 function setupPush() {
   if (VAPID.publicKey && VAPID.privateKey) {
     webpush.setVapidDetails(VAPID.subject, VAPID.publicKey, VAPID.privateKey);
-    console.log('✅ Avisos push activos (claves VAPID válidas)');
+    console.log('✅ Avisos push activos (claves VAPID ' + (VAPID_ORIGIN[VAPID.origin] || VAPID.origin) + ')');
     return true;
   }
   // En producción esto es el sitio donde se ve si las variables llegaron.
@@ -597,9 +612,11 @@ async function handleApi(req, res, pathname, query) {
       enabled: !!pushReady,
       missing: VAPID.missing,
       subjectOk: VAPID.subjectOk,
-      // Detalle por variable (longitudes y motivo, nunca el valor) para
-      // poder corregir la configuración sin adivinar.
-      diagnostics: VAPID.diagnostics,
+      // De dónde salen las claves: entorno, guardadas o generadas al vuelo.
+      origin: VAPID.origin,
+      // El detalle por variable solo se publica cuando algo falla: si no,
+      // un endpoint abierto regalaría la longitud de las claves.
+      diagnostics: pushReady ? null : VAPID.diagnostics,
       hint: pushReady ? '' :
         'Añade VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY al Environment del servicio en Render (o enlaza el grupo VAPID) y reinicia.',
     });
