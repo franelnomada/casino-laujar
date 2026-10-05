@@ -12,3 +12,5 @@ test/_shotlog.txt
 test/_trace.txt
 test/_ctx.txt
 casino-laujar-push.json
+test/_*.log
+test/_*.err
