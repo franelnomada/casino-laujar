@@ -51,11 +51,9 @@ const webpush = require('web-push');
 
 const PUSH_PATH = process.env.PUSH_FILE ||
   path.join(process.env.DATA_DIR || os.tmpdir(), 'casino-laujar-push.json');
-const VAPID = {
-  publicKey: process.env.VAPID_PUBLIC_KEY || '',
-  privateKey: process.env.VAPID_PRIVATE_KEY || '',
-  subject: process.env.VAPID_SUBJECT || 'mailto:admin@casino-laujar.onrender.com',
-};
+// Las claves se limpian y validan al arrancar: pegarlas en el panel de
+// Render con comillas o espacios hacía que push fallara sin explicar por qué.
+const VAPID = require('./js/vapid.js').fromEnv(process.env);
 
 class PushStore {
   constructor(file) {
@@ -138,8 +136,12 @@ class PushStore {
 function setupPush() {
   if (VAPID.publicKey && VAPID.privateKey) {
     webpush.setVapidDetails(VAPID.subject, VAPID.publicKey, VAPID.privateKey);
+    console.log('✅ Avisos push activos (claves VAPID válidas)');
     return true;
   }
+  // En producción esto es el sitio donde se ve si las variables llegaron.
+  console.warn('⚠️  Avisos push desactivados. Detalle:',
+    JSON.stringify(VAPID.diagnostics));
   return false;
 }
   // USERS_FILE (o DATA_DIR) permite mover el fichero de cuentas fuera del temporal.
@@ -590,14 +592,16 @@ async function handleApi(req, res, pathname, query) {
   if (req.method === 'GET' && pathname === '/api/push/key') {
     await pushStore.ready;
     // Se dice exactamente qué falta: así no hay que adivinar por qué no van.
-    const missing = [];
-    if (!VAPID.publicKey) missing.push('VAPID_PUBLIC_KEY');
-    if (!VAPID.privateKey) missing.push('VAPID_PRIVATE_KEY');
     return json(res, 200, {
       publicKey: pushReady ? VAPID.publicKey : '',
       enabled: !!pushReady,
-      missing,
-      subjectOk: /^mailto:/i.test(VAPID.subject),
+      missing: VAPID.missing,
+      subjectOk: VAPID.subjectOk,
+      // Detalle por variable (longitudes y motivo, nunca el valor) para
+      // poder corregir la configuración sin adivinar.
+      diagnostics: VAPID.diagnostics,
+      hint: pushReady ? '' :
+        'Añade VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY al Environment del servicio en Render (o enlaza el grupo VAPID) y reinicia.',
     });
   }
 

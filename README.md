@@ -157,7 +157,19 @@ Y añade en Render (**Environment**) las tres variables:
 | `VAPID_PRIVATE_KEY` | la clave privada (**no se sube al repo**) |
 | `VAPID_SUBJECT` | `mailto:tu@correo.com` |
 
+> **El grupo no basta:** las variables tienen que estar en el **Environment del propio servicio** (`casino-laujar` → Environment → *Environment Groups* → `VAPID`). Si están en un grupo que no está enlazado al servicio, no llegan al proceso.
+
 Sin estas variables todo lo demás sigue funcionando: simplemente no se envían avisos. Las suscripciones se guardan en `casino-laujar-push.json` (o en `DATA_DIR` si lo prefieres).
+
+Para comprobar si están bien puestas:
+
+```bash
+curl https://casino-laujar.onrender.com/api/push/key
+```
+
+Con la configuración correcta responde `"enabled": true` y `"missing": []`. Si no, el campo `diagnostics` dice qué variable falla y por qué (no definida, con comillas, longitud incorrecta…) y `hint` indica dónde tocarla. En los **logs** del servicio aparece al arrancar `✅ Avisos push activos` o `⚠️ Avisos push desactivados` con el detalle.
+
+El servidor limpia las claves al arrancar, así que un valor pegado con comillas, espacios o saltos de línea (`"BNxx…"`, `VAPID_PUBLIC_KEY=BNxx…`) también funciona.
 
 > Las claves que generé para probar son de ejemplo y **no sirven en producción**: genera las tuyas.
 

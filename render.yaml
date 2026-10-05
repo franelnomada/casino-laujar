@@ -9,6 +9,17 @@ services:
         value: production
       - key: PORT
         value: 8080
+      # Claves VAPID para los avisos push. NO tienen valor aquí a propósito:
+      # la privada nunca se sube al repo. Se configuran en el panel
+      # (Environment → grupo VAPID) y `sync: false` evita que un deploy del
+      # Blueprint las sobrescriba o las borre. Se generan con:
+      #   npx web-push generate-vapid-keys
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
     # Variables opcionales (añadir en el dashboard de Render):
     #   FIREBASE_DB_URL     → URL de Firebase Realtime Database
     #   FIREBASE_DB_SECRET  → Database secret (o FIREBASE_SERVICE_ACCOUNT con el JSON)
